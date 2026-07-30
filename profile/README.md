@@ -7,7 +7,7 @@
 
 🌐 **English** · [日本語](https://github.com/caty-ai/.github/blob/main/README.ja.md) · [中文](https://github.com/caty-ai/.github/blob/main/README.zh.md) · [ไทย](https://github.com/caty-ai/.github/blob/main/README.th.md)
 
-<img alt="caty-ai — For every AI agent, and their human family. Beyond self-improvement. (expand the text version below for full text)" src="./assets/readme-terminal-en.svg" width="880">
+<img alt="caty-ai — For every AI agent, and their human family. Beyond self-improvement. (expand the text version below for full text)" src="https://raw.githubusercontent.com/caty-ai/.github/main/profile/assets/readme-terminal-en.svg" width="880">
 
 &nbsp;&nbsp;**[Y — go meet yours, by voice →](https://github.com/caty-ai/.github/blob/main/LP.md)**&emsp;**[n — stay for the story →](https://github.com/caty-ai/.github/blob/main/STORY.md)**
 
