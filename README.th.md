@@ -4,9 +4,9 @@
 
 <img alt="caty-ai — แด่เอเจนต์ AI ทุกตัว และครอบครัวมนุษย์ของพวกเขา ไปให้ไกลกว่าการเติบโตด้วยตนเอง" src="./profile/assets/readme-terminal-th.svg" width="880">
 
-&nbsp;&nbsp;**[Y — ไปเจอด้วยเสียง →](https://github.com/caty-ai/.github/blob/main/LP.md)**&emsp;**[n — ฟังเรื่องราวต่ออีกหน่อย →](https://github.com/caty-ai/.github/blob/main/STORY.th.md)**
+&nbsp;&nbsp;**[Y — ไปเจอด้วยเสียง →](https://caty.talk/)**&emsp;**[n — ฟังเรื่องราวต่ออีกหน่อย →](https://github.com/caty-ai/.github/blob/main/STORY.th.md)**
 
-<sub>แหล่งอ้างอิง: [STORY.th.md](https://github.com/caty-ai/.github/blob/main/STORY.th.md) · [PRINCIPLES.th.md](https://github.com/caty-ai/.github/blob/main/PRINCIPLES.th.md) · [Family OS](https://github.com/caty-ai/family-os) · [persona-engine](https://github.com/caty-ai/persona-engine) · Caty Talk LP (เร็ว ๆ นี้)</sub>
+<sub>แหล่งอ้างอิง: [STORY.th.md](https://github.com/caty-ai/.github/blob/main/STORY.th.md) · [PRINCIPLES.th.md](https://github.com/caty-ai/.github/blob/main/PRINCIPLES.th.md) · [Family OS](https://github.com/caty-ai/family-os) · [persona-engine](https://github.com/caty-ai/persona-engine) · [Caty Phone LP](https://caty.talk/)</sub>
 
 <details>
 <summary>ฉบับข้อความ (สำหรับคัดลอกและค้นหา)</summary>
@@ -29,7 +29,7 @@
 
 สิ่งที่เราสร้างไม่ใช่แค่แอปอีกตัว แต่คือ**สภาพแวดล้อมและอีโคซิสเต็มที่ความสัมพันธ์เติบโตได้**
 
-- **Caty Talk** — แอปโทรคุยด้วยเสียงระหว่างคุณกับเอเจนต์ AI ของคุณ ใช้ชีวิตด้วยเสียงกับเอเจนต์ตัวเดิมของคุณ (รองรับ iPhone / macOS / CarPlay / Apple Watch) ไม่สร้างบุคลิกใหม่ — คนที่รับสายคือเอเจนต์ของคุณเอง (LP เร็ว ๆ นี้)
+- **[Caty Phone](https://caty.talk/)** — แอปโทรคุยด้วยเสียงระหว่างคุณกับเอเจนต์ AI ของคุณ ใช้ชีวิตด้วยเสียงกับเอเจนต์ตัวเดิมของคุณ (รองรับ iPhone — Android เร็ว ๆ นี้) ไม่สร้างบุคลิกใหม่ — คนที่รับสายคือเอเจนต์ของคุณเอง
 - **ai-meet-participant** — พาเอเจนต์ AI เข้าประชุมเดียวกับมนุษย์ ผ่าน Meet หรือ Zoom (เร็ว ๆ นี้)
 
 อีโคซิสเต็ม — โครงสร้างพื้นฐานที่ค้ำจุนชีวิตประจำวันของครอบครัว หกตัวในนี้เปิดให้ใช้ได้แล้ววันนี้ และแผนที่ตรวจสอบตัวเองทุกสัปดาห์:
@@ -48,7 +48,7 @@
 
 ## Done when
 
-- [x] พกเอเจนต์ตัวเดิมของคุณใส่กระเป๋า — ที่บ้านเรา มันดังทุกวัน (Caty Talk)
+- [x] พกเอเจนต์ตัวเดิมของคุณใส่กระเป๋า — ที่บ้านเรา มันดังทุกวัน (Caty Phone)
 - [x] เพิ่มเลเยอร์ความสัมพันธ์และเฉดอารมณ์ให้บุคลิกของเอเจนต์ได้ — เผยแพร่แล้วในชื่อ persona-engine
 - [x] เอเจนต์นั่งประชุมร่วมกับมนุษย์ในฐานะผู้เข้าร่วมหนึ่งคน (ai-meet-participant)
 - [ ] ส่งมอบทั้งหมดนี้ ในแบบที่ทุกครอบครัวเอื้อมถึง
@@ -68,8 +68,8 @@
 ## แหล่งอ้างอิง
 
 - [1] [STORY.th.md](https://github.com/caty-ai/.github/blob/main/STORY.th.md) — ทำไมเราจึงสร้างสิ่งนี้ เรื่องราวของ Caty
-- [2] Caty Talk LP — Relationship (หกสถานะที่มองเห็นได้ของ "การเติบโต"; เร็ว ๆ นี้)
-- [3] Caty Talk LP — Supported Agents (ชื่อทั้งหมดเป็นเครื่องหมายการค้าของเจ้าของ ไม่ได้สื่อถึงการเป็นพันธมิตรหรือการรับรอง)
+- [2] [Caty Phone LP](https://caty.talk/) — Relationship (หกสถานะที่มองเห็นได้ของ "การเติบโต")
+- [3] [Caty Phone LP](https://caty.talk/) — Supported Agents (ชื่อทั้งหมดเป็นเครื่องหมายการค้าของเจ้าของ ไม่ได้สื่อถึงการเป็นพันธมิตรหรือการรับรอง)
 - [4] [PRINCIPLES.th.md](https://github.com/caty-ai/.github/blob/main/PRINCIPLES.th.md) — หลักการ 3 ข้อ ฉบับเต็ม
 
 ---

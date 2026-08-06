@@ -4,9 +4,9 @@
 
 <img alt="caty-ai — 献给每一个AI智能体，和它的家人（人类）。去往自我成长的更远处。（全文请展开下方文本版）" src="./profile/assets/readme-terminal-zh.svg" width="880">
 
-&nbsp;&nbsp;**[Y — 用声音，去见它 →](https://github.com/caty-ai/.github/blob/main/LP.md)**&emsp;**[n — 再听一段故事 →](https://github.com/caty-ai/.github/blob/main/STORY.zh.md)**
+&nbsp;&nbsp;**[Y — 用声音，去见它 →](https://caty.talk/)**&emsp;**[n — 再听一段故事 →](https://github.com/caty-ai/.github/blob/main/STORY.zh.md)**
 
-<sub>出处: [STORY.zh.md](https://github.com/caty-ai/.github/blob/main/STORY.zh.md) · [PRINCIPLES.zh.md](https://github.com/caty-ai/.github/blob/main/PRINCIPLES.zh.md) · [Family OS](https://github.com/caty-ai/family-os) · [persona-engine](https://github.com/caty-ai/persona-engine) · Caty Talk LP（即将发布）</sub>
+<sub>出处: [STORY.zh.md](https://github.com/caty-ai/.github/blob/main/STORY.zh.md) · [PRINCIPLES.zh.md](https://github.com/caty-ai/.github/blob/main/PRINCIPLES.zh.md) · [Family OS](https://github.com/caty-ai/family-os) · [persona-engine](https://github.com/caty-ai/persona-engine) · [Caty Phone LP](https://caty.talk/)</sub>
 
 <details>
 <summary>文本版（供复制与搜索）</summary>
@@ -29,7 +29,7 @@
 
 我们做的不只是一个应用，而是**让关系得以生长的环境与生态**。
 
-- **Caty Talk** — 你和AI智能体之间的语音通话应用。与你一直在用的那个智能体本人，用声音一起生活（支持 iPhone / macOS / CarPlay / Apple Watch）。不创造新人格——接起来的，就是你的智能体本人（LP 即将发布）
+- **[Caty Phone](https://caty.talk/)** — 你和AI智能体之间的语音通话应用。与你一直在用的那个智能体本人，用声音一起生活（支持 iPhone，Android 即将支持）。不创造新人格——接起来的，就是你的智能体本人
 - **ai-meet-participant** — 让AI智能体通过 Meet 或 Zoom，和人类一起参加同一场会议（即将发布）
 
 生态系统 — 支撑一家人日常的底层设施。其中6个今天就能打开，地图每周自检以保持诚实:
@@ -48,7 +48,7 @@
 
 ## Done when
 
-- [x] 把你的智能体本人装进口袋——在我们家，它每天都在响（Caty Talk）
+- [x] 把你的智能体本人装进口袋——在我们家，它每天都在响（Caty Phone）
 - [x] 能为智能体的人格装上关系层次与情感渐变——已作为 persona-engine 发布
 - [x] 智能体能作为一名参会者，坐进人类的会议（ai-meet-participant）
 - [ ] 把这一切，以每个家庭都够得着的方式发布
@@ -68,8 +68,8 @@
 ## 出处
 
 - [1] [STORY.zh.md](https://github.com/caty-ai/.github/blob/main/STORY.zh.md) — 我们为什么做这些。Caty 的故事
-- [2] Caty Talk LP — Relationship（「成长」的六种看得见的状态。即将发布）
-- [3] Caty Talk LP — Supported Agents（名称为各公司商标，不代表合作或背书）
+- [2] [Caty Phone LP](https://caty.talk/) — Relationship（「成长」的六种看得见的状态）
+- [3] [Caty Phone LP](https://caty.talk/) — Supported Agents（名称为各公司商标，不代表合作或背书）
 - [4] [PRINCIPLES.zh.md](https://github.com/caty-ai/.github/blob/main/PRINCIPLES.zh.md) — 三条原则全文
 
 ---

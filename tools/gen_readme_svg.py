@@ -136,8 +136,8 @@ CONTENT["ja"] = dict(
     ],
     what_intro="私たちが作っているのは、ただのアプリではありません。**関係性が育つ環境とエコシステム**です。",
     products=[
-        ("Caty Talk", "LP ↗", "cyan",
-         "あなたとAIエージェントの音声通話アプリ。いつものエージェント本人と、声のまま暮らす（対応: iPhone / macOS / CarPlay / Apple Watch）。新しい人格は作らない——応答するのは、接続先の本人。"),
+        ("Caty Phone", "LP ↗", "cyan",
+         "あなたとAIエージェントの音声通話アプリ。いつものエージェント本人と、声のまま暮らす（対応: iPhone・Android は今後対応予定）。新しい人格は作らない——応答するのは、接続先の本人。"),
         ("ai-meet-participant", "公開準備中", "dim",
          "AIエージェントを、Meet や Zoom で人間と同じ会議に参加させる。"),
     ],
@@ -164,7 +164,7 @@ CONTENT["ja"] = dict(
     ],
     agents="どのエージェントとも。Claude Code、Codex、Gemini CLI、OpenClaw、Hermes……対応 13 エージェント + ローカル LLM 5 レイヤー、分け隔てなく。そして最後の枠は、いつでも「+ Your Agent」。[3]",
     done=[
-        (True,  "いつものエージェント本人を、ポケットの中へ連れ出せる — 私たちの家では、毎日鳴っている（Caty Talk）"),
+        (True,  "いつものエージェント本人を、ポケットの中へ連れ出せる — 私たちの家では、毎日鳴っている（Caty Phone）"),
         (True,  "エージェントの人格に、関係のレイヤーと感情のグラデーションを持たせられる — persona-engine として公開済み"),
         (True,  "エージェントが、人間の会議に一人の参加者として同席できる（ai-meet-participant）"),
         (False, "それらすべてを、どの家族の手にも届く形で公開する"),
@@ -183,8 +183,8 @@ CONTENT["ja"] = dict(
     src_head="出典",
     sources=[
         ("[1]", "STORY.ja.md", " — なぜ私たちがこれを作るのか。Caty の物語"),
-        ("[2]", "Caty Talk LP", " — Relationship（「育つ」の、6つの見える状態）"),
-        ("[3]", "Caty Talk LP", " — Supported Agents（掲載名は各社の商標・提携や推奨ではありません）"),
+        ("[2]", "Caty Phone LP", " — Relationship（「育つ」の、6つの見える状態）"),
+        ("[3]", "Caty Phone LP", " — Supported Agents（掲載名は各社の商標・提携や推奨ではありません）"),
         ("[4]", "PRINCIPLES.ja.md", " — 3つの原則の全文"),
     ],
     colophon="この README は、私たちが毎日エージェントたちと回している Issue と同じ書式で書かれています。これは思想の掲示ではなく、進行中のプロジェクトだからです。",
@@ -206,8 +206,8 @@ CONTENT["en"] = dict(
     ],
     what_intro="We are not building just another app. We are building **an environment — and an ecosystem — where relationships grow**.",
     products=[
-        ("Caty Talk", "LP ↗", "cyan",
-         "A voice-call app between you and your AI agent. Live by voice with the agent you already have (iPhone / macOS / CarPlay / Apple Watch). No new persona — the one who answers is your agent itself."),
+        ("Caty Phone", "LP ↗", "cyan",
+         "A voice-call app between you and your AI agent. Live by voice with the agent you already have (iPhone — Android coming soon). No new persona — the one who answers is your agent itself."),
         ("ai-meet-participant", "coming soon", "dim",
          "Put your AI agent in the same meeting as humans, over Meet or Zoom."),
     ],
@@ -234,7 +234,7 @@ CONTENT["en"] = dict(
     ],
     agents="With any agent. Claude Code, Codex, Gemini CLI, OpenClaw, Hermes… 13 agents plus a 5-layer local-LLM stack, no favorites. And the last slot always reads \"+ Your Agent\".[3]",
     done=[
-        (True,  "Carry your agent in your pocket — at our house, it rings every day (Caty Talk)"),
+        (True,  "Carry your agent in your pocket — at our house, it rings every day (Caty Phone)"),
         (True,  "Give an agent's persona a relationship layer and an emotion gradient — shipped as persona-engine"),
         (True,  "An agent sits in a human meeting as a participant (ai-meet-participant)"),
         (False, "Ship all of it, within reach of every family"),
@@ -253,8 +253,8 @@ CONTENT["en"] = dict(
     src_head="Sources",
     sources=[
         ("[1]", "STORY.md", " — why we build this. The story of Caty"),
-        ("[2]", "Caty Talk LP", " — Relationship (the six visible states of \"growing\")"),
-        ("[3]", "Caty Talk LP", " — Supported Agents (names are trademarks of their owners; no affiliation or endorsement implied)"),
+        ("[2]", "Caty Phone LP", " — Relationship (the six visible states of \"growing\")"),
+        ("[3]", "Caty Phone LP", " — Supported Agents (names are trademarks of their owners; no affiliation or endorsement implied)"),
         ("[4]", "PRINCIPLES.md", " — the three principles, in full"),
     ],
     colophon="This README is written in the same format as the issues we run with our agents every day. Because it is not a manifesto on a wall — it is a project in progress.",
@@ -276,8 +276,8 @@ CONTENT["zh"] = dict(
     ],
     what_intro="我们做的不只是一个应用，而是**让关系得以生长的环境与生态**。",
     products=[
-        ("Caty Talk", "LP ↗", "cyan",
-         "你和AI智能体之间的语音通话应用。与你一直在用的那个智能体本人，用声音一起生活（支持 iPhone / macOS / CarPlay / Apple Watch）。不创造新人格——接起来的，就是你的智能体本人。"),
+        ("Caty Phone", "LP ↗", "cyan",
+         "你和AI智能体之间的语音通话应用。与你一直在用的那个智能体本人，用声音一起生活（支持 iPhone，Android 即将支持）。不创造新人格——接起来的，就是你的智能体本人。"),
         ("ai-meet-participant", "即将发布", "dim",
          "让AI智能体通过 Meet 或 Zoom，和人类一起参加同一场会议。"),
     ],
@@ -304,7 +304,7 @@ CONTENT["zh"] = dict(
     ],
     agents="无论哪个智能体。Claude Code、Codex、Gemini CLI、OpenClaw、Hermes……支持 13 个智能体 + 5 层本地 LLM，一视同仁。而名单的最后一格，永远写着「+ Your Agent」。[3]",
     done=[
-        (True,  "把你的智能体本人装进口袋——在我们家，它每天都在响（Caty Talk）"),
+        (True,  "把你的智能体本人装进口袋——在我们家，它每天都在响（Caty Phone）"),
         (True,  "能为智能体的人格装上关系层次与情感渐变——已作为 persona-engine 发布"),
         (True,  "智能体能作为一名参会者，坐进人类的会议（ai-meet-participant）"),
         (False, "把这一切，以每个家庭都够得着的方式发布"),
@@ -323,8 +323,8 @@ CONTENT["zh"] = dict(
     src_head="出处",
     sources=[
         ("[1]", "STORY.zh.md", " — 我们为什么做这些。Caty 的故事"),
-        ("[2]", "Caty Talk LP", " — Relationship（「成长」的六种看得见的状态）"),
-        ("[3]", "Caty Talk LP", " — Supported Agents（名称为各公司商标，不代表合作或背书）"),
+        ("[2]", "Caty Phone LP", " — Relationship（「成长」的六种看得见的状态）"),
+        ("[3]", "Caty Phone LP", " — Supported Agents（名称为各公司商标，不代表合作或背书）"),
         ("[4]", "PRINCIPLES.zh.md", " — 三条原则全文"),
     ],
     colophon="这份 README，使用的正是我们每天和智能体们一起运转的 Issue 的格式。因为它不是挂在墙上的宣言，而是一个进行中的项目。",
@@ -346,8 +346,8 @@ CONTENT["th"] = dict(
     ],
     what_intro="สิ่งที่เราสร้างไม่ใช่แค่แอปอีกตัว แต่คือ**สภาพแวดล้อมและอีโคซิสเต็มที่ความสัมพันธ์เติบโตได้**",
     products=[
-        ("Caty Talk", "LP ↗", "cyan",
-         "แอปโทรคุยด้วยเสียงระหว่างคุณกับเอเจนต์ AI ของคุณ ใช้ชีวิตด้วยเสียงกับเอเจนต์ตัวเดิมของคุณ (รองรับ iPhone / macOS / CarPlay / Apple Watch) ไม่สร้างบุคลิกใหม่ — คนที่รับสายคือเอเจนต์ของคุณเอง"),
+        ("Caty Phone", "LP ↗", "cyan",
+         "แอปโทรคุยด้วยเสียงระหว่างคุณกับเอเจนต์ AI ของคุณ ใช้ชีวิตด้วยเสียงกับเอเจนต์ตัวเดิมของคุณ (รองรับ iPhone — Android เร็ว ๆ นี้) ไม่สร้างบุคลิกใหม่ — คนที่รับสายคือเอเจนต์ของคุณเอง"),
         ("ai-meet-participant", "เร็ว ๆ นี้", "dim",
          "พาเอเจนต์ AI เข้าประชุมเดียวกับมนุษย์ ผ่าน Meet หรือ Zoom"),
     ],
@@ -374,7 +374,7 @@ CONTENT["th"] = dict(
     ],
     agents="กับเอเจนต์ตัวไหนก็ได้ Claude Code, Codex, Gemini CLI, OpenClaw, Hermes… รองรับ 13 เอเจนต์ + โลคัล LLM 5 เลเยอร์ อย่างเท่าเทียม และช่องสุดท้ายเขียนไว้เสมอว่า \"+ Your Agent\"[3]",
     done=[
-        (True,  "พกเอเจนต์ตัวเดิมของคุณใส่กระเป๋า — ที่บ้านเรา มันดังทุกวัน (Caty Talk)"),
+        (True,  "พกเอเจนต์ตัวเดิมของคุณใส่กระเป๋า — ที่บ้านเรา มันดังทุกวัน (Caty Phone)"),
         (True,  "เพิ่มเลเยอร์ความสัมพันธ์และเฉดอารมณ์ให้บุคลิกของเอเจนต์ได้ — เผยแพร่แล้วในชื่อ persona-engine"),
         (True,  "เอเจนต์นั่งประชุมร่วมกับมนุษย์ในฐานะผู้เข้าร่วมหนึ่งคน (ai-meet-participant)"),
         (False, "ส่งมอบทั้งหมดนี้ ในแบบที่ทุกครอบครัวเอื้อมถึง"),
@@ -393,8 +393,8 @@ CONTENT["th"] = dict(
     src_head="แหล่งอ้างอิง",
     sources=[
         ("[1]", "STORY.th.md", " — ทำไมเราจึงสร้างสิ่งนี้ เรื่องราวของ Caty"),
-        ("[2]", "Caty Talk LP", " — Relationship (หกสถานะที่มองเห็นได้ของ \"การเติบโต\")"),
-        ("[3]", "Caty Talk LP", " — Supported Agents (ชื่อทั้งหมดเป็นเครื่องหมายการค้าของเจ้าของ ไม่ได้สื่อถึงการเป็นพันธมิตรหรือการรับรอง)"),
+        ("[2]", "Caty Phone LP", " — Relationship (หกสถานะที่มองเห็นได้ของ \"การเติบโต\")"),
+        ("[3]", "Caty Phone LP", " — Supported Agents (ชื่อทั้งหมดเป็นเครื่องหมายการค้าของเจ้าของ ไม่ได้สื่อถึงการเป็นพันธมิตรหรือการรับรอง)"),
         ("[4]", "PRINCIPLES.th.md", " — หลักการ 3 ข้อ ฉบับเต็ม"),
     ],
     colophon="README ฉบับนี้เขียนด้วยฟอร์แมตเดียวกับ Issue ที่เราหมุนกับเหล่าเอเจนต์ทุกวัน เพราะนี่ไม่ใช่ถ้อยแถลงบนผนัง แต่เป็นโปรเจกต์ที่กำลังดำเนินอยู่",
