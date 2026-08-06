@@ -82,8 +82,26 @@ def load_cache(path: Path) -> dict:
     return {}
 
 
+def fence_bodies(text: str) -> str:
+    """The concatenated contents of all fenced blocks, for byte-exact comparison.
+
+    Fenced content is contractually left untranslated (the summary block is a
+    distribution artifact; diagrams and templates stay canonical), so the
+    translation must carry every fence body through unchanged.
+    """
+    bodies = []
+    in_fence = False
+    for line in text.splitlines():
+        if line.startswith("```"):
+            in_fence = not in_fence
+            continue
+        if in_fence:
+            bodies.append(line)
+    return "\n".join(bodies)
+
+
 def structural_signature(text: str) -> dict:
-    """Count headings, code fences, and relative links — translation must keep all three."""
+    """Counts plus fence-content hash — translation must preserve them all."""
     in_fence = False
     headings = 0
     fences = 0
@@ -99,7 +117,8 @@ def structural_signature(text: str) -> dict:
     m = re.match(r"^(#{1,6} |> |[-*] |\||```|<)", first)
     first_shape = m.group(1).strip() if m else "text"
     return {"headings": headings, "fences": fences, "rel_links": rel_links,
-            "first_shape": first_shape}
+            "first_shape": first_shape,
+            "fence_bodies": sha16(fence_bodies(text))}
 
 
 def rewrite_readme_links(text: str, lang: str, rel: str) -> str:
