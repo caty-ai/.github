@@ -183,6 +183,45 @@ def translate_once(content: str, lang: str, model: str, timeout: int) -> str:
     return out
 
 
+def restore_fences(translated: str, content: str) -> str:
+    """Deterministically put the source's fence bodies back into the translation.
+
+    Models frequently translate fenced content despite instructions. Fenced
+    content is contractually verbatim, so when the fence count matches we
+    replace each translated fence body with the source's, by position. On a
+    count mismatch the text is returned unchanged and the signature gate
+    rejects it instead.
+    """
+    def blocks(text: str) -> list[list[str]]:
+        out, cur, in_fence = [], [], False
+        for line in text.splitlines():
+            if line.startswith("```"):
+                if in_fence:
+                    out.append(cur)
+                    cur = []
+                in_fence = not in_fence
+            elif in_fence:
+                cur.append(line)
+        return out
+
+    src_blocks = blocks(content)
+    if len(src_blocks) != len(blocks(translated)):
+        return translated
+    result, idx, in_fence = [], 0, False
+    for line in translated.splitlines():
+        if line.startswith("```"):
+            if not in_fence:
+                result.append(line)
+                result.extend(src_blocks[idx])
+                idx += 1
+            else:
+                result.append(line)
+            in_fence = not in_fence
+        elif not in_fence:
+            result.append(line)
+    return "\n".join(result)
+
+
 def split_at_heading(content: str) -> tuple[str, str] | None:
     """Split at the h2 heading nearest the middle (outside fences), or None."""
     lines = content.splitlines(keepends=True)
@@ -251,6 +290,7 @@ def process_file(repo: Path, rel: str, lang: str, model: str, cache: dict,
             print(f"  RETRY {rel} [{lang}]: {last_err}", file=sys.stderr)
             time.sleep(5)
             continue
+        translated = restore_fences(translated, content)
         translated = rewrite_readme_links(translated, lang, rel)
         # Gross-truncation guard: the structural counts can survive a badly
         # shortened body, so also require a sane length ratio vs the source.
