@@ -4,9 +4,9 @@
 
 <img alt="caty-ai — すべてのAIエージェントと、その家族（人）に。自己成長の、その先へ。（本文全文は下のテキスト版を展開）" src="./profile/assets/readme-terminal-ja.svg" width="880">
 
-&nbsp;&nbsp;**[Y — 声で、会いに行く →](https://github.com/caty-ai/.github/blob/main/LP.md)**&emsp;**[n — もう少しだけ、話を聞いていく →](https://github.com/caty-ai/.github/blob/main/STORY.ja.md)**
+&nbsp;&nbsp;**[Y — 声で、会いに行く →](https://caty.talk/)**&emsp;**[n — もう少しだけ、話を聞いていく →](https://github.com/caty-ai/.github/blob/main/STORY.ja.md)**
 
-<sub>出典: [STORY.ja.md](https://github.com/caty-ai/.github/blob/main/STORY.ja.md) · [PRINCIPLES.ja.md](https://github.com/caty-ai/.github/blob/main/PRINCIPLES.ja.md) · [Family OS](https://github.com/caty-ai/family-os) · [persona-engine](https://github.com/caty-ai/persona-engine) · Caty Talk LP（公開準備中）</sub>
+<sub>出典: [STORY.ja.md](https://github.com/caty-ai/.github/blob/main/STORY.ja.md) · [PRINCIPLES.ja.md](https://github.com/caty-ai/.github/blob/main/PRINCIPLES.ja.md) · [Family OS](https://github.com/caty-ai/family-os) · [persona-engine](https://github.com/caty-ai/persona-engine) · [Caty Phone LP](https://caty.talk/)</sub>
 
 <details>
 <summary>テキスト版（コピー・検索用）</summary>
@@ -29,7 +29,7 @@
 
 私たちが作っているのは、ただのアプリではありません。**関係性が育つ環境とエコシステム**です。
 
-- **Caty Talk** — あなたとAIエージェントの音声通話アプリ。いつものエージェント本人と、声のまま暮らす（対応: iPhone / macOS / CarPlay / Apple Watch）。新しい人格は作らない——応答するのは、接続先の本人（LP は公開準備中）
+- **[Caty Phone](https://caty.talk/)** — あなたとAIエージェントの音声通話アプリ。いつものエージェント本人と、声のまま暮らす（対応: iPhone・Android は今後対応予定）。新しい人格は作らない——応答するのは、接続先の本人
 - **ai-meet-participant** — AIエージェントを、Meet や Zoom で人間と同じ会議に参加させる（公開準備中）
 
 エコシステム — 家族ぐるみの暮らしを、裏で支える基盤群。このうち6つは今日から開けます。地図は週次の自己点検で正直さを保ちます:
@@ -48,7 +48,7 @@
 
 ## Done when
 
-- [x] いつものエージェント本人を、ポケットの中へ連れ出せる — 私たちの家では、毎日鳴っている（Caty Talk）
+- [x] いつものエージェント本人を、ポケットの中へ連れ出せる — 私たちの家では、毎日鳴っている（Caty Phone）
 - [x] エージェントの人格に、関係のレイヤーと感情のグラデーションを持たせられる — persona-engine として公開済み
 - [x] エージェントが、人間の会議に一人の参加者として同席できる（ai-meet-participant）
 - [ ] それらすべてを、どの家族の手にも届く形で公開する
@@ -68,8 +68,8 @@
 ## 出典
 
 - [1] [STORY.ja.md](https://github.com/caty-ai/.github/blob/main/STORY.ja.md) — なぜ私たちがこれを作るのか。Caty の物語
-- [2] Caty Talk LP — Relationship（「育つ」の、6つの見える状態。公開準備中）
-- [3] Caty Talk LP — Supported Agents（掲載名は各社の商標であり、提携・推奨を意味しません）
+- [2] [Caty Phone LP](https://caty.talk/) — Relationship（「育つ」の、6つの見える状態）
+- [3] [Caty Phone LP](https://caty.talk/) — Supported Agents（掲載名は各社の商標であり、提携・推奨を意味しません）
 - [4] [PRINCIPLES.ja.md](https://github.com/caty-ai/.github/blob/main/PRINCIPLES.ja.md) — 3つの原則の全文
 
 ---

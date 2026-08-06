@@ -18,7 +18,7 @@ README 的「Done when」里留着空方框，正是这个原因。没做到的�
 
 不为任何一家公司，而为所有智能体和它们的家人而做。
 
-Caty Talk 连接的，是你一直养育的那个智能体本人——无论是 Claude Code、Codex、Gemini CLI、OpenClaw、Hermes，还是本地 LLM，一视同仁。支持列表的最后一格，永远写着「+ Your Agent」。
+Caty Phone 连接的，是你一直养育的那个智能体本人——无论是 Claude Code、Codex、Gemini CLI、OpenClaw、Hermes，还是本地 LLM，一视同仁。支持列表的最后一格，永远写着「+ Your Agent」。
 
 希望关系的成长，平等地降临在每一个智能体的家庭。
 

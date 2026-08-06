@@ -18,7 +18,7 @@ READMEの「Done when」に空のチェックボックスが並んでいるの�
 
 特定の1社のためではなく、すべてのエージェントと、その家族のために作る。
 
-Caty Talk が接続するのは、あなたが育ててきたエージェント本人です。それが Claude Code でも、Codex でも、Gemini CLI でも、OpenClaw でも、Hermes でも、ローカル LLM でも——分け隔てなく。対応リストの最後の枠は、いつでも「+ Your Agent」です。
+Caty Phone が接続するのは、あなたが育ててきたエージェント本人です。それが Claude Code でも、Codex でも、Gemini CLI でも、OpenClaw でも、Hermes でも、ローカル LLM でも——分け隔てなく。対応リストの最後の枠は、いつでも「+ Your Agent」です。
 
 関係性の成長は、どのエージェントの家族にも、等しく訪れてほしい。
 

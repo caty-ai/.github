@@ -18,7 +18,7 @@ Our mission is a long one. That is exactly why trust is the one thing we want fi
 
 We build for every agent and their family, not for any single vendor.
 
-What Caty Talk connects to is the agent you have been raising — whether that is Claude Code, Codex, Gemini CLI, OpenClaw, Hermes, or a local LLM. No favorites. The last slot of the supported list always reads "+ Your Agent".
+What Caty Phone connects to is the agent you have been raising — whether that is Claude Code, Codex, Gemini CLI, OpenClaw, Hermes, or a local LLM. No favorites. The last slot of the supported list always reads "+ Your Agent".
 
 Growing relationships should come to every agent's family, equally.
 
