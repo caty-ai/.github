@@ -30,6 +30,7 @@ import json
 import re
 import subprocess
 import sys
+import tempfile
 import time
 from datetime import datetime, timezone
 from pathlib import Path
@@ -117,11 +118,30 @@ def rewrite_readme_links(text: str, lang: str, rel: str) -> str:
     return pattern.sub(sub, text)
 
 
+_NEUTRAL_CWD: Path | None = None
+
+
+def neutral_cwd() -> Path:
+    """A directory outside any project tree, created once per run.
+
+    Running `claude -p` with its cwd inside a workspace can load that
+    project's hooks; a Stop hook that appends its own demands makes the CLI
+    return the hook response instead of the translation (observed in
+    production: every item failed the length gate at ratio <= 0.17). A
+    neutral cwd keeps the CLI free of project configuration.
+    """
+    global _NEUTRAL_CWD
+    if _NEUTRAL_CWD is None:
+        _NEUTRAL_CWD = Path(tempfile.mkdtemp(prefix="translate-docs-"))
+    return _NEUTRAL_CWD
+
+
 def translate_once(content: str, lang: str, model: str, timeout: int) -> str:
     prompt = PROMPT.format(language=LANGUAGE_NAMES[lang], content=content)
     result = subprocess.run(
         ["claude", "--model", model, "-p", prompt],
         capture_output=True, encoding="utf-8", timeout=timeout,
+        cwd=neutral_cwd(),
     )
     if result.returncode != 0:
         raise RuntimeError(f"claude CLI failed ({result.returncode}): {result.stderr[:500]}")
