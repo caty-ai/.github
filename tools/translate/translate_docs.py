@@ -101,12 +101,20 @@ def structural_signature(text: str) -> dict:
             "first_shape": first_shape}
 
 
-def rewrite_readme_links(text: str, lang: str) -> str:
-    """Point README links at the language's README, from i18n/<lang>/<dir>/ depth."""
+def rewrite_readme_links(text: str, lang: str, rel: str) -> str:
+    """Point README.ja.md links at the language's README, wherever the file sits.
+
+    Handles optional leading ../ runs, #anchors, and "title" suffixes. The
+    root prefix is computed from the output file's depth under i18n/<lang>/.
+    """
     readme = README_FOR_LANG[lang]
-    text = text.replace("](../README.ja.md)", f"](../../../{readme})")
-    text = text.replace("](README.ja.md)", f"](../../{readme})")
-    return text
+    root = "../" * (2 + len(Path(rel).parent.parts))
+    pattern = re.compile(r'\]\((?:\.\./)*README\.ja\.md(#[^)\s"]*)?(\s+"[^"]*")?\)')
+
+    def sub(m: re.Match) -> str:
+        return f"]({root}{readme}{m.group(1) or ''}{m.group(2) or ''})"
+
+    return pattern.sub(sub, text)
 
 
 def translate_once(content: str, lang: str, model: str, timeout: int) -> str:
@@ -118,8 +126,11 @@ def translate_once(content: str, lang: str, model: str, timeout: int) -> str:
     if result.returncode != 0:
         raise RuntimeError(f"claude CLI failed ({result.returncode}): {result.stderr[:500]}")
     out = result.stdout.strip()
-    # Strip a whole-document code fence if the model added one despite instructions.
-    if out.startswith("```") and out.endswith("```"):
+    # Strip a whole-document code fence if the model added one despite
+    # instructions — but only when the source itself does not start with a
+    # fence, so fence-first documents are never mangled.
+    if (out.startswith("```") and out.endswith("```")
+            and not content.lstrip().startswith("```")):
         body = out.split("\n", 1)[1] if "\n" in out else ""
         out = body.rsplit("```", 1)[0].strip()
     # Strip any preamble the model added before the document: when the source
@@ -156,8 +167,22 @@ def process_file(repo: Path, rel: str, lang: str, model: str, cache: dict,
     src_sig = structural_signature(content)
     last_err = ""
     for attempt in (1, 2):
-        translated = translate_once(content, lang, model, timeout)
-        translated = rewrite_readme_links(translated, lang)
+        try:
+            translated = translate_once(content, lang, model, timeout)
+        except (RuntimeError, subprocess.TimeoutExpired, OSError) as e:
+            last_err = f"{type(e).__name__}: {str(e)[:300]} (attempt {attempt})"
+            print(f"  RETRY {rel} [{lang}]: {last_err}", file=sys.stderr)
+            time.sleep(5)
+            continue
+        translated = rewrite_readme_links(translated, lang, rel)
+        # Gross-truncation guard: the structural counts can survive a badly
+        # shortened body, so also require a sane length ratio vs the source.
+        ratio = len(translated) / max(1, len(content))
+        if not 0.35 <= ratio <= 4.0:
+            last_err = f"length ratio {ratio:.2f} outside [0.35, 4.0] (attempt {attempt})"
+            print(f"  RETRY {rel} [{lang}]: {last_err}", file=sys.stderr)
+            time.sleep(2)
+            continue
         got_sig = structural_signature(translated)
         if got_sig == src_sig:
             out_path.parent.mkdir(parents=True, exist_ok=True)
