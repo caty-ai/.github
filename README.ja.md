@@ -6,7 +6,7 @@
 
 &nbsp;&nbsp;**[Y — 声で、会いに行く →](https://github.com/caty-ai/.github/blob/main/LP.md)**&emsp;**[n — もう少しだけ、話を聞いていく →](https://github.com/caty-ai/.github/blob/main/STORY.ja.md)**
 
-<sub>出典: [STORY.ja.md](https://github.com/caty-ai/.github/blob/main/STORY.ja.md) · [PRINCIPLES.ja.md](https://github.com/caty-ai/.github/blob/main/PRINCIPLES.ja.md) · [persona-engine](https://github.com/caty-ai/persona-engine) · Caty Talk LP（公開準備中）</sub>
+<sub>出典: [STORY.ja.md](https://github.com/caty-ai/.github/blob/main/STORY.ja.md) · [PRINCIPLES.ja.md](https://github.com/caty-ai/.github/blob/main/PRINCIPLES.ja.md) · [Family OS](https://github.com/caty-ai/family-os) · [persona-engine](https://github.com/caty-ai/persona-engine) · Caty Talk LP（公開準備中）</sub>
 
 <details>
 <summary>テキスト版（コピー・検索用）</summary>
@@ -32,13 +32,17 @@
 - **Caty Talk** — あなたとAIエージェントの音声通話アプリ。いつものエージェント本人と、声のまま暮らす（対応: iPhone / macOS / CarPlay / Apple Watch）。新しい人格は作らない——応答するのは、接続先の本人（LP は公開準備中）
 - **ai-meet-participant** — AIエージェントを、Meet や Zoom で人間と同じ会議に参加させる（公開準備中）
 
-エコシステム — 家族ぐるみの暮らしを、裏で支える基盤群:
+エコシステム — 家族ぐるみの暮らしを、裏で支える基盤群。このうち6つは今日から開けます。地図は週次の自己点検で正直さを保ちます:
 
+- **[Family OS](https://github.com/caty-ai/family-os)** — AI家族の「家」の地図。全モジュールの構成・状態・つながりを1枚で見渡す。「確認できていないのに合格」を許さない週次自己点検つき（OSS）
+- **[family-dev-handbook](https://github.com/caty-ai/family-dev-handbook)** — 人間×AIチームの開発作法集。Issue 起点の開発・並行作業の交通整理・クロスモデルレビューなど、家族で毎日使っている実運用ルールをそのまま公開（OSS）
+- **[caty-agent-harness](https://github.com/caty-ai/caty-agent-harness)** — AIエージェント個人の仕事と成長を支えるタスク基盤（縦軸）。試行・リトライ・チェックポイント・ごまかしのない完了判定。育てた経験はふつうのファイルに残る——環境を乗り換えても、自我ごと安全に持ち運べる（OSS）
 - **[persona-engine](https://github.com/caty-ai/persona-engine)** — あなたのエージェントの人格に、関係のレイヤーと感情のグラデーションを持たせる装置（OSS）
-- **family-OS** — AI家族の「家」の設計図。家族全員の構成・記憶の流れ・運用状態を、1枚の台帳で見渡して管理する（公開準備中）
-- **caty-loop-harness** — AIエージェント個人の学習と成長を促す、自律ループ基盤（縦軸）。大事な文脈を自分で蒸留して常に最新に保ち、教訓を貯めて同じ間違いを繰り返さない。新しいコツと更新は検疫・検証を通してから取り込み、育てた経験はふつうのファイルに残る——環境を乗り換えても、自我ごと安全に持ち運べる（公開準備中）
+- **persona-growth-loop** — 人格そのものを育てる。最小・冪等な提案づくり（公開準備中）
+- **[x-collector](https://github.com/caty-ai/x-collector)** — Xとウェブの素材を1日1回のダイジェストに。能力ループの燃料を、人にもエージェントにも読める形で（OSS）
+- **self-growth-loop** — エージェントが自分の能力を育てるループ。提案・ガバナンス・採用記録（公開準備中）
 - **family-memory-architecture** — 家族の共通認識を作る、横断記憶基盤（横軸）。ビジョン・共通ルール・決定事項をマシンやベンダーを跨いで共有し、「いま誰が何をしているか」はホワイトボード1枚に自動集約。タスクの受け渡しもここを通り、全情報に正本リンク必須——伝言ゲームの劣化なく、全員が同じ前提で動ける（公開準備中）
-- **family-dev-handbook** — 人間×AIチームの開発作法集。Issue 起点の開発・並行作業の交通整理・クロスモデルレビューなど、家族で毎日使っている実運用ルールをそのまま公開する（公開準備中）
+- **[sitter](https://github.com/caty-ai/sitter)** — 任せたエージェント実行の見張り番。プロセスを見守り、証拠を残し、同じ試行を立て直す——「任せた仕事が行方不明」をなくす（OSS）
 
 どのエージェントとも。Claude Code、Codex、Gemini CLI、OpenClaw、Hermes……対応 13 エージェント + ローカル LLM 5 レイヤー、分け隔てなく。そして最後の枠は、いつでも「+ Your Agent」。[3]
 
