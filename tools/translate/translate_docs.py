@@ -121,7 +121,7 @@ def translate_once(content: str, lang: str, model: str, timeout: int) -> str:
     prompt = PROMPT.format(language=LANGUAGE_NAMES[lang], content=content)
     result = subprocess.run(
         ["claude", "--model", model, "-p", prompt],
-        capture_output=True, text=True, timeout=timeout,
+        capture_output=True, encoding="utf-8", timeout=timeout,
     )
     if result.returncode != 0:
         raise RuntimeError(f"claude CLI failed ({result.returncode}): {result.stderr[:500]}")
@@ -151,6 +151,7 @@ def process_file(repo: Path, rel: str, lang: str, model: str, cache: dict,
     content = src_path.read_text(encoding="utf-8")
     h = sha16(content)
     entry = cache.setdefault(rel, {"translations": {}})
+    entry.setdefault("translations", {})
     entry["source_hash"] = h
     prev = entry["translations"].get(lang)
     if not force and prev and prev.get("hash") == h and out_path.exists():
@@ -186,7 +187,9 @@ def process_file(repo: Path, rel: str, lang: str, model: str, cache: dict,
         got_sig = structural_signature(translated)
         if got_sig == src_sig:
             out_path.parent.mkdir(parents=True, exist_ok=True)
-            out_path.write_text(note + "\n\n" + translated + "\n", encoding="utf-8")
+            tmp = out_path.with_suffix(out_path.suffix + ".tmp")
+            tmp.write_text(note + "\n\n" + translated + "\n", encoding="utf-8")
+            tmp.replace(out_path)
             entry["translations"][lang] = {
                 "hash": h,
                 "translated_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
