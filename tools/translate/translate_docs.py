@@ -164,6 +164,43 @@ def translate_once(content: str, lang: str, model: str, timeout: int) -> str:
     return out
 
 
+def split_at_heading(content: str) -> tuple[str, str] | None:
+    """Split at the h2 heading nearest the middle (outside fences), or None."""
+    lines = content.splitlines(keepends=True)
+    in_fence = False
+    candidates = []
+    for i, line in enumerate(lines):
+        if line.startswith("```"):
+            in_fence = not in_fence
+        elif not in_fence and line.startswith("## ") and i > 0:
+            candidates.append(i)
+    if not candidates:
+        return None
+    mid = len(lines) // 2
+    best = min(candidates, key=lambda i: abs(i - mid))
+    return "".join(lines[:best]), "".join(lines[best:])
+
+
+def translate_document(content: str, lang: str, model: str, timeout: int) -> str:
+    """One translation attempt, with a split fallback for empty responses.
+
+    Long documents can exceed the response capacity of a single CLI call, which
+    surfaces as an essentially empty stdout (observed: one 112-line doc to Thai
+    returned 1 byte while its half translated fine). When that happens, split
+    at a heading boundary, translate the halves, and join.
+    """
+    translated = translate_once(content, lang, model, timeout)
+    if len(translated) / max(1, len(content)) >= 0.05:
+        return translated
+    parts = split_at_heading(content)
+    if parts is None:
+        return translated
+    head, tail = parts
+    return (translate_once(head, lang, model, timeout).rstrip()
+            + "\n\n"
+            + translate_once(tail, lang, model, timeout))
+
+
 def process_file(repo: Path, rel: str, lang: str, model: str, cache: dict,
                  force: bool, dry_run: bool, timeout: int) -> str:
     src_path = repo / rel
@@ -189,7 +226,7 @@ def process_file(repo: Path, rel: str, lang: str, model: str, cache: dict,
     last_err = ""
     for attempt in (1, 2):
         try:
-            translated = translate_once(content, lang, model, timeout)
+            translated = translate_document(content, lang, model, timeout)
         except (RuntimeError, subprocess.TimeoutExpired, OSError) as e:
             last_err = f"{type(e).__name__}: {str(e)[:300]} (attempt {attempt})"
             print(f"  RETRY {rel} [{lang}]: {last_err}", file=sys.stderr)
