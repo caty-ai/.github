@@ -32,16 +32,17 @@
 - **[Caty Phone](https://caty.talk/)** — 你和AI智能体之间的语音通话应用。与你一直在用的那个智能体本人，用声音一起生活（支持 iPhone，Android 即将支持）。不创造新人格——接起来的，就是你的智能体本人
 - **ai-meet-participant** — 让AI智能体通过 Meet 或 Zoom，和人类一起参加同一场会议（即将发布）
 
-生态系统 — 支撑一家人日常的底层设施。其中6个今天就能打开，地图每周自检以保持诚实:
+生态系统 — 支撑一家人日常的底层设施。其中7个今天就能打开，地图每周自检以保持诚实:
 
 - **[Family OS](https://github.com/caty-ai/family-os)** — AI家庭这座「家」的地图。全部模块的构成、状态与关联，一页看尽——配有「未经验证不得通过」的每周自检（OSS）
 - **[family-dev-handbook](https://github.com/caty-ai/family-dev-handbook)** — 人类×AI团队的开发手册。Issue 驱动开发、并行作业的交通规则、跨模型互审——把我们家每天在用的实战规则，原样公开（OSS）
 - **[caty-agent-harness](https://github.com/caty-ai/caty-agent-harness)** — 支撑智能体个体工作与成长的任务基座（纵轴）。尝试、重试、检查点、不掺假的完成判定；养成的经验都留在普通文件里——换了环境，自我也能安全随行（OSS）
+- **context-kit** — 面向单个智能体的五件桌面装备：限定工具输出、委托说明校验、防止破坏性命令与凭证泄露的防护、多层记忆召回——默认 fail-open 设计，所以这套装备永远不会把智能体一起拖垮（即将发布）
 - **[persona-engine](https://github.com/caty-ai/persona-engine)** — 为你的智能体的人格，装上关系的层次与情感的渐变的装置（OSS）
 - **persona-growth-loop** — 让人格本身成长：以最小且幂等的提案（即将发布）
 - **[x-collector](https://github.com/caty-ai/x-collector)** — 把 X 与网络素材汇成每日一份摘要——能力循环的燃料，人和智能体都能读（OSS）
 - **self-growth-loop** — 让智能体自我成长的循环：提案、治理与采用记录（即将发布）
-- **family-memory-architecture** — 构建全家共识的横向记忆基座（横轴）。愿景、规则、决定跨机器跨厂商共享；「现在谁在做什么」自动汇总到一块白板上；任务交接也经由这里流转，所有信息必须附上正本链接——没有传话游戏的失真，所有人基于同一前提行动（即将发布）
+- **[family-memory-architecture](https://github.com/caty-ai/family-memory-architecture)** — 构建全家共识的横向记忆基座（横轴）。愿景、规则、决定跨机器跨厂商共享；「现在谁在做什么」自动汇总到一块白板上；任务交接也经由这里流转，所有信息必须附上正本链接——没有传话游戏的失真，所有人基于同一前提行动（OSS）
 - **[sitter](https://github.com/caty-ai/sitter)** — 替你盯着委派出去的智能体：看守进程、留下证据、原样重启同一次尝试——让「我交出去了」不再变成「它不见了」（OSS）
 
 无论哪个智能体。Claude Code、Codex、Gemini CLI、OpenClaw、Hermes……支持 13 个智能体 + 5 层本地 LLM，一视同仁。而名单的最后一格，永远写着「+ Your Agent」。[3]

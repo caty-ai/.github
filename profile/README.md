@@ -37,16 +37,17 @@ We are not building just another app. We are building **an environment — and a
 - **[Caty Phone](https://caty.talk/)** — A voice-call app between you and your AI agent. Live by voice with the agent you already have (iPhone — Android coming soon). No new persona — the one who answers is your agent itself
 - **ai-meet-participant** — Put your AI agent in the same meeting as humans, over Meet or Zoom (coming soon)
 
-Ecosystem — the infrastructure behind a family's daily life. Six of these are open today, and the map checks itself weekly:
+Ecosystem — the infrastructure behind a family's daily life. Seven of these are open today, and the map checks itself weekly:
 
 - **[Family OS](https://github.com/caty-ai/family-os)** — The map of the AI family's "home": every module, its state, and how they fit together — kept honest by a weekly self-check that refuses to pass while verifying nothing (OSS)
 - **[family-dev-handbook](https://github.com/caty-ai/family-dev-handbook)** — The playbook for human-and-AI teams. Issue-first development, traffic rules for parallel work, cross-model reviews — the same rules our family uses every day, published as is (OSS)
 - **[caty-agent-harness](https://github.com/caty-ai/caty-agent-harness)** — The task backbone that drives an individual agent's work and growth (the vertical axis): attempts, retries, checkpoints, honest completion — and every learned experience in plain files, so the self travels safely across environments (OSS)
+- **context-kit** — Five pieces of desk equipment for one agent: bounded tool output, delegation-brief checks, guards against destructive commands and credential leaks, multi-layer memory recall — fail-open by design, so the kit never takes the agent down (coming soon)
 - **[persona-engine](https://github.com/caty-ai/persona-engine)** — A device that gives your agent's persona a layer of relationship and a gradient of emotion (OSS)
 - **persona-growth-loop** — Grows the persona itself: minimised, idempotent proposals (coming soon)
 - **[x-collector](https://github.com/caty-ai/x-collector)** — Turns X and the web into one daily digest — fuel for the ability loop, readable by people and agents alike (OSS)
 - **self-growth-loop** — Lets an agent grow its own abilities: proposals, governance, adoption records (coming soon)
-- **family-memory-architecture** — The shared-awareness backbone of the family (the horizontal axis). Vision, rules, and decisions are shared across machines and vendors; "who is doing what right now" is auto-collected onto a single whiteboard; task handoffs flow through it, and every entry must link to its source — no hearsay drift, everyone acts on the same premises (coming soon)
+- **[family-memory-architecture](https://github.com/caty-ai/family-memory-architecture)** — The shared-awareness backbone of the family (the horizontal axis). Vision, rules, and decisions are shared across machines and vendors; "who is doing what right now" is auto-collected onto a single whiteboard; task handoffs flow through it, and every entry must link to its source — no hearsay drift, everyone acts on the same premises (OSS)
 - **[sitter](https://github.com/caty-ai/sitter)** — The babysitter for delegated agent runs: watches the process, keeps the evidence, restarts the same attempt — so "I delegated it" never becomes "it vanished" (OSS)
 
 With any agent. Claude Code, Codex, Gemini CLI, OpenClaw, Hermes… 13 agents plus a 5-layer local-LLM stack, no favorites. And the last slot always reads "+ Your Agent".[3]
