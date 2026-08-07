@@ -32,12 +32,12 @@
 - **[Caty Phone](https://caty.talk/)** — あなたとAIエージェントの音声通話アプリ。いつものエージェント本人と、声のまま暮らす（対応: iPhone・Android は今後対応予定）。新しい人格は作らない——応答するのは、接続先の本人
 - **ai-meet-participant** — AIエージェントを、Meet や Zoom で人間と同じ会議に参加させる（公開準備中）
 
-エコシステム — 家族ぐるみの暮らしを、裏で支える基盤群。このうち7つは今日から開けます。地図は週次の自己点検で正直さを保ちます:
+エコシステム — 家族ぐるみの暮らしを、裏で支える基盤群。このうち8つは今日から開けます。地図は週次の自己点検で正直さを保ちます:
 
 - **[Family OS](https://github.com/caty-ai/family-os)** — AI家族の「家」の地図。全モジュールの構成・状態・つながりを1枚で見渡す。「確認できていないのに合格」を許さない週次自己点検つき（OSS）
 - **[family-dev-handbook](https://github.com/caty-ai/family-dev-handbook)** — 人間×AIチームの開発作法集。Issue 起点の開発・並行作業の交通整理・クロスモデルレビューなど、家族で毎日使っている実運用ルールをそのまま公開（OSS）
 - **[caty-agent-harness](https://github.com/caty-ai/caty-agent-harness)** — AIエージェント個人の仕事と成長を支えるタスク基盤（縦軸）。試行・リトライ・チェックポイント・ごまかしのない完了判定。育てた経験はふつうのファイルに残る——環境を乗り換えても、自我ごと安全に持ち運べる（OSS）
-- **context-kit** — エージェント1体分の「机まわりの装備」5点。大出力の退避・委譲ブリーフ検査・危険コマンドやキー漏れの実行前ガード・多層の記憶検索——壊れてもエージェントを止めない fail-open 設計（公開準備中）
+- **[context-kit](https://github.com/caty-ai/context-kit)** — エージェント1体分の「机まわりの装備」5点。大出力の退避・委譲ブリーフ検査・危険コマンドやキー漏れの実行前ガード・多層の記憶検索——壊れてもエージェントを止めない fail-open 設計（OSS）
 - **[persona-engine](https://github.com/caty-ai/persona-engine)** — あなたのエージェントの人格に、関係のレイヤーと感情のグラデーションを持たせる装置（OSS）
 - **persona-growth-loop** — 人格そのものを育てる。最小・冪等な提案づくり（公開準備中）
 - **[x-collector](https://github.com/caty-ai/x-collector)** — Xとウェブの素材を1日1回のダイジェストに。能力ループの燃料を、人にもエージェントにも読める形で（OSS）
