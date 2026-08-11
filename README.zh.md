@@ -32,6 +32,8 @@
 - **[Caty Phone](https://caty.talk/)** — 你和AI智能体之间的语音通话应用。与你一直在用的那个智能体本人，用声音一起生活（支持 iPhone，Android 即将支持）。不创造新人格——接起来的，就是你的智能体本人
 - **ai-meet-participant** — 让AI智能体通过 Meet 或 Zoom，和人类一起参加同一场会议（即将发布）
 
+<!-- family:generated:org-profile-modules:start -->
+
 生态系统 — 支撑一家人日常的底层设施。其中9个今天就能打开，地图每周自检以保持诚实:
 
 - **[Family OS](https://github.com/caty-ai/family-os)** — AI家庭这座「家」的地图。全部模块的构成、状态与关联，一页看尽——配有「未经验证不得通过」的每周自检（OSS）
@@ -44,6 +46,8 @@
 - **[self-growth-loop](https://github.com/caty-ai/self-growth-loop)** — 让智能体自我成长的循环：提案、治理与采用记录（OSS）
 - **[family-memory-architecture](https://github.com/caty-ai/family-memory-architecture)** — 构建全家共识的横向记忆基座（横轴）。愿景、规则、决定跨机器跨厂商共享；「现在谁在做什么」自动汇总到一块白板上；任务交接也经由这里流转，所有信息必须附上正本链接——没有传话游戏的失真，所有人基于同一前提行动（OSS）
 - **[sitter](https://github.com/caty-ai/sitter)** — 替你盯着委派出去的智能体：看守进程、留下证据、原样重启同一次尝试——让「我交出去了」不再变成「它不见了」（OSS）
+
+<!-- family:generated:org-profile-modules:end -->
 
 无论哪个智能体。Claude Code、Codex、Gemini CLI、OpenClaw、Hermes……支持 13 个智能体 + 5 层本地 LLM，一视同仁。而名单的最后一格，永远写着「+ Your Agent」。[3]
 

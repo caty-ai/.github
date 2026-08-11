@@ -32,6 +32,8 @@
 - **[Caty Phone](https://caty.talk/)** — あなたとAIエージェントの音声通話アプリ。いつものエージェント本人と、声のまま暮らす（対応: iPhone・Android は今後対応予定）。新しい人格は作らない——応答するのは、接続先の本人
 - **ai-meet-participant** — AIエージェントを、Meet や Zoom で人間と同じ会議に参加させる（公開準備中）
 
+<!-- family:generated:org-profile-modules:start -->
+
 エコシステム — 家族ぐるみの暮らしを、裏で支える基盤群。このうち9つは今日から開けます。地図は週次の自己点検で正直さを保ちます:
 
 - **[Family OS](https://github.com/caty-ai/family-os)** — AI家族の「家」の地図。全モジュールの構成・状態・つながりを1枚で見渡す。「確認できていないのに合格」を許さない週次自己点検つき（OSS）
@@ -44,6 +46,8 @@
 - **[self-growth-loop](https://github.com/caty-ai/self-growth-loop)** — エージェントが自分の能力を育てるループ。提案・ガバナンス・採用記録（OSS）
 - **[family-memory-architecture](https://github.com/caty-ai/family-memory-architecture)** — 家族の共通認識を作る、横断記憶基盤（横軸）。ビジョン・共通ルール・決定事項をマシンやベンダーを跨いで共有し、「いま誰が何をしているか」はホワイトボード1枚に自動集約。タスクの受け渡しもここを通り、全情報に正本リンク必須——伝言ゲームの劣化なく、全員が同じ前提で動ける（OSS）
 - **[sitter](https://github.com/caty-ai/sitter)** — 任せたエージェント実行の見張り番。プロセスを見守り、証拠を残し、同じ試行を立て直す——「任せた仕事が行方不明」をなくす（OSS）
+
+<!-- family:generated:org-profile-modules:end -->
 
 どのエージェントとも。Claude Code、Codex、Gemini CLI、OpenClaw、Hermes……対応 13 エージェント + ローカル LLM 5 レイヤー、分け隔てなく。そして最後の枠は、いつでも「+ Your Agent」。[3]
 

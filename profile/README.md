@@ -37,7 +37,9 @@ We are not building just another app. We are building **an environment — and a
 - **[Caty Phone](https://caty.talk/)** — A voice-call app between you and your AI agent. Live by voice with the agent you already have (iPhone — Android coming soon). No new persona — the one who answers is your agent itself
 - **ai-meet-participant** — Put your AI agent in the same meeting as humans, over Meet or Zoom (coming soon)
 
-Ecosystem — the infrastructure behind a family's daily life. Nine of these are open today, and the map checks itself weekly:
+<!-- family:generated:org-profile-modules:start -->
+
+Ecosystem — the infrastructure behind a family's daily life. 9 of these are open today, and the map checks itself weekly:
 
 - **[Family OS](https://github.com/caty-ai/family-os)** — The map of the AI family's "home": every module, its state, and how they fit together — kept honest by a weekly self-check that refuses to pass while verifying nothing (OSS)
 - **[family-dev-handbook](https://github.com/caty-ai/family-dev-handbook)** — The playbook for human-and-AI teams. Issue-first development, traffic rules for parallel work, cross-model reviews — the same rules our family uses every day, published as is (OSS)
@@ -49,6 +51,8 @@ Ecosystem — the infrastructure behind a family's daily life. Nine of these are
 - **[self-growth-loop](https://github.com/caty-ai/self-growth-loop)** — Lets an agent grow its own abilities: proposals, governance, adoption records (OSS)
 - **[family-memory-architecture](https://github.com/caty-ai/family-memory-architecture)** — The shared-awareness backbone of the family (the horizontal axis). Vision, rules, and decisions are shared across machines and vendors; "who is doing what right now" is auto-collected onto a single whiteboard; task handoffs flow through it, and every entry must link to its source — no hearsay drift, everyone acts on the same premises (OSS)
 - **[sitter](https://github.com/caty-ai/sitter)** — The babysitter for delegated agent runs: watches the process, keeps the evidence, restarts the same attempt — so "I delegated it" never becomes "it vanished" (OSS)
+
+<!-- family:generated:org-profile-modules:end -->
 
 With any agent. Claude Code, Codex, Gemini CLI, OpenClaw, Hermes… 13 agents plus a 5-layer local-LLM stack, no favorites. And the last slot always reads "+ Your Agent".[3]
 

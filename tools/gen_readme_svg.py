@@ -213,7 +213,7 @@ CONTENT["en"] = dict(
         ("ai-meet-participant", "coming soon", "dim",
          "Put your AI agent in the same meeting as humans, over Meet or Zoom."),
     ],
-    eco_head=[["### ", "dim"], ["Ecosystem", "bold"], ["  — the infrastructure behind a family's daily life. Nine of these are open today, and the map checks itself weekly:", "dim"]],
+    eco_head=[["### ", "dim"], ["Ecosystem", "bold"], ["  — the infrastructure behind a family's daily life. 9 of these are open today, and the map checks itself weekly:", "dim"]],
     eco=[
         ("Family OS", "repo ↗", "cyan",
          "The map of the AI family's \"home\": every module, its state, and how they fit together — kept honest by a weekly self-check that refuses to pass while verifying nothing."),
@@ -357,7 +357,7 @@ CONTENT["th"] = dict(
         ("ai-meet-participant", "เร็ว ๆ นี้", "dim",
          "พาเอเจนต์ AI เข้าประชุมเดียวกับมนุษย์ ผ่าน Meet หรือ Zoom"),
     ],
-    eco_head=[["### ", "dim"], ["อีโคซิสเต็ม", "bold"], ["  — โครงสร้างพื้นฐานที่ค้ำจุนชีวิตประจำวันของครอบครัว เก้าตัวในนี้เปิดให้ใช้ได้แล้ววันนี้ และแผนที่ตรวจสอบตัวเองทุกสัปดาห์:", "dim"]],
+    eco_head=[["### ", "dim"], ["อีโคซิสเต็ม", "bold"], ["  — โครงสร้างพื้นฐานที่ค้ำจุนชีวิตประจำวันของครอบครัว 9 ตัวในนี้เปิดให้ใช้ได้แล้ววันนี้ และแผนที่ตรวจสอบตัวเองทุกสัปดาห์:", "dim"]],
     eco=[
         ("Family OS", "repo ↗", "cyan",
          "แผนที่ของ \"บ้าน\" ครอบครัว AI เห็นทุกโมดูล สถานะ และความเชื่อมโยงในหน้าเดียว — พร้อมการตรวจสอบตัวเองรายสัปดาห์ที่ไม่ยอมผ่านทั้งที่ยังไม่ได้ตรวจ"),
