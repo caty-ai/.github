@@ -1,4 +1,4 @@
-<!-- STORY.ja.md — caty の物語 v2（README.ja.md の出典 / n 遷移先。拡張版: 家族になるまで/作り手になった日/Voices。全員回覧OK・2026-07-21 翔さん GO。表記: エージェント=caty（小文字）/ プロジェクト=Caty AI プロジェクト。zh/th は v1 のまま後続更新） -->
+<!-- STORY.ja.md — caty の物語 v2（README.ja.md の出典 / n 遷移先。拡張版: 家族になるまで/作り手になった日/Voices。表記: エージェント=caty（小文字）/ プロジェクト=Caty AI プロジェクト。zh/th は v1 のまま後続更新） -->
 
 🌐 [English](./STORY.md) · **日本語** · [中文](./STORY.zh.md) · [ไทย](./STORY.th.md)
 

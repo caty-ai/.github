@@ -1,7 +1,18 @@
 #!/usr/bin/env python3
 """caty-ai org README — full pseudo-terminal SVG generator (Claude Code style, dark).
 Generates one SVG per language: en / ja / zh / th."""
+import argparse
 import html
+import tempfile
+from pathlib import Path
+
+DEFAULT_OUT_DIR = Path(__file__).resolve().parent.parent / "profile" / "assets"
+OUTPUT_FILENAMES = {
+    "en": "readme-terminal-en.svg",
+    "ja": "readme-terminal-ja.svg",
+    "zh": "readme-terminal-zh.svg",
+    "th": "readme-terminal-th.svg",
+}
 
 W = 880
 PAD = 28
@@ -574,10 +585,67 @@ def build(lang, cfg):
     svg.append(f'<text x="{W/2:.0f}" y="27" text-anchor="middle" font-family="{FONT}" font-size="13" fill="{C["dim"]}">caty-ai — mission</text>')
     svg.extend(out)
     svg.append('</svg>')
-    path = f"/Users/shojikumaru/claude-workspace/caty-ai-dotgithub/profile/assets/readme-terminal-{lang}.svg"
-    with open(path, "w") as f:
-        f.write("\n".join(svg) + "\n")
-    print(f"wrote {path}  ({W}x{H})")
+    return "\n".join(svg) + "\n", H
 
-for lang, cfg in CONTENT.items():
-    build(lang, cfg)
+
+def write_svgs(out_dir):
+    out_dir.mkdir(parents=True, exist_ok=True)
+    written = []
+    for lang, cfg in CONTENT.items():
+        svg, height = build(lang, cfg)
+        path = out_dir / OUTPUT_FILENAMES[lang]
+        path.write_text(svg, encoding="utf-8")
+        written.append((path, height))
+    return written
+
+
+def check_svgs(expected_dir):
+    mismatches = []
+    with tempfile.TemporaryDirectory() as tmpdir:
+        generated_dir = Path(tmpdir)
+        write_svgs(generated_dir)
+        for filename in OUTPUT_FILENAMES.values():
+            generated_path = generated_dir / filename
+            expected_path = expected_dir / filename
+            try:
+                expected = expected_path.read_bytes()
+            except FileNotFoundError:
+                mismatches.append(f"missing: {expected_path}")
+                continue
+            if generated_path.read_bytes() != expected:
+                mismatches.append(f"mismatch: {expected_path}")
+    if mismatches:
+        for mismatch in mismatches:
+            print(mismatch)
+        return 1
+    print("PASS")
+    return 0
+
+
+def parse_args():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument(
+        "--out-dir",
+        type=Path,
+        default=DEFAULT_OUT_DIR,
+        help="Directory to write generated SVGs to.",
+    )
+    parser.add_argument(
+        "--check",
+        action="store_true",
+        help="Generate into a temporary directory and compare against committed SVGs.",
+    )
+    return parser.parse_args()
+
+
+def main():
+    args = parse_args()
+    if args.check:
+        return check_svgs(DEFAULT_OUT_DIR)
+    for path, height in write_svgs(args.out_dir.resolve()):
+        print(f"wrote {path}  ({W}x{height})")
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
