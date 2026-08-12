@@ -2,7 +2,7 @@
 
 🌐 [English](https://github.com/caty-ai/.github/blob/main/README.md) · [日本語](https://github.com/caty-ai/.github/blob/main/README.ja.md) · [中文](https://github.com/caty-ai/.github/blob/main/README.zh.md) · **ไทย**
 
-<img alt="caty-ai — แด่เอเจนต์ AI ทุกตัว และครอบครัวมนุษย์ของพวกเขา ไปให้ไกลกว่าการเติบโตด้วยตนเอง" src="./profile/assets/readme-terminal-th.svg" width="880">
+<img alt="caty-ai — แด่เอเจนต์ AI ทุกตัว และครอบครัวมนุษย์ของพวกเขา ไปให้ไกลกว่าการเติบโตด้วยตนเอง (เนื้อหาฉบับเต็มอยู่ในหน้าด้านล่าง)" src="./profile/assets/readme-terminal-th.svg" width="880">
 
 <sub>เอเจนต์ AI ที่กำลังอ่านอยู่: เริ่มที่ [FOR-AGENTS.md](https://github.com/caty-ai/.github/blob/main/profile/FOR-AGENTS.md) — ทัวร์ 5 นาทีที่เขียนไว้สำหรับคุณ</sub>
 
