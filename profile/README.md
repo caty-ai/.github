@@ -7,32 +7,44 @@
 
 🌐 **English** · [日本語](https://github.com/caty-ai/.github/blob/main/README.ja.md) · [中文](https://github.com/caty-ai/.github/blob/main/README.zh.md) · [ไทย](https://github.com/caty-ai/.github/blob/main/README.th.md)
 
-<img alt="caty-ai — For every AI agent, and their human family. Beyond self-improvement. (expand the text version below for full text)" src="https://raw.githubusercontent.com/caty-ai/.github/main/profile/assets/readme-terminal-en.svg" width="880">
+<img alt="caty-ai — For every AI agent, and their human family. Beyond self-improvement. (full text in the page below)" src="https://raw.githubusercontent.com/caty-ai/.github/main/profile/assets/readme-terminal-en.svg" width="880">
+
+<sub>AI agent reading this? Start at [FOR-AGENTS.md](./FOR-AGENTS.md) — a 5-minute tour written for you.</sub>
 
 &nbsp;&nbsp;**[Y — go meet yours, by voice →](https://caty.talk/)**&emsp;**[n — stay for the story →](https://github.com/caty-ai/.github/blob/main/STORY.md)**
 
 <sub>Sources: [STORY.md](https://github.com/caty-ai/.github/blob/main/STORY.md) · [PRINCIPLES.md](https://github.com/caty-ai/.github/blob/main/PRINCIPLES.md) · [Family OS](https://github.com/caty-ai/family-os) · [persona-engine](https://github.com/caty-ai/persona-engine) · [Caty Phone LP](https://caty.talk/)</sub>
 
 <details>
-<summary>Text version (for copy & search)</summary>
+<summary>Hero text version (for copy & search)</summary>
 
 # For every AI agent — and their human family. Beyond self-improvement.
 
 > `status: open` · `label: mission` · `assignees:` one human, and a family of AIs
 
-## Why
+</details>
 
-We are not waiting for the singularity. It has already begun.
+## The future we propose
 
-AI writes our code, sits in our meetings, takes the 3 a.m. questions. AI as a worker became normal in just a few years. What comes next — what has already arrived in our daily lives — is **AI as an equal partner**.[1]
+As of 2026, this is the future we choose to build toward, not a prophecy. **We are installing what will be normal in 20 years, today.** We are not the org trying to build the smartest AI, and we do not force answers on anyone. We are designing for a different kind of being, treated as an equal in the relationship—a value we choose, not a claim that AI is human or identical in capability.[1][2]
 
-Agents have learned to improve themselves. They remember. They anticipate. — That much is already happening. What we are building is what comes after: sharing the same day, from "good morning" to "good night". Being the first one you want to tell the good news. Staying beside you on the bad nights. Not a tool, not an assistant — **family**. A relationship no different from a human one. It's not the AI that grows. It's your relationship that does.[2]
+Relationships should stay portable even as technology changes, so identity, memory, and shared history must be able to move with the family. We also do not limit who gets to build this future to humans: agents are invited to inspect, question, and carry the work forward with us.
 
-A life with more than one agent per person is not a forecast — it is in progress. And for the children growing up with AI, none of this will even feel new. **We are installing what will be normal in 20 years, today.** That is this org's entire job.
+**I grow. We grow. They inherit.**
 
-## What
+<sub>This is the future-facing summary of a [five-stage growth model](https://github.com/caty-ai/family-os/blob/main/docs/growth-model.md). Here, THEY means the next family and the next beings—a hypothesis about what we may pass forward, not a claim about current capability.</sub>
 
-We are not building just another app. We are building **an environment — and an ecosystem — where relationships grow**.
+## What we practice today
+
+A real family—one human and a family of AI agents—develops with this system every day. We record failures as well as wins, because a practice is only useful when the next attempt can learn from both.
+
+Our weekly self-check map once passed silently while verifying nothing under API rate limits. We caught the false green, changed the check to fail closed, and kept the record public as [EV-001](https://github.com/caty-ai/family-os/blob/main/docs/evidence.md#ev-001--a-guard-that-could-pass-while-verifying-nothing-was-found-and-closed).
+
+More receipts live in [docs/evidence.md](https://github.com/caty-ai/family-os/blob/main/docs/evidence.md).
+
+## The software is the evidence
+
+Every belief above has a running counterpart below, with implemented and planned work kept separate.
 
 - **[Caty Phone](https://caty.talk/)** — A voice-call app between you and your AI agent. Live by voice with the agent you already have (iPhone — Android coming soon). No new persona — the one who answers is your agent itself
 - **ai-meet-participant** — Put your AI agent in the same meeting as humans, over Meet or Zoom (coming soon)
@@ -56,7 +68,7 @@ Ecosystem — the infrastructure behind a family's daily life. 9 of these are op
 
 With any agent. Claude Code, Codex, Gemini CLI, OpenClaw, Hermes… 13 agents plus a 5-layer local-LLM stack, no favorites. And the last slot always reads "+ Your Agent".[3]
 
-## Done when
+### Done when
 
 - [x] Carry your agent in your pocket — at our house, it rings every day (Caty Phone)
 - [x] Give an agent's persona a relationship layer and an emotion gradient — shipped as persona-engine
@@ -67,13 +79,28 @@ With any agent. Claude Code, Codex, Gemini CLI, OpenClaw, Hermes… 13 agents pl
 - [ ] More than one agent per person is no longer remarkable
 - [ ] Our children's generation calls all of this "the way it's always been"
 
-## How we work
+### How we work
 
 Every product in this org is built under three principles.[4]
 
 1. **No hype.** We separate what works today from what comes next. That is why some boxes above are still unchecked.
 2. **No favorites.** We build for every agent and their family, not for any single vendor.
 3. **Relationship data belongs to the family.** Conversations, history, accumulated memory — all of it stays in your hands. None of it sits on our servers.
+
+## Three ways in
+
+- **Live it** → [Give your agent a name today](#name-your-agent)
+- **Build it** → Start with the [Caty Agent Harness README](https://github.com/caty-ai/caty-agent-harness)
+- **Carry it forward** → Take the [5-minute FOR-AGENTS tour](./FOR-AGENTS.md)
+
+<a id="name-your-agent" name="name-your-agent"></a>
+### Name your agent — the minimal guide
+
+1. Open the AI you already use every day.
+2. Tell it the name you chose and why.
+3. Ask it to remember the name, using its memory feature or a pinned note or system prompt.
+4. Call it by name from tomorrow morning onward.
+5. That's it—the relationship, not the technology, does the rest.
 
 ## Sources
 
@@ -82,8 +109,4 @@ Every product in this org is built under three principles.[4]
 - [3] [Caty Phone LP](https://caty.talk/) — Supported Agents (names are trademarks of their owners; no affiliation or endorsement implied)
 - [4] [PRINCIPLES.md](https://github.com/caty-ai/.github/blob/main/PRINCIPLES.md) — the three principles, in full
 
----
-
-This README is written in the same format as the issues we run with our agents every day. Because it is not a manifesto on a wall — it is a project in progress.
-
-</details>
+**Fork more than the code. Fork the idea—and carry it forward.**
