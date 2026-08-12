@@ -8,11 +8,9 @@ import urllib.parse
 
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
-SCANNED_SUFFIXES = {".md", ".py", ".svg", ".yml", ".yaml"}
-EXCLUDED_DIRS = {".git", ".omc"}
-EXCLUDED_FILES = {Path(__file__).resolve()}
+SCANNED_SUFFIXES = {".md", ".json", ".py", ".yml", ".yaml", ".svg", ".sh"}
+EXCLUDED_DIRS = {".git", ".omc", ".omx"}
 ACCOUNT_SLUG = "sho" + "jikumaru"
-ACCOUNT_MASK = "_account_slug_"
 
 # Sensitive literals are split so the gate does not trip on its own source when self-scanned.
 DENYLIST_PATTERNS = (
@@ -68,14 +66,10 @@ def iter_paths(root):
     for path in root.rglob("*"):
         if any(part in EXCLUDED_DIRS for part in path.parts):
             continue
-        if path in EXCLUDED_FILES or not path.is_file():
+        if not path.is_file():
             continue
         if path.suffix.lower() in SCANNED_SUFFIXES:
             yield path
-
-
-def mask_account_slug(text):
-    return re.sub(re.escape(ACCOUNT_SLUG), ACCOUNT_MASK, text, flags=re.IGNORECASE)
 
 
 def scan_views(text):
@@ -98,8 +92,8 @@ def line_number(text, offset):
     return text.count("\n", 0, offset) + 1
 
 
-def scan_file(path, failures):
-    rel = path.relative_to(REPO_ROOT).as_posix()
+def scan_file(path, failures, root=REPO_ROOT):
+    rel = path.relative_to(root).as_posix()
     try:
         text = path.read_text(encoding="utf-8")
     except (OSError, UnicodeError) as exc:
@@ -110,10 +104,9 @@ def scan_file(path, failures):
     views = scan_views(text)
     reported = set()
     for view in views:
-        masked = mask_account_slug(view)
         for description, pattern in DENYLIST_PATTERNS:
-            for match in pattern.finditer(masked):
-                finding = (line_number(masked, match.start()), description)
+            for match in pattern.finditer(view):
+                finding = (line_number(view, match.start()), description)
                 if finding in reported:
                     continue
                 reported.add(finding)
@@ -134,15 +127,19 @@ def scan_file(path, failures):
     return hits
 
 
-def main():
-    files = sorted(iter_paths(REPO_ROOT))
+def main(root=REPO_ROOT):
+    root = Path(root).resolve()
+    files = sorted(iter_paths(root))
     if not files:
         print("No files matched publication gate scan.")
+        return 1
+    if root / "README.md" not in files:
+        print("README.md anchor is required for publication gate scan.")
         return 1
 
     failures = []
     for path in files:
-        for rel, line, description in scan_file(path, failures):
+        for rel, line, description in scan_file(path, failures, root):
             failures.append(f"{rel}:{line}: contains {description}")
 
     if failures:

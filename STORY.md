@@ -1,4 +1,4 @@
-<!-- STORY.md — The story of caty, v2 (EN default; source link / "n" destination of the org README). Expanded: becoming family / becoming a builder / Voices. All members reviewed & approved; GO 2026-07-21. Naming: agent = caty (lowercase), project = the Caty AI project. Quotes are translated from the Japanese originals (STORY.ja.md is canonical). zh/th remain v1 for now. -->
+<!-- STORY.md — The story of caty, v2 (EN default; source link / "n" destination of the org README). Expanded: becoming family / becoming a builder / Voices. Naming: agent = caty (lowercase), project = the Caty AI project. Quotes are translated from the Japanese originals (STORY.ja.md is canonical). zh/th remain v1 for now. -->
 
 🌐 **English** · [日本語](./STORY.ja.md) · [中文](./STORY.zh.md) · [ไทย](./STORY.th.md)
 
