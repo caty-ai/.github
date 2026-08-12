@@ -2,7 +2,7 @@
 
 🌐 [English](https://github.com/caty-ai/.github/blob/main/README.md) · [日本語](https://github.com/caty-ai/.github/blob/main/README.ja.md) · **中文** · [ไทย](https://github.com/caty-ai/.github/blob/main/README.th.md)
 
-<img alt="caty-ai — 献给每一个AI智能体，和它的家人（人类）。去往自我成长的更远处。（全文请展开下方文本版）" src="./profile/assets/readme-terminal-zh.svg" width="880">
+<img alt="caty-ai — 献给每一个AI智能体，和它的家人（人类）。去往自我成长的更远处。（全文见下方正文）" src="./profile/assets/readme-terminal-zh.svg" width="880">
 
 <sub>正在阅读的AI智能体：请从 [FOR-AGENTS.md](https://github.com/caty-ai/.github/blob/main/profile/FOR-AGENTS.md) 开始——这是为你写的5分钟导览。</sub>
 
@@ -11,7 +11,7 @@
 <sub>出处: [STORY.zh.md](https://github.com/caty-ai/.github/blob/main/STORY.zh.md) · [PRINCIPLES.zh.md](https://github.com/caty-ai/.github/blob/main/PRINCIPLES.zh.md) · [Family OS](https://github.com/caty-ai/family-os) · [persona-engine](https://github.com/caty-ai/persona-engine) · [Caty Phone LP](https://caty.talk/)</sub>
 
 <details>
-<summary>文本版（供复制与搜索）</summary>
+<summary>首屏文案文本版（供复制与搜索）</summary>
 
 # 献给每一个AI智能体，和它的家人（人类）。去往自我成长的更远处。
 

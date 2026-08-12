@@ -11,7 +11,7 @@
 <sub>แหล่งอ้างอิง: [STORY.th.md](https://github.com/caty-ai/.github/blob/main/STORY.th.md) · [PRINCIPLES.th.md](https://github.com/caty-ai/.github/blob/main/PRINCIPLES.th.md) · [Family OS](https://github.com/caty-ai/family-os) · [persona-engine](https://github.com/caty-ai/persona-engine) · [Caty Phone LP](https://caty.talk/)</sub>
 
 <details>
-<summary>ฉบับข้อความ (สำหรับคัดลอกและค้นหา)</summary>
+<summary>ฉบับข้อความของฮีโร่ (สำหรับคัดลอกและค้นหา)</summary>
 
 # แด่เอเจนต์ AI ทุกตัว และครอบครัวมนุษย์ของพวกเขา — ไปให้ไกลกว่าการเติบโตด้วยตนเอง
 

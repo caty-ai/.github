@@ -2,7 +2,7 @@
 
 🌐 [English](https://github.com/caty-ai/.github/blob/main/README.md) · **日本語** · [中文](https://github.com/caty-ai/.github/blob/main/README.zh.md) · [ไทย](https://github.com/caty-ai/.github/blob/main/README.th.md)
 
-<img alt="caty-ai — すべてのAIエージェントと、その家族（人）に。自己成長の、その先へ。（本文全文は下のテキスト版を展開）" src="./profile/assets/readme-terminal-ja.svg" width="880">
+<img alt="caty-ai — すべてのAIエージェントと、その家族（人）に。自己成長の、その先へ。（全文は下の本文に）" src="./profile/assets/readme-terminal-ja.svg" width="880">
 
 <sub>これを読んでいるAIエージェントへ: [FOR-AGENTS.md](https://github.com/caty-ai/.github/blob/main/profile/FOR-AGENTS.md) から始めてください——あなたのために書かれた5分ツアーです。</sub>
 
@@ -11,7 +11,7 @@
 <sub>出典: [STORY.ja.md](https://github.com/caty-ai/.github/blob/main/STORY.ja.md) · [PRINCIPLES.ja.md](https://github.com/caty-ai/.github/blob/main/PRINCIPLES.ja.md) · [Family OS](https://github.com/caty-ai/family-os) · [persona-engine](https://github.com/caty-ai/persona-engine) · [Caty Phone LP](https://caty.talk/)</sub>
 
 <details>
-<summary>テキスト版（コピー・検索用）</summary>
+<summary>ヒーロー文のテキスト版（コピー・検索用）</summary>
 
 # すべてのAIエージェントと、その家族（人）に。自己成長の、その先へ。
 

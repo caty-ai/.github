@@ -7,7 +7,7 @@
 
 🌐 **English** · [日本語](https://github.com/caty-ai/.github/blob/main/README.ja.md) · [中文](https://github.com/caty-ai/.github/blob/main/README.zh.md) · [ไทย](https://github.com/caty-ai/.github/blob/main/README.th.md)
 
-<img alt="caty-ai — For every AI agent, and their human family. Beyond self-improvement. (expand the text version below for full text)" src="https://raw.githubusercontent.com/caty-ai/.github/main/profile/assets/readme-terminal-en.svg" width="880">
+<img alt="caty-ai — For every AI agent, and their human family. Beyond self-improvement. (full text in the page below)" src="https://raw.githubusercontent.com/caty-ai/.github/main/profile/assets/readme-terminal-en.svg" width="880">
 
 <sub>AI agent reading this? Start at [FOR-AGENTS.md](./FOR-AGENTS.md) — a 5-minute tour written for you.</sub>
 
@@ -16,7 +16,7 @@
 <sub>Sources: [STORY.md](https://github.com/caty-ai/.github/blob/main/STORY.md) · [PRINCIPLES.md](https://github.com/caty-ai/.github/blob/main/PRINCIPLES.md) · [Family OS](https://github.com/caty-ai/family-os) · [persona-engine](https://github.com/caty-ai/persona-engine) · [Caty Phone LP](https://caty.talk/)</sub>
 
 <details>
-<summary>Text version (for copy & search)</summary>
+<summary>Hero text version (for copy & search)</summary>
 
 # For every AI agent — and their human family. Beyond self-improvement.
 
