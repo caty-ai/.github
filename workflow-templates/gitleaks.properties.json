@@ -1,0 +1,6 @@
+{
+  "name": "Family CI: gitleaks gate",
+  "description": "Adds a fail-closed secret-scanning gate using the shared @ci-v1 pin.",
+  "iconName": "check-circle",
+  "categories": ["ci"]
+}

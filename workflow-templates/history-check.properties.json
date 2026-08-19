@@ -1,0 +1,6 @@
+{
+  "name": "Family CI: history-check gate",
+  "description": "Adds a fail-closed commit-history gate using the shared @ci-v1 pin.",
+  "iconName": "check-circle",
+  "categories": ["ci"]
+}

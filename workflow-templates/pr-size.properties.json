@@ -1,0 +1,6 @@
+{
+  "name": "Family CI: PR size gate",
+  "description": "Adds a fail-closed pull-request size gate using the shared @ci-v1 pin.",
+  "iconName": "check-circle",
+  "categories": ["ci"]
+}
