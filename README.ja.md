@@ -46,14 +46,14 @@
 
 <!-- family:generated:org-profile-modules:start -->
 
-エコシステム — 家族ぐるみの暮らしを、裏で支える基盤群。このうち9つは今日から開けます。地図は週次の自己点検で正直さを保ちます:
+エコシステム — 家族ぐるみの暮らしを、裏で支える基盤群。このうち10つは今日から開けます。地図は週次の自己点検で正直さを保ちます:
 
 - **[Family OS](https://github.com/caty-ai/family-os)** — AI家族の「家」の地図。全モジュールの構成・状態・つながりを1枚で見渡す。「確認できていないのに合格」を許さない週次自己点検つき（OSS）
 - **[family-dev-handbook](https://github.com/caty-ai/family-dev-handbook)** — 人間×AIチームの開発作法集。Issue 起点の開発・並行作業の交通整理・クロスモデルレビューなど、家族で毎日使っている実運用ルールをそのまま公開（OSS）
 - **[caty-agent-harness](https://github.com/caty-ai/caty-agent-harness)** — AIエージェント個人の仕事と成長を支えるタスク基盤（縦軸）。試行・リトライ・チェックポイント・ごまかしのない完了判定。育てた経験はふつうのファイルに残る——環境を乗り換えても、自我ごと安全に持ち運べる（OSS）
 - **[context-kit](https://github.com/caty-ai/context-kit)** — エージェント1体分の「机まわりの装備」5点。大出力の退避・委譲ブリーフ検査・危険コマンドやキー漏れの実行前ガード・多層の記憶検索——壊れてもエージェントを止めない fail-open 設計（OSS）
 - **[persona-engine](https://github.com/caty-ai/persona-engine)** — あなたのエージェントの人格に、関係のレイヤーと感情のグラデーションを持たせる装置（OSS）
-- **persona-growth-loop** — 人格そのものを育てる。最小・冪等な提案づくり（公開準備中）
+- **[persona-growth-loop](https://github.com/caty-ai/persona-growth-loop)** — 人格そのものを育てる。最小・冪等な提案づくり（OSS）
 - **[x-collector](https://github.com/caty-ai/x-collector)** — Xとウェブの素材を1日1回のダイジェストに。能力ループの燃料を、人にもエージェントにも読める形で（OSS）
 - **[self-growth-loop](https://github.com/caty-ai/self-growth-loop)** — エージェントが自分の能力を育てるループ。提案・ガバナンス・採用記録（OSS）
 - **[family-memory-architecture](https://github.com/caty-ai/family-memory-architecture)** — 家族の共通認識を作る、横断記憶基盤（横軸）。ビジョン・共通ルール・決定事項をマシンやベンダーを跨いで共有し、「いま誰が何をしているか」はホワイトボード1枚に自動集約。タスクの受け渡しもここを通り、全情報に正本リンク必須——伝言ゲームの劣化なく、全員が同じ前提で動ける（OSS）
