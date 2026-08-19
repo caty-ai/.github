@@ -16,6 +16,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - run: python3 -B tools/selftest_check_publication_gate.py
-      - run: python3 -B tools/check_publication_gate.py
+      - run: python3 -B tools/check_publication_gate.py --selftest
+      - run: >-
+          python3 -B tools/check_publication_gate.py
+          --root .
+          --account-slug shojikumaru
+          --denylist .publication-denylist
       - run: python3 -B tools/gen_readme_svg.py --check
