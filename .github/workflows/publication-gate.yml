@@ -17,9 +17,15 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - run: python3 -B tools/check_publication_gate.py --selftest
-      - run: >-
-          python3 -B tools/check_publication_gate.py
-          --root .
-          --account-slug shojikumaru
-          --denylist .publication-denylist
+      - run: |
+          set -o pipefail
+          scan_log="$(mktemp)"
+          trap 'rm -f "$scan_log"' EXIT
+          # Publication-safe notation per template README option (a); do not join the halves in source.
+          python3 -B tools/check_publication_gate.py \
+            --root . \
+            --account-slug 'sho''jikumaru' \
+            --denylist .publication-denylist | tee "$scan_log"
+          # Temporary fail-closed guard until the handbook template fails closed on decode errors (upstream issue: https://github.com/caty-ai/family-dev-handbook/issues/97).
+          grep -Fqx 'binary files skipped: 0' "$scan_log"
       - run: python3 -B tools/gen_readme_svg.py --check
