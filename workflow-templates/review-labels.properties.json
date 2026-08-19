@@ -1,0 +1,6 @@
+{
+  "name": "Family CI: review-labels gate",
+  "description": "Adds a fail-closed risk-review label gate using the shared @ci-v1 pin.",
+  "iconName": "check-circle",
+  "categories": ["ci"]
+}
