@@ -1,0 +1,13 @@
+# Publication-safe notation per template README option (a); owner decision: 2026-08-20.
+# Protected literals use a single-character regex class; edits must preserve this property and the exact regex language.
+# Format: NAME<TAB>REGEX
+personal-real-name-en	\b(?:Shoj[i]|Kumar[u])\b
+personal-real-name-ja	翔さ[ん]|翔[士]|翔ど[ん]
+approval-record	承認記[録]|オーナー承[認]|approved\s+by|CP-\d+[A-Za-z]{0,2}\s*(?:GO|承[認])
+personal-account-slug	shojikumar[u]
+absolute-personal-path	(?-i:/User[s]/)
+private-network-address	\b100\.(?:6[4-9]|[7-9][0-9]|1[01][0-9]|12[0-7])\.\d+\.\d+\b
+local-service-hostname	localhost:\d+
+local-service-loopback	\b(?:127\.0\.0\.1|0\.0\.0\.0)\b
+email-address	\b[A-Z0-9._%+\-]+@[A-Z0-9.\-]+\.[A-Z]{2,}\b
+private-repository-reference	\b(?:alpha-loo[m]|alpha-wik[i]|alpha-mission-contro[l]|family-vaul[t]|wip-caty-tal[k]|sitter-privat[e]|claude-workspac[e])\b
