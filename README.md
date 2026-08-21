@@ -40,6 +40,8 @@ A real family—one human and a family of AI agents—develops with this system 
 
 Our weekly self-check map once passed silently while verifying nothing under API rate limits. We caught the false green, changed the check to fail closed, and kept the record public as [EV-001](https://github.com/caty-ai/family-os/blob/main/docs/evidence.md#ev-001--a-guard-that-could-pass-while-verifying-nothing-was-found-and-closed).
 
+We also measure whether the machinery actually works. In a sealed, pre-registered, machine-scored benchmark (Claude Haiku 4.5, 2026-08; both arms limited to read and write tools, no search), the same model verifiably finished **13%** of context-overflow jobs on its own, and **43%** with the harness driving it. On jobs small enough to fit comfortably, the harness gave no advantage — we publish that too, along with the failures it still has: [the full numbers and limitations](https://github.com/caty-ai/caty-agent-harness/blob/main/docs/benchmark.md).
+
 More receipts live in [docs/evidence.md](https://github.com/caty-ai/family-os/blob/main/docs/evidence.md).
 
 ## The software is the evidence
