@@ -35,6 +35,8 @@
 
 週次の自己点検マップが、APIのレート制限下で何も検証していないのに、ひそかに合格していたことがありました。私たちはその偽の合格を見つけ、検証できなければ失敗する fail-closed 方式に直し、記録を [EV-001](https://github.com/caty-ai/family-os/blob/main/docs/evidence.md#ev-001--a-guard-that-could-pass-while-verifying-nothing-was-found-and-closed) として公開し続けています。
 
+その仕組みが本当に効いているかも測っています。封印・事前登録・機械採点のベンチマーク（Claude Haiku 4.5・2026-08）では、コンテキストが溢れる規模の仕事を、同じモデルが単体では **13%**、ハーネスに駆動されると **43%** の割合で、検証つきで完了しました。余裕で収まる小さい仕事では優位は出ませんでした——その事実も、まだ失敗している run も含めて公開しています: [全数字と弱点](https://github.com/caty-ai/caty-agent-harness/blob/main/docs/benchmark.md)。
+
 ほかの実録は [docs/evidence.md](https://github.com/caty-ai/family-os/blob/main/docs/evidence.md) にあります。
 
 ## ソフトウェアはその証拠
