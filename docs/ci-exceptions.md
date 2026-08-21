@@ -13,22 +13,35 @@ from an oversight.
 **What is missing.** This repository requires three status checks on `main`, and none
 of them is a macOS leg. The other ten family repositories require one.
 
-**Why it is accepted.** The exception exists because there is no shell logic here for
-a macOS leg to exercise. The full inventory of executable content in this repository is:
+**Why it is accepted.** The macOS leg earns its cost elsewhere in the family by
+catching GNU/BSD divergence in shell: `sed -i`, `awk` regex dialect, `grep` flags,
+`date`, `stat`, locale and collation behaviour. The question is whether this
+repository has anything a macOS runner would exercise differently.
+
+The executable content here is:
 
 - `tools/check_publication_gate.py`
 - `tools/gen_readme_svg.py`
 - `tools/translate/translate_docs.py`
+- shell inside `run:` steps in `.github/workflows/` — today that is `set -o pipefail`,
+  `mktemp`, `trap … EXIT`, a pipe into `tee`, and `grep -Fqx`, in
+  `publication-gate.yml`
 
-All three are Python. Everything else is Markdown documentation in four languages,
-issue and pull-request templates, SVG assets, and `workflow-templates/` — files that
-are *published for other repositories to copy*, not executed here.
+Everything else is Markdown documentation in four languages, issue and pull-request
+templates, SVG assets, and `workflow-templates/` — files *published for other
+repositories to copy*, not executed here.
 
-The macOS leg earns its cost elsewhere in the family by catching GNU/BSD divergence
-in shell: `sed -i`, `awk` regex dialect, `grep` flags, `date`, `stat`, locale and
-collation behaviour. None of those surfaces exist in this repository, so a macOS leg
-here would test the Python interpreter's portability rather than ours, at the cost of
-a second runner on every pull request.
+So shell does exist, and this exception does not rest on pretending otherwise. It
+rests on two properties of that shell. First, it is **CI glue that runs only on the
+runner** — no contributor executes it on their own machine and it is not shipped to
+anyone who might, so its portability surface is whatever GitHub provisions rather
+than whatever a maintainer happens to use. Second, it uses **only constructs that do
+not diverge** between GNU and BSD: no `sed`, no `awk`, no `date`, no `stat`, no
+GNU-only flags, and no locale- or collation-sensitive comparison.
+
+A macOS leg here would therefore re-run the same three Python programs against the
+same portable glue, at the cost of a second runner on every pull request. That is the
+trade being accepted — not an absence of shell.
 
 **What would end this exception.** Any of the following, at which point the macOS leg
 should be added rather than argued about:
