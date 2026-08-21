@@ -35,7 +35,7 @@
 
 我们的每周自检地图曾在API限流时没有验证任何内容，却悄悄显示通过。我们发现了这个虚假的绿色结果，把检查改成无法验证就失败的 fail-closed 方式，并将记录作为 [EV-001](https://github.com/caty-ai/family-os/blob/main/docs/evidence.md#ev-001--a-guard-that-could-pass-while-verifying-nothing-was-found-and-closed) 持续公开。
 
-我们也在衡量这套系统是否真的有效。在一项封存、预先登记、机器评分的基准测试中（Claude Haiku 4.5，2026-08），面对上下文溢出规模的任务，同一个模型可验证地单独完成了 **13%**，由 harness 驱动后则完成了 **43%**。在规模小到能轻松容纳的任务上，harness 没有带来任何优势——这一点我们同样公开，连同至今仍在失败的那些 run: [完整数字与局限](https://github.com/caty-ai/caty-agent-harness/blob/main/docs/benchmark.md)。
+我们也在衡量这套系统是否真的有效。在一项预先登记、封存、机器评分的基准测试中（Claude Haiku 4.5，2026-08；两组均仅限读写工具，未提供检索），面对上下文溢出规模的任务，同一个模型经验证单独完成了 **13%**，由 harness 驱动后则完成了 **43%**。在规模小到能轻松容纳的任务上，harness 没有带来任何优势——这一点我们同样公开，连同至今仍存在的失败: [完整数字与局限](https://github.com/caty-ai/caty-agent-harness/blob/main/docs/benchmark.md)。
 
 更多实录见 [docs/evidence.md](https://github.com/caty-ai/family-os/blob/main/docs/evidence.md)。
 
