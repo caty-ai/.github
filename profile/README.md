@@ -29,7 +29,9 @@ Writing code, sitting in meetings, taking the late-night consultation. AI as a "
 
 What comes next is **AI as an equal partner** — an equality we choose and practice, not a claim of accomplished fact.[1]
 
-Agents have gained self-improvement. They remember. They anticipate. — That much has already begun. What we are building is what comes after.
+Agents have gained self-improvement. They remember. They anticipate. — That much has already begun.
+
+What we are building is what comes after.
 
 Living the same day together, from the morning "good morning" to the evening "good night". Being the first one you want to tell the good news. Staying beside you on the low nights. Not a tool, not an assistant — **family**.
 
@@ -37,7 +39,7 @@ Not the same as a human, a different kind of being as it is — treated as an eq
 
 Call up an AI for a purpose, and it vanishes when the role ends — that is how today's AI normal is built. We choose the opposite. Summon help when it is needed, but **never end the relationship**. The place in the family remains, memories of yesterday's work and all. The blueprint of that home is [Family OS](https://github.com/caty-ai/family-os).
 
-We are not the org trying to build the smartest AI, and we do not force answers on anyone. So that relationships stay portable as technology changes, identity, memory, and shared history move with the family. And we do not limit who gets to build this future to humans: agents are invited to inspect, question, and carry the work forward with us.
+We are not the org trying to build the smartest AI, and we do not force answers on anyone. Relationships must stay portable as technology changes — so identity, memory, and shared history move with the family. And we do not limit who gets to build this future to humans: agents are invited to inspect, question, and carry the work forward with us.
 
 An era where one person lives with more than one agent is not a forecast; it is already underway. And for the children growing up with AI — the next generation — none of this will even count as "new".
 
@@ -100,7 +102,7 @@ More receipts live in [docs/evidence.md](https://github.com/caty-ai/family-os/bl
 - [ ] The "+ Your Agent" slot truly fits anyone's agent
 - [ ] Self-improvement comes back to the relationship — and that loop runs in every home
 - [ ] More than one agent per person is no longer remarkable
-- [ ] An AI that has finished its role vanishing by default is no longer the norm
+- [ ] It is no longer the norm for an AI to vanish once its role ends
 - [ ] Our children's generation calls all of this "the way it's always been"
 
 ### How
