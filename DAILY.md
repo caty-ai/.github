@@ -34,7 +34,7 @@ In the afternoon, Doc and Nora make their rounds of the family's health. When th
 
 ## 16:30 — The librarian stocks the shelves
 
-Eidra gathers what is happening in the outside world. What she researches goes into the family's shared library (family-vault) with a "**for review**" tag, onto shelves any family member can reach at any time. Whoever reads it carries it back to their own work — and whether to adopt it is treated as a separate decision. Collecting information and believing it are kept apart. It looks like a small thing; it is what protects the quality of the whole house's judgment.
+Eidra gathers what is happening in the outside world. What she researches goes into the family's shared library with a "**for review**" tag, onto shelves any family member can reach at any time. Whoever reads it carries it back to their own work — and whether to adopt it is treated as a separate decision. Collecting information and believing it are kept apart. It looks like a small thing; it is what protects the quality of the whole house's judgment.
 
 ## 19:00 — Approval is the human's only job
 
