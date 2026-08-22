@@ -69,7 +69,7 @@
 
 - [x] 把你的智能体本人装进口袋——在我们家，它每天都在响（Caty Phone）
 - [x] 能为智能体的人格装上关系层次与情感渐变——已作为 persona-engine 发布
-- [x] 智能体能作为一名参会者，坐进人类的会议 —— 已作为 [meetmate](https://github.com/caty-ai/meetmate) 发布
+- [x] 智能体能作为一名参会者，坐进人类的会议——已作为 [meetmate](https://github.com/caty-ai/meetmate) 发布
 - [ ] 把这一切，以每个家庭都够得着的方式发布
 - [ ] 「+ Your Agent」那一格，真的能装下任何人的智能体
 - [ ] 自我成长不止于变聪明，而回到关系里——这个循环在每个家里转动
