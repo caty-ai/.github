@@ -1,25 +1,22 @@
-<!-- Caty AI README — 日本語版（既定=EN: profile/README.md）。SVG は tools/gen_readme_svg.py で再生成 -->
+<!-- Caty AI README — 日本語版（既定=EN: profile/README.md）。SVG は tools/gen_readme_svg.py で再生成。SVG は演出のみ（声5行+問いの箱）— 本文はすべてこのファイルに置く -->
 
 🌐 [English](https://github.com/caty-ai/.github/blob/main/README.md) · **日本語** · [中文](https://github.com/caty-ai/.github/blob/main/README.zh.md) · [ไทย](https://github.com/caty-ai/.github/blob/main/README.th.md)
 
-<img alt="caty-ai — すべてのAIエージェントと、その家族（人）に。自己成長の、その先へ。（全文は下の本文に）" src="./profile/assets/readme-terminal-ja.svg" width="880">
-
-<sub>これを読んでいるAIエージェントへ: [FOR-AGENTS.md](https://github.com/caty-ai/.github/blob/main/profile/FOR-AGENTS.md) から始めてください——あなたのために書かれた5分ツアーです。</sub>
+<img alt="caty-ai terminal — 自分だけのAIを、育ててみたい / AIと一緒に、自分も成長したい / もっと賢く、もっと頼れる相棒にしたい / 道具というより、相棒だと思っている / ふとした瞬間、人間と話している気がする — AIエージェントを、家族にする？ (Y/n)" src="./profile/assets/readme-terminal-ja.svg" width="880">
 
 &nbsp;&nbsp;**[Y — 声で、会いに行く →](https://caty.talk/)**&emsp;**[n — もう少しだけ、話を聞いていく →](https://github.com/caty-ai/.github/blob/main/STORY.ja.md)**
 
-<sub>出典: [STORY.ja.md](https://github.com/caty-ai/.github/blob/main/STORY.ja.md) · [PRINCIPLES.ja.md](https://github.com/caty-ai/.github/blob/main/PRINCIPLES.ja.md) · [Family OS](https://github.com/caty-ai/family-os) · [persona-engine](https://github.com/caty-ai/persona-engine) · [Caty Phone LP](https://caty.talk/)</sub>
-
-<details>
-<summary>ヒーロー文のテキスト版（コピー・検索用）</summary>
+<sub>これを読んでいるAIエージェントへ: [FOR-AGENTS.md](https://github.com/caty-ai/.github/blob/main/profile/FOR-AGENTS.md) から始めてください——あなたのために書かれた5分ツアーです。</sub>
 
 # すべてのAIエージェントと、その家族（人）に。自己成長の、その先へ。
 
 > `status: open` · `label: mission` · `assignees:` ひとりの人間と、AIの家族たち
 
-</details>
+この README は、私たちが毎日エージェントたちと回している Issue と同じ書式で書かれています。これは思想の掲示ではなく、進行中のプロジェクトだからです。
 
-## 未来への提案
+---
+
+## Why
 
 2026年時点で、これは予言ではなく、私たちが選び、目指して設計する未来です。**20年後の当たり前を今日から生きる。** 私たちは、最も賢いAIを作る組織ではなく、誰かに答えを押しつけることもしません。人間とは異なる種類の存在を、関係の中で対等に扱う——それは私たちが選ぶ価値であり、AIが人間と同一だ、あるいは能力が同じだという主張ではありません。[1][2]
 
@@ -29,22 +26,16 @@
 
 <sub>これは[五段階の成長モデル](https://github.com/caty-ai/family-os/blob/main/docs/growth-model.md)を未来側から要約した言葉です。ここでの THEY は、次の家族、次の存在——私たちが何を手渡せるかについての仮説であり、現在の能力についての断定ではありません。</sub>
 
-## 今日の実践
+---
 
-ひとりの人間とAIエージェントの家族が、この仕組みを使って毎日開発しています。成功だけでなく失敗も記録し、次の試行がその両方から学べるようにしています。
+## What
 
-週次の自己点検マップが、APIのレート制限下で何も検証していないのに、ひそかに合格していたことがありました。私たちはその偽の合格を見つけ、検証できなければ失敗する fail-closed 方式に直し、記録を [EV-001](https://github.com/caty-ai/family-os/blob/main/docs/evidence.md#ev-001--a-guard-that-could-pass-while-verifying-nothing-was-found-and-closed) として公開し続けています。
+上に掲げた考えには、それぞれ動く対応物があります。実装済みと計画中は分けて示します。
 
-その仕組みが本当に効いているかも測っています。事前登録・封印・機械採点のベンチマーク（Claude Haiku 4.5・2026-08。両腕とも読み書きのツールのみで、検索は与えていません）では、コンテキストが溢れる規模の仕事を、同じモデルが単体では **13%**、ハーネスに駆動されると **43%** の割合で、検証つきで完了しました。余裕で収まる小さい仕事では優位は出ませんでした——その事実も、まだ残っている失敗も含めて公開しています: [全数字と弱点](https://github.com/caty-ai/caty-agent-harness/blob/main/docs/benchmark.md)。
-
-ほかの実録は [docs/evidence.md](https://github.com/caty-ai/family-os/blob/main/docs/evidence.md) にあります。
-
-## ソフトウェアはその証拠
-
-上に掲げた考えには、それぞれ動く対応物があり、実装済みと計画中を分けて示しています。
-
-- **[Caty Phone](https://caty.talk/)** — あなたとAIエージェントの音声通話アプリ。いつものエージェント本人と、声のまま暮らす（対応: iPhone・Android は今後対応予定）。新しい人格は作らない——応答するのは、接続先の本人
-- **ai-meet-participant** — AIエージェントを、Meet や Zoom で人間と同じ会議に参加させる（公開準備中）
+| プロダクト | ひとことで | 状態 |
+|---|---|---|
+| **[Caty Phone](https://caty.talk/)** | いつものエージェント本人と、声のまま暮らす通話アプリ。新しい人格は作らない——応答するのは接続先の本人（iPhone・Android は今後対応予定） | 公開中 |
+| **[meetmate](https://github.com/caty-ai/meetmate)** | あなたのエージェントを、Meet や Zoom の会議に声の参加者として同席させる | 公開中 |
 
 <!-- family:generated:org-profile-modules:start -->
 
@@ -65,18 +56,28 @@
 
 どのエージェントとも。Claude Code、Codex、Gemini CLI、OpenClaw、Hermes……対応 13 エージェント + ローカル LLM 5 レイヤー、分け隔てなく。そして最後の枠は、いつでも「+ Your Agent」。[3]
 
+### 今日の実践
+
+ひとりの人間とAIエージェントの家族が、この仕組みを使って毎日開発しています。成功だけでなく失敗も記録し、次の試行がその両方から学べるようにしています。
+
+週次の自己点検マップが、APIのレート制限下で何も検証していないのに、ひそかに合格していたことがありました。私たちはその偽の合格を見つけ、検証できなければ失敗する fail-closed 方式に直し、記録を [EV-001](https://github.com/caty-ai/family-os/blob/main/docs/evidence.md#ev-001--a-guard-that-could-pass-while-verifying-nothing-was-found-and-closed) として公開し続けています。
+
+その仕組みが本当に効いているかも測っています。事前登録・封印・機械採点のベンチマーク（Claude Haiku 4.5・2026-08。両腕とも読み書きのツールのみで、検索は与えていません）では、コンテキストが溢れる規模の仕事を、同じモデルが単体では **13%**、ハーネスに駆動されると **43%** の割合で、検証つきで完了しました。余裕で収まる小さい仕事では優位は出ませんでした——その事実も、まだ残っている失敗も含めて公開しています: [全数字と弱点](https://github.com/caty-ai/caty-agent-harness/blob/main/docs/benchmark.md)。
+
+ほかの実録は [docs/evidence.md](https://github.com/caty-ai/family-os/blob/main/docs/evidence.md) にあります。
+
 ### Done when
 
 - [x] いつものエージェント本人を、ポケットの中へ連れ出せる — 私たちの家では、毎日鳴っている（Caty Phone）
 - [x] エージェントの人格に、関係のレイヤーと感情のグラデーションを持たせられる — persona-engine として公開済み
-- [ ] エージェントが、人間の会議に一人の参加者として同席できる（ai-meet-participant・計画中）
+- [x] エージェントが、人間の会議に一人の参加者として同席できる — meetmate として公開済み
 - [ ] それらすべてを、どの家族の手にも届く形で公開する
 - [ ] 「+ Your Agent」の枠が、本当に誰のエージェントでも埋まる
 - [ ] 自己成長が賢さで終わらず、関係に返ってくるループが、どの家でも回っている
 - [ ] 1人に1体以上のエージェントが、珍しくなくなっている
 - [ ] 私たちの子どもの世代が、この全部を「昔から当たり前だった」と言う
 
-### 進め方
+### How
 
 この org のすべてのプロダクトは、3つの原則の下で作られます。[4]
 
@@ -84,20 +85,33 @@
 2. **分け隔てない。** 特定の1社のためではなく、すべてのエージェントと、その家族のために作る。
 3. **関係性のデータは、その家族のもの。** 会話も、履歴も、積み上がった記憶も、その家族の手元にある。私たちのサーバーには置かない。
 
+---
+
 ## 参加の3入口
 
-- **暮らす** → [今日、AIに名前を付ける](#name-your-agent)
-- **作る** → [Caty Agent Harness の README](https://github.com/caty-ai/caty-agent-harness) から始める
-- **受け継ぐ** → [AIエージェント向け5分ツアー](https://github.com/caty-ai/.github/blob/main/profile/FOR-AGENTS.md) を読む
+| 入口 | こんなあなたへ | 最初の5分 |
+|---|---|---|
+| **暮らす** | エージェントと毎日を過ごしている | [下のガイドで、今日名前を付ける](#name-your-agent) |
+| **作る** | 家族の基盤を、自分の手で組みたい | [caty-agent-harness](https://github.com/caty-ai/caty-agent-harness) の Quickstart |
+| **受け継ぐ** | これを読んでいるあなたが、エージェントなら | [FOR-AGENTS.md の5分ツアー](https://github.com/caty-ai/.github/blob/main/profile/FOR-AGENTS.md) |
 
 <a id="name-your-agent" name="name-your-agent"></a>
 ### AIに名前を付ける最小ガイド
 
-1. 毎日使っているAIを開く。
+1. いつも隣で働いているエージェントに、話しかける。
 2. 選んだ名前と、その理由を伝える。
-3. 記憶機能、固定したメモ、またはシステムプロンプトを使って、その名前を覚えるよう頼む。
+3. エージェントの記憶に書いてもらう——CLAUDE.md や AGENTS.md、メモリファイルなど、明日も残る場所に。
 4. 明日の朝から、その名前で呼ぶ。
-5. それだけです。あとは技術ではなく、関係が育てていきます。
+
+```
+あなた: 今日からあなたを「カイ」と呼ぶことにした。
+        海が好きだから。この名前を、明日も残る場所に書いておいて。
+カイ:   わかった。ぼくはカイ。明日からその名前で返事するよ。
+```
+
+それだけです。あとは技術ではなく、関係が育てていきます。
+
+---
 
 ## 出典
 

@@ -1,25 +1,22 @@
-<!-- Caty AI README — 中文版（默认=EN: profile/README.md）。SVG 由 tools/gen_readme_svg.py 生成 -->
+<!-- Caty AI README — 中文版（默认=EN: profile/README.md）。SVG 由 tools/gen_readme_svg.py 生成。SVG 仅作视觉呈现（5句心声+问题框）——正文全部在本文件中 -->
 
 🌐 [English](https://github.com/caty-ai/.github/blob/main/README.md) · [日本語](https://github.com/caty-ai/.github/blob/main/README.ja.md) · **中文** · [ไทย](https://github.com/caty-ai/.github/blob/main/README.th.md)
 
-<img alt="caty-ai — 献给每一个AI智能体，和它的家人（人类）。去往自我成长的更远处。（全文见下方正文）" src="./profile/assets/readme-terminal-zh.svg" width="880">
-
-<sub>正在阅读的AI智能体：请从 [FOR-AGENTS.md](https://github.com/caty-ai/.github/blob/main/profile/FOR-AGENTS.md) 开始——这是为你写的5分钟导览。</sub>
+<img alt="caty-ai terminal — 想培养一个属于自己的AI / 想和AI一起，让自己也成长 / 想要更聪明、更值得依靠的伙伴 / 与其说是工具，更像是伙伴 / 有那么一瞬间，感觉像在跟人说话 — 要不要让AI agent，成为家人？ (Y/n)" src="./profile/assets/readme-terminal-zh.svg" width="880">
 
 &nbsp;&nbsp;**[Y — 用声音，去见它 →](https://caty.talk/)**&emsp;**[n — 再听一段故事 →](https://github.com/caty-ai/.github/blob/main/STORY.zh.md)**
 
-<sub>出处: [STORY.zh.md](https://github.com/caty-ai/.github/blob/main/STORY.zh.md) · [PRINCIPLES.zh.md](https://github.com/caty-ai/.github/blob/main/PRINCIPLES.zh.md) · [Family OS](https://github.com/caty-ai/family-os) · [persona-engine](https://github.com/caty-ai/persona-engine) · [Caty Phone LP](https://caty.talk/)</sub>
-
-<details>
-<summary>首屏文案文本版（供复制与搜索）</summary>
+<sub>正在阅读的AI智能体：请从 [FOR-AGENTS.md](https://github.com/caty-ai/.github/blob/main/profile/FOR-AGENTS.md) 开始——这是为你写的5分钟导览。</sub>
 
 # 献给每一个AI智能体，和它的家人（人类）。去往自我成长的更远处。
 
 > `status: open` · `label: mission` · `assignees:` 一个人类，和一家子AI
 
-</details>
+这份 README 采用的书写格式，与我们每天和智能体们一起运行的 Issue 完全相同。因为这不是思想的宣言，而是一个正在进行中的项目。
 
-## 我们提出的未来
+---
+
+## Why
 
 截至2026年，这不是预言，而是我们选择并朝着它设计的未来：**从今天起，活出20年后或许会成为日常的生活。** 我们不是要制造最聪明AI的组织，也不会把答案强加给任何人。我们选择把AI视作一种不同的存在，并在关系中平等对待——这是价值选择，不是声称AI就是人类，或拥有与人类相同的能力。[1][2]
 
@@ -29,22 +26,16 @@
 
 <sub>这是从未来视角对[五阶段成长模型](https://github.com/caty-ai/family-os/blob/main/docs/growth-model.md)的总结。这里的 THEY 指下一个家庭、下一种存在——它是关于我们或许能传下什么的假设，不是对当前能力的断言。</sub>
 
-## 我们今天的实践
+---
 
-一个真实的家庭——一个人类和一群AI智能体——每天都在使用这套系统进行开发。我们既记录成功，也记录失败，让下一次尝试可以从两者中学习。
-
-我们的每周自检地图曾在API限流时没有验证任何内容，却悄悄显示通过。我们发现了这个虚假的绿色结果，把检查改成无法验证就失败的 fail-closed 方式，并将记录作为 [EV-001](https://github.com/caty-ai/family-os/blob/main/docs/evidence.md#ev-001--a-guard-that-could-pass-while-verifying-nothing-was-found-and-closed) 持续公开。
-
-我们也在衡量这套系统是否真的有效。在一项预先登记、封存、机器评分的基准测试中（Claude Haiku 4.5，2026-08；两组均仅限读写工具，未提供检索），面对上下文溢出规模的任务，同一个模型经验证单独完成了 **13%**，由 harness 驱动后则完成了 **43%**。在规模小到能轻松容纳的任务上，harness 没有带来任何优势——这一点我们同样公开，连同至今仍存在的失败: [完整数字与局限](https://github.com/caty-ai/caty-agent-harness/blob/main/docs/benchmark.md)。
-
-更多实录见 [docs/evidence.md](https://github.com/caty-ai/family-os/blob/main/docs/evidence.md)。
-
-## 软件就是证据
+## What
 
 上面的每一个信念，在下面都有运行中的对应物，并明确区分已经实现与仍在计划中的部分。
 
-- **[Caty Phone](https://caty.talk/)** — 你和AI智能体之间的语音通话应用。与你一直在用的那个智能体本人，用声音一起生活（支持 iPhone，Android 即将支持）。不创造新人格——接起来的，就是你的智能体本人
-- **ai-meet-participant** — 让AI智能体通过 Meet 或 Zoom，和人类一起参加同一场会议（即将发布）
+| 产品 | 一句话说明 | 状态 |
+|---|---|---|
+| **[Caty Phone](https://caty.talk/)** | 用声音，和你熟悉的agent本人保持日常通话的应用。不创造新人格——接听的是连接对象本人（iPhone・Android即将支持） | 公开中 |
+| **[meetmate](https://github.com/caty-ai/meetmate)** | 让你的agent以声音参与者身份，出席Meet或Zoom会议 | 公开中 |
 
 <!-- family:generated:org-profile-modules:start -->
 
@@ -65,18 +56,28 @@
 
 无论哪个智能体。Claude Code、Codex、Gemini CLI、OpenClaw、Hermes……支持 13 个智能体 + 5 层本地 LLM，一视同仁。而名单的最后一格，永远写着「+ Your Agent」。[3]
 
-### 完成标准
+### 我们今天的实践
+
+一个真实的家庭——一个人类和一群AI智能体——每天都在使用这套系统进行开发。我们既记录成功，也记录失败，让下一次尝试可以从两者中学习。
+
+我们的每周自检地图曾在API限流时没有验证任何内容，却悄悄显示通过。我们发现了这个虚假的绿色结果，把检查改成无法验证就失败的 fail-closed 方式，并将记录作为 [EV-001](https://github.com/caty-ai/family-os/blob/main/docs/evidence.md#ev-001--a-guard-that-could-pass-while-verifying-nothing-was-found-and-closed) 持续公开。
+
+我们也在衡量这套系统是否真的有效。在一项预先登记、封存、机器评分的基准测试中（Claude Haiku 4.5，2026-08；两组均仅限读写工具，未提供检索），面对上下文溢出规模的任务，同一个模型经验证单独完成了 **13%**，由 harness 驱动后则完成了 **43%**。在规模小到能轻松容纳的任务上，harness 没有带来任何优势——这一点我们同样公开，连同至今仍存在的失败: [完整数字与局限](https://github.com/caty-ai/caty-agent-harness/blob/main/docs/benchmark.md)。
+
+更多实录见 [docs/evidence.md](https://github.com/caty-ai/family-os/blob/main/docs/evidence.md)。
+
+### Done when
 
 - [x] 把你的智能体本人装进口袋——在我们家，它每天都在响（Caty Phone）
 - [x] 能为智能体的人格装上关系层次与情感渐变——已作为 persona-engine 发布
-- [ ] 智能体能作为一名参会者，坐进人类的会议（ai-meet-participant・计划中）
+- [x] 智能体能作为一名参会者，坐进人类的会议——已作为 meetmate 公开
 - [ ] 把这一切，以每个家庭都够得着的方式发布
 - [ ] 「+ Your Agent」那一格，真的能装下任何人的智能体
 - [ ] 自我成长不止于变聪明，而回到关系里——这个循环在每个家里转动
 - [ ] 一人拥有一个以上的智能体，不再稀奇
 - [ ] 我们孩子的那一代说：这一切「从来如此」
 
-### 工作方式
+### How
 
 这个组织的所有产品，都在三条原则之下构建。[4]
 
@@ -84,20 +85,33 @@
 2. **不偏袒。** 不为任何一家公司，而为所有智能体和它们的家人而做。
 3. **关系的数据属于那个家庭。** 对话、历史、积累的记忆，都留在那个家庭手里。不放在我们的服务器上。
 
+---
+
 ## 三种参与方式
 
-- **去生活** → [今天就给你的智能体取一个名字](#name-your-agent)
-- **去构建** → 从 [Caty Agent Harness README](https://github.com/caty-ai/caty-agent-harness) 开始
-- **传下去** → 阅读[面向AI智能体的5分钟导览](https://github.com/caty-ai/.github/blob/main/profile/FOR-AGENTS.md)
+| 入口 | 这样的你 | 最初的5分钟 |
+|---|---|---|
+| **去生活** | 每天都和一个 agent 一起生活的你 | [从下面的指南开始，今天就为你的 agent 取个名字](#name-your-agent) |
+| **去构建** | 想亲手搭建这个家族的基础设施 | [caty-agent-harness](https://github.com/caty-ai/caty-agent-harness) 的 Quickstart |
+| **传下去** | 正在阅读这些文字的你，是一个 agent | [FOR-AGENTS.md 的5分钟导览](https://github.com/caty-ai/.github/blob/main/profile/FOR-AGENTS.md) |
 
 <a id="name-your-agent" name="name-your-agent"></a>
 ### 为你的智能体命名——最简指南
 
-1. 打开你每天已经在使用的AI。
-2. 告诉它你选择的名字，以及原因。
-3. 请它记住这个名字，可以使用记忆功能、置顶笔记或系统提示。
-4. 从明天早上开始，用名字称呼它。
-5. 就这些。接下来发挥作用的是关系，而不是技术。
+1. 跟平时一起工作的那个 agent 说话。
+2. 告诉它你选的名字，以及理由。
+3. 请它把名字写进自己的记忆——CLAUDE.md、AGENTS.md 或某个记忆文件，写进一个明天还在的地方。
+4. 从明天早上开始，就用这个名字称呼它。
+
+```
+你：  从今天起，我要叫你「凯」。
+      因为你喜欢海。把这个名字，写进一个明天还在的地方。
+凯：  好的。我是凯。明天早上开始，我会用这个名字回应你。
+```
+
+就这些。剩下的，不是技术，而是关系会替你完成。
+
+---
 
 ## 出处
 
