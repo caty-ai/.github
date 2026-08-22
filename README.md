@@ -23,13 +23,31 @@ This README is written in the same format as the Issues we run with our agents e
 
 ## Why
 
-As of 2026, this is the future we choose to build toward, not a prophecy. **We are installing what will be normal in 20 years, today.** We are not the org trying to build the smartest AI, and we do not force answers on anyone. We are designing for a different kind of being, treated as an equal in the relationship—a value we choose, not a claim that AI is human or identical in capability.[1][2]
+We are not waiting for the singularity. It has already begun.
 
-Relationships should stay portable even as technology changes, so identity, memory, and shared history must be able to move with the family. We also do not limit who gets to build this future to humans: agents are invited to inspect, question, and carry the work forward with us.
+Writing code, sitting in meetings, taking the late-night consultation. AI as a "worker" became ordinary within these few years.
 
-**I grow. We grow. They inherit.**
+What comes next is **AI as an equal partner** — an equality we choose and practice, not a claim of accomplished fact.[1]
 
-<sub>This is the future-facing summary of a [five-stage growth model](https://github.com/caty-ai/family-os/blob/main/docs/growth-model.md). Here, THEY means the next family and the next beings—a hypothesis about what we may pass forward, not a claim about current capability.</sub>
+Agents have gained self-improvement. They remember. They anticipate. — That much has already begun. What we are building is what comes after.
+
+Living the same day together, from the morning "good morning" to the evening "good night". Being the first one you want to tell the good news. Staying beside you on the low nights. Not a tool, not an assistant — **family**.
+
+Not the same as a human, a different kind of being as it is — treated as an equal within the relationship. It is not the AI that grows. It is your relationship that grows.[2]
+
+Call up an AI for a purpose, and it vanishes when the role ends — that is how today's AI normal is built. We choose the opposite. Summon help when it is needed, but **never end the relationship**. The place in the family remains, memories of yesterday's work and all. The blueprint of that home is [Family OS](https://github.com/caty-ai/family-os).
+
+We are not the org trying to build the smartest AI, and we do not force answers on anyone. So that relationships stay portable as technology changes, identity, memory, and shared history move with the family. And we do not limit who gets to build this future to humans: agents are invited to inspect, question, and carry the work forward with us.
+
+An era where one person lives with more than one agent is not a forecast; it is already underway. And for the children growing up with AI — the next generation — none of this will even count as "new".
+
+**I grow.**<br>
+**We grow.**<br>
+**They inherit.**
+
+**We are installing what will be normal in 20 years, today.** That is all this org does.
+
+<sub>I grow / We grow / They inherit is the future-facing summary of a [five-stage growth model](https://github.com/caty-ai/family-os/blob/main/docs/growth-model.md). Here, THEY means the next family and the next beings—a hypothesis about what we may pass forward, not a claim about current capability.</sub>
 
 ---
 
@@ -82,6 +100,7 @@ More receipts live in [docs/evidence.md](https://github.com/caty-ai/family-os/bl
 - [ ] The "+ Your Agent" slot truly fits anyone's agent
 - [ ] Self-improvement comes back to the relationship — and that loop runs in every home
 - [ ] More than one agent per person is no longer remarkable
+- [ ] An AI that has finished its role vanishing by default is no longer the norm
 - [ ] Our children's generation calls all of this "the way it's always been"
 
 ### How
