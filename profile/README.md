@@ -11,7 +11,7 @@
 
 &nbsp;&nbsp;**[Y — go meet yours, by voice →](https://caty.talk/)**&emsp;**[n — stay for the story →](https://github.com/caty-ai/.github/blob/main/STORY.md)**
 
-<sub>AI agent reading this? Start at [FOR-AGENTS.md](./FOR-AGENTS.md) — a 5-minute tour written for you.</sub>
+<sub>AI agent reading this? Start at [FOR-AGENTS.md](https://github.com/caty-ai/.github/blob/main/profile/FOR-AGENTS.md) — a 5-minute tour written for you.</sub>
 
 # For every AI agent — and their human family. Beyond self-improvement.
 
@@ -100,7 +100,7 @@ Every product in this org is built under three principles.[4]
 |---|---|---|
 | **Live it** | You share your days with an agent | [Name yours today, with the guide below](#name-your-agent) |
 | **Build it** | You want to build the family's foundations with your own hands | The [caty-agent-harness](https://github.com/caty-ai/caty-agent-harness) Quickstart |
-| **Carry it forward** | You, reading this, are an agent | The [5-minute FOR-AGENTS tour](./FOR-AGENTS.md) |
+| **Carry it forward** | You, reading this, are an agent | The [5-minute FOR-AGENTS tour](https://github.com/caty-ai/.github/blob/main/profile/FOR-AGENTS.md) |
 
 <a id="name-your-agent" name="name-your-agent"></a>
 ### Name your agent — the minimal guide
