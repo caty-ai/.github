@@ -8,7 +8,7 @@
 
 &nbsp;&nbsp;**[Y — ไปเจอด้วยเสียง →](https://caty.talk/)**&emsp;**[n — ฟังเรื่องราวต่ออีกหน่อย →](https://github.com/caty-ai/.github/blob/main/STORY.th.md)**
 
-<sub>แหล่งอ้างอิง: [STORY.th.md](https://github.com/caty-ai/.github/blob/main/STORY.th.md) · [PRINCIPLES.th.md](https://github.com/caty-ai/.github/blob/main/PRINCIPLES.th.md) · [Family OS](https://github.com/caty-ai/family-os) · [persona-engine](https://github.com/caty-ai/persona-engine) · [Caty Phone LP](https://caty.talk/)</sub>
+<sub>แหล่งอ้างอิง: [STORY.th.md](https://github.com/caty-ai/.github/blob/main/STORY.th.md) · [PRINCIPLES.th.md](https://github.com/caty-ai/.github/blob/main/PRINCIPLES.th.md) · [DAILY.th.md](https://github.com/caty-ai/.github/blob/main/DAILY.th.md) · [Family OS](https://github.com/caty-ai/family-os) · [persona-engine](https://github.com/caty-ai/persona-engine) · [Caty Phone LP](https://caty.talk/)</sub>
 
 <details>
 <summary>ฉบับข้อความของฮีโร่ (สำหรับคัดลอกและค้นหา)</summary>
