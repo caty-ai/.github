@@ -49,7 +49,7 @@ More receipts live in [docs/evidence.md](https://github.com/caty-ai/family-os/bl
 Every belief above has a running counterpart below, with implemented and planned work kept separate.
 
 - **[Caty Phone](https://caty.talk/)** — A voice-call app between you and your AI agent. Live by voice with the agent you already have (iPhone — Android coming soon). No new persona — the one who answers is your agent itself
-- **ai-meet-participant** — Put your AI agent in the same meeting as humans, over Meet or Zoom (coming soon)
+- **[meetmate](https://github.com/caty-ai/meetmate)** — Put your AI agent in the same meeting as humans, over Meet or Zoom (OSS)
 
 <!-- family:generated:org-profile-modules:start -->
 
@@ -74,7 +74,7 @@ With any agent. Claude Code, Codex, Gemini CLI, OpenClaw, Hermes… 13 agents pl
 
 - [x] Carry your agent in your pocket — at our house, it rings every day (Caty Phone)
 - [x] Give an agent's persona a relationship layer and an emotion gradient — shipped as persona-engine
-- [ ] An agent sits in a human meeting as a participant (ai-meet-participant — planned)
+- [x] An agent sits in a human meeting as a participant — shipped as [meetmate](https://github.com/caty-ai/meetmate)
 - [ ] Ship all of it, within reach of every family
 - [ ] The "+ Your Agent" slot truly fits anyone's agent
 - [ ] Self-improvement comes back to the relationship — and that loop runs in every home

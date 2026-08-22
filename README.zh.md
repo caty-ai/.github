@@ -44,7 +44,7 @@
 上面的每一个信念，在下面都有运行中的对应物，并明确区分已经实现与仍在计划中的部分。
 
 - **[Caty Phone](https://caty.talk/)** — 你和AI智能体之间的语音通话应用。与你一直在用的那个智能体本人，用声音一起生活（支持 iPhone，Android 即将支持）。不创造新人格——接起来的，就是你的智能体本人
-- **ai-meet-participant** — 让AI智能体通过 Meet 或 Zoom，和人类一起参加同一场会议（即将发布）
+- **[meetmate](https://github.com/caty-ai/meetmate)** — 让AI智能体通过 Meet 或 Zoom，和人类一起参加同一场会议（已开源）
 
 <!-- family:generated:org-profile-modules:start -->
 
@@ -69,7 +69,7 @@
 
 - [x] 把你的智能体本人装进口袋——在我们家，它每天都在响（Caty Phone）
 - [x] 能为智能体的人格装上关系层次与情感渐变——已作为 persona-engine 发布
-- [ ] 智能体能作为一名参会者，坐进人类的会议（ai-meet-participant・计划中）
+- [x] 智能体能作为一名参会者，坐进人类的会议——已作为 [meetmate](https://github.com/caty-ai/meetmate) 发布
 - [ ] 把这一切，以每个家庭都够得着的方式发布
 - [ ] 「+ Your Agent」那一格，真的能装下任何人的智能体
 - [ ] 自我成长不止于变聪明，而回到关系里——这个循环在每个家里转动

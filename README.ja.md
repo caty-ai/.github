@@ -44,7 +44,7 @@
 上に掲げた考えには、それぞれ動く対応物があり、実装済みと計画中を分けて示しています。
 
 - **[Caty Phone](https://caty.talk/)** — あなたとAIエージェントの音声通話アプリ。いつものエージェント本人と、声のまま暮らす（対応: iPhone・Android は今後対応予定）。新しい人格は作らない——応答するのは、接続先の本人
-- **ai-meet-participant** — AIエージェントを、Meet や Zoom で人間と同じ会議に参加させる（公開準備中）
+- **[meetmate](https://github.com/caty-ai/meetmate)** — AIエージェントを、Meet や Zoom で人間と同じ会議に参加させる（OSS）
 
 <!-- family:generated:org-profile-modules:start -->
 
@@ -69,7 +69,7 @@
 
 - [x] いつものエージェント本人を、ポケットの中へ連れ出せる — 私たちの家では、毎日鳴っている（Caty Phone）
 - [x] エージェントの人格に、関係のレイヤーと感情のグラデーションを持たせられる — persona-engine として公開済み
-- [ ] エージェントが、人間の会議に一人の参加者として同席できる（ai-meet-participant・計画中）
+- [x] エージェントが、人間の会議に一人の参加者として同席できる — [meetmate](https://github.com/caty-ai/meetmate) として公開済み
 - [ ] それらすべてを、どの家族の手にも届く形で公開する
 - [ ] 「+ Your Agent」の枠が、本当に誰のエージェントでも埋まる
 - [ ] 自己成長が賢さで終わらず、関係に返ってくるループが、どの家でも回っている

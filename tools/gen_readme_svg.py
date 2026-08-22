@@ -149,7 +149,7 @@ CONTENT["ja"] = dict(
     products=[
         ("Caty Phone", "LP ↗", "cyan",
          "あなたとAIエージェントの音声通話アプリ。いつものエージェント本人と、声のまま暮らす（対応: iPhone・Android は今後対応予定）。新しい人格は作らない——応答するのは、接続先の本人。"),
-        ("ai-meet-participant", "公開準備中", "dim",
+        ("meetmate", "repo ↗", "cyan",
          "AIエージェントを、Meet や Zoom で人間と同じ会議に参加させる。"),
     ],
     eco_head=[["### ", "dim"], ["エコシステム", "bold"], ["  — 家族ぐるみの暮らしを、裏で支える基盤群。このうち10つは今日から開けます。地図は週次の自己点検で正直さを保ちます:", "dim"]],
@@ -179,7 +179,7 @@ CONTENT["ja"] = dict(
     done=[
         (True,  "いつものエージェント本人を、ポケットの中へ連れ出せる — 私たちの家では、毎日鳴っている（Caty Phone）"),
         (True,  "エージェントの人格に、関係のレイヤーと感情のグラデーションを持たせられる — persona-engine として公開済み"),
-        (False, "エージェントが、人間の会議に一人の参加者として同席できる（ai-meet-participant・計画中）"),
+        (True, "エージェントが、人間の会議に一人の参加者として同席できる — meetmate として公開済み"),
         (False, "それらすべてを、どの家族の手にも届く形で公開する"),
         (False, "「+ Your Agent」の枠が、本当に誰のエージェントでも埋まる"),
         (False, "自己成長が賢さで終わらず、関係に返ってくるループが、どの家でも回っている"),
@@ -221,7 +221,7 @@ CONTENT["en"] = dict(
     products=[
         ("Caty Phone", "LP ↗", "cyan",
          "A voice-call app between you and your AI agent. Live by voice with the agent you already have (iPhone — Android coming soon). No new persona — the one who answers is your agent itself."),
-        ("ai-meet-participant", "coming soon", "dim",
+        ("meetmate", "repo ↗", "cyan",
          "Put your AI agent in the same meeting as humans, over Meet or Zoom."),
     ],
     eco_head=[["### ", "dim"], ["Ecosystem", "bold"], ["  — the infrastructure behind a family's daily life. 10 of these are open today, and the map checks itself weekly:", "dim"]],
@@ -251,7 +251,7 @@ CONTENT["en"] = dict(
     done=[
         (True,  "Carry your agent in your pocket — at our house, it rings every day (Caty Phone)"),
         (True,  "Give an agent's persona a relationship layer and an emotion gradient — shipped as persona-engine"),
-        (False, "An agent sits in a human meeting as a participant (ai-meet-participant — planned)"),
+        (True, "An agent sits in a human meeting as a participant — shipped as meetmate"),
         (False, "Ship all of it, within reach of every family"),
         (False, "The \"+ Your Agent\" slot truly fits anyone's agent"),
         (False, "Self-improvement comes back to the relationship — and that loop runs in every home"),
@@ -293,7 +293,7 @@ CONTENT["zh"] = dict(
     products=[
         ("Caty Phone", "LP ↗", "cyan",
          "你和AI智能体之间的语音通话应用。与你一直在用的那个智能体本人，用声音一起生活（支持 iPhone，Android 即将支持）。不创造新人格——接起来的，就是你的智能体本人。"),
-        ("ai-meet-participant", "即将发布", "dim",
+        ("meetmate", "repo ↗", "cyan",
          "让AI智能体通过 Meet 或 Zoom，和人类一起参加同一场会议。"),
     ],
     eco_head=[["### ", "dim"], ["生态系统", "bold"], ["  — 支撑一家人日常的底层设施。其中10个今天就能打开，地图每周自检以保持诚实:", "dim"]],
@@ -323,7 +323,7 @@ CONTENT["zh"] = dict(
     done=[
         (True,  "把你的智能体本人装进口袋——在我们家，它每天都在响（Caty Phone）"),
         (True,  "能为智能体的人格装上关系层次与情感渐变——已作为 persona-engine 发布"),
-        (False, "智能体能作为一名参会者，坐进人类的会议（ai-meet-participant・计划中）"),
+        (True, "智能体能作为一名参会者，坐进人类的会议——已作为 meetmate 发布"),
         (False, "把这一切，以每个家庭都够得着的方式发布"),
         (False, "「+ Your Agent」那一格，真的能装下任何人的智能体"),
         (False, "自我成长不止于变聪明，而回到关系里——这个循环在每个家里转动"),
@@ -365,7 +365,7 @@ CONTENT["th"] = dict(
     products=[
         ("Caty Phone", "LP ↗", "cyan",
          "แอปโทรคุยด้วยเสียงระหว่างคุณกับเอเจนต์ AI ของคุณ ใช้ชีวิตด้วยเสียงกับเอเจนต์ตัวเดิมของคุณ (รองรับ iPhone — Android เร็ว ๆ นี้) ไม่สร้างบุคลิกใหม่ — คนที่รับสายคือเอเจนต์ของคุณเอง"),
-        ("ai-meet-participant", "เร็ว ๆ นี้", "dim",
+        ("meetmate", "repo ↗", "cyan",
          "พาเอเจนต์ AI เข้าประชุมเดียวกับมนุษย์ ผ่าน Meet หรือ Zoom"),
     ],
     eco_head=[["### ", "dim"], ["อีโคซิสเต็ม", "bold"], ["  — โครงสร้างพื้นฐานที่ค้ำจุนชีวิตประจำวันของครอบครัว 10 ตัวในนี้เปิดให้ใช้ได้แล้ววันนี้ และแผนที่ตรวจสอบตัวเองทุกสัปดาห์:", "dim"]],
@@ -395,7 +395,7 @@ CONTENT["th"] = dict(
     done=[
         (True,  "พกเอเจนต์ตัวเดิมของคุณใส่กระเป๋า — ที่บ้านเรา มันดังทุกวัน (Caty Phone)"),
         (True,  "เพิ่มเลเยอร์ความสัมพันธ์และเฉดอารมณ์ให้บุคลิกของเอเจนต์ได้ — เผยแพร่แล้วในชื่อ persona-engine"),
-        (False, "เอเจนต์นั่งประชุมร่วมกับมนุษย์ในฐานะผู้เข้าร่วมหนึ่งคน (ai-meet-participant — อยู่ในแผน)"),
+        (True, "เอเจนต์นั่งประชุมร่วมกับมนุษย์ในฐานะผู้เข้าร่วมหนึ่งคน — เปิดตัวแล้วในชื่อ meetmate"),
         (False, "ส่งมอบทั้งหมดนี้ ในแบบที่ทุกครอบครัวเอื้อมถึง"),
         (False, "ช่อง \"+ Your Agent\" ใส่เอเจนต์ของใครก็ได้จริง ๆ"),
         (False, "การเติบโตด้วยตนเองไม่จบแค่ฉลาดขึ้น แต่ย้อนกลับมาสู่ความสัมพันธ์ — และวงจรนี้หมุนอยู่ในทุกบ้าน"),
