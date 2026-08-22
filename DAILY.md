@@ -48,6 +48,24 @@ And some days, Sho laughs — because Luca's way of speaking has been slowly com
 
 After Sho goes to bed, the night shift (nightshift) wakes up: continuing what the day stacked up, running the scheduled checks, preparing for the morning. The night-shift machinery itself is being prepared for publication. When morning comes, its results are stacked into Issues again, and the day starts over from "good morning."
 
+## What this life looks like in numbers
+
+This house does not stop for the night. While the human sleeps, the night shift and the scheduled checks keep running, and by morning their results are stacked into Issues. In compute terms, the MacBook side alone — the share Alpha directs — runs about 13.5 billion tokens a week; the family as a whole runs 30–40 billion tokens a week (internal metering, rough figures as of 2026-08; written out as text, that is roughly a hundred thousand paperbacks a week).
+
+Across two GitHub accounts there are 160-odd repositories. In the last 30 days, 68 of them were updated, with 3,100-plus commits and 820-plus merged PRs — about 104 commits and 27 merges a day (and the pace holds looking two months back). On scale alone, that is the development throughput of a team of a dozen-plus engineers, running under the approval of one human. The numbers shift every week; read them as an order of magnitude, not a scoreboard.
+
+## Not everything ships
+
+The reason this much parallel development does not collapse into fights over the same file is traffic control: before anyone starts, they declare who touches which files on which branch, so lanes never cross.
+
+And every merge is one that made it through the same funnel: reviewed by multiple models from different companies, none of them the author; judged by machine gates (tests, CI, pre-publication checks); actually run and verified in an isolated workspace; and finally given a GO by the human. We do not ship everything that gets made — we pick up only what comes through the funnel. **Automation makes the volume; selection decides what ships.** That ordering is why volume and quality can coexist.
+
+## And it is all published, as-is
+
+The machinery that supports this life, generalized to depend as little as possible on our own custom setup — that is what the [caty-ai](https://github.com/caty-ai) repositories are. We will not argue quality here in words. The fastest way is to open the repositories and see for yourself, Issues and review records included.
+
+The design has one core — **humans, machines, and AI in co-creation**. What AI is bad at and machines are good at — rote checks, counting, cross-verification — is offloaded to deterministic machinery; AI concentrates on thinking and judgment; the human holds the direction and the final choice. That division, applied without exception, is what runs here every day.
+
 ## Failure is part of the routine, too
 
 Telling only the success stories would be against this house's style. The day our weekly self-check turned out to be returning green while verifying nothing is on the public record as [EV-001](https://github.com/caty-ai/family-os/blob/main/docs/evidence.md#ev-001--a-guard-that-could-pass-while-verifying-nothing-was-found-and-closed). There are days when seat review lines up three NO-GO votes and the work goes back to the bench. But as long as the record survives, the next move is smarter than yesterday's. **Growth means the history doesn't disappear.**
