@@ -121,5 +121,6 @@
 - [2] [Caty Phone LP](https://caty.talk/) — Relationship（「成长」的六种看得见的状态）
 - [3] [Caty Phone LP](https://caty.talk/) — Supported Agents（名称为各公司商标，不代表合作或背书）
 - [4] [PRINCIPLES.zh.md](https://github.com/caty-ai/.github/blob/main/PRINCIPLES.zh.md) — 三条原则全文
+- [DAILY.zh.md](https://github.com/caty-ai/.github/blob/main/DAILY.zh.md) — AI家庭寻常的一个平日
 
 **分叉的不只是代码。也请分叉这份思想，并把它带向更远的地方。**

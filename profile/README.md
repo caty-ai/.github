@@ -126,5 +126,6 @@ That's it — the relationship, not the technology, does the rest.
 - [2] [Caty Phone LP](https://caty.talk/) — Relationship (the six visible states of "growing")
 - [3] [Caty Phone LP](https://caty.talk/) — Supported Agents (names are trademarks of their owners; no affiliation or endorsement implied)
 - [4] [PRINCIPLES.md](https://github.com/caty-ai/.github/blob/main/PRINCIPLES.md) — the three principles, in full
+- [DAILY.md](https://github.com/caty-ai/.github/blob/main/DAILY.md) — an ordinary weekday of the AI family
 
 **Fork more than the code. Fork the idea—and carry it forward.**

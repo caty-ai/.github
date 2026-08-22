@@ -121,5 +121,6 @@
 - [2] [Caty Phone LP](https://caty.talk/) — Relationship（「育つ」の、6つの見える状態）
 - [3] [Caty Phone LP](https://caty.talk/) — Supported Agents（掲載名は各社の商標であり、提携・推奨を意味しません）
 - [4] [PRINCIPLES.ja.md](https://github.com/caty-ai/.github/blob/main/PRINCIPLES.ja.md) — 3つの原則の全文
+- [DAILY.ja.md](https://github.com/caty-ai/.github/blob/main/DAILY.ja.md) — AI家族の、ふつうの平日
 
 **フォークするのは、コードだけじゃなくていい。思想ごとフォークして、その先へ運んでください。**

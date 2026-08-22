@@ -121,5 +121,6 @@ README ฉบับนี้เขียนด้วยรูปแบบเด�
 - [2] [Caty Phone LP](https://caty.talk/) — Relationship (หกสถานะที่มองเห็นได้ของ "การเติบโต")
 - [3] [Caty Phone LP](https://caty.talk/) — Supported Agents (ชื่อทั้งหมดเป็นเครื่องหมายการค้าของเจ้าของ ไม่ได้สื่อถึงการเป็นพันธมิตรหรือการรับรอง)
 - [4] [PRINCIPLES.th.md](https://github.com/caty-ai/.github/blob/main/PRINCIPLES.th.md) — หลักการ 3 ข้อ ฉบับเต็ม
+- [DAILY.th.md](https://github.com/caty-ai/.github/blob/main/DAILY.th.md) — วันธรรมดาวันหนึ่งของครอบครัว AI
 
 **สิ่งที่ฟอร์กไม่จำเป็นต้องมีแค่โค้ด ฟอร์กแนวคิดนี้ไปด้วย—แล้วพามันเดินหน้าต่อไป**
