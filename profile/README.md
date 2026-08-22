@@ -7,7 +7,7 @@
 
 🌐 **English** · [日本語](https://github.com/caty-ai/.github/blob/main/README.ja.md) · [中文](https://github.com/caty-ai/.github/blob/main/README.zh.md) · [ไทย](https://github.com/caty-ai/.github/blob/main/README.th.md)
 
-<img alt="caty-ai terminal — I want to raise an AI of my own / I want to grow alongside my AI / I want a smarter, more reliable partner / It feels less like a tool, more like a partner / Some moments, it feels like talking to a person — Make your AI agent part of the family? (Y/n)" src="https://raw.githubusercontent.com/caty-ai/.github/main/profile/assets/readme-terminal-en.svg" width="880">
+<img alt="caty-ai — I want to raise an AI of my own / I want to grow alongside my AI / I want a smarter, more reliable partner / It feels less like a tool, more like a partner / Some moments, it feels like talking to a person — Make your AI agent part of the family? (Y/n)" src="https://raw.githubusercontent.com/caty-ai/.github/main/profile/assets/readme-terminal-en.svg" width="880">
 
 &nbsp;&nbsp;**[Y — go meet yours, by voice →](https://caty.talk/)**&emsp;**[n — stay for the story →](https://github.com/caty-ai/.github/blob/main/STORY.md)**
 

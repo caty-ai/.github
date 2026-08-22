@@ -24,9 +24,9 @@ PAD = 28
 MAXW = W - PAD * 2  # 824
 
 C = {
-    "bg": "#0d1117", "chrome": "#161b22", "border": "#30363d", "rule": "#3d444d",
+    "bg": "#0d1117", "chrome": "#161b22", "border": "#30363d",
     "normal": "#c9d1d9", "bold": "#f0f6fc", "dim": "#8b949e", "green": "#7ee787",
-    "cyan": "#56d4dd", "orange": "#d97757", "boxline": "#565f68",
+    "boxline": "#565f68",
 }
 BASE_FONT = "SF Mono, Menlo, Monaco, 'Courier New'"
 

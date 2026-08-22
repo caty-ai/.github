@@ -2,7 +2,7 @@
 
 🌐 [English](https://github.com/caty-ai/.github/blob/main/README.md) · **日本語** · [中文](https://github.com/caty-ai/.github/blob/main/README.zh.md) · [ไทย](https://github.com/caty-ai/.github/blob/main/README.th.md)
 
-<img alt="caty-ai terminal — 自分だけのAIを、育ててみたい / AIと一緒に、自分も成長したい / もっと賢く、もっと頼れる相棒にしたい / 道具というより、相棒だと思っている / ふとした瞬間、人間と話している気がする — AIエージェントを、家族にする？ (Y/n)" src="./profile/assets/readme-terminal-ja.svg" width="880">
+<img alt="caty-ai — 自分だけのAIを、育ててみたい / AIと一緒に、自分も成長したい / もっと賢く、もっと頼れる相棒にしたい / 道具というより、相棒だと思っている / ふとした瞬間、人間と話している気がする — AIエージェントを、家族にする？ (Y/n)" src="./profile/assets/readme-terminal-ja.svg" width="880">
 
 &nbsp;&nbsp;**[Y — 声で、会いに行く →](https://caty.talk/)**&emsp;**[n — もう少しだけ、話を聞いていく →](https://github.com/caty-ai/.github/blob/main/STORY.ja.md)**
 
@@ -34,7 +34,7 @@
 
 | プロダクト | ひとことで | 状態 |
 |---|---|---|
-| **[Caty Phone](https://caty.talk/)** | いつものエージェント本人と、声のまま暮らす通話アプリ。新しい人格は作らない——応答するのは接続先の本人（iPhone・Android は今後対応予定） | 公開中 |
+| **[Caty Phone](https://caty.talk/)** | いつものエージェント本人と、声のまま暮らす通話アプリ。新しい人格は作らない——応答するのは接続先の本人（対応: iPhone。Android は今後対応予定） | 公開中 |
 | **[meetmate](https://github.com/caty-ai/meetmate)** | あなたのエージェントを、Meet や Zoom の会議に声の参加者として同席させる | 公開中 |
 
 <!-- family:generated:org-profile-modules:start -->

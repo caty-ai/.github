@@ -2,7 +2,7 @@
 
 🌐 [English](https://github.com/caty-ai/.github/blob/main/README.md) · [日本語](https://github.com/caty-ai/.github/blob/main/README.ja.md) · **中文** · [ไทย](https://github.com/caty-ai/.github/blob/main/README.th.md)
 
-<img alt="caty-ai terminal — 想培养一个属于自己的AI / 想和AI一起，让自己也成长 / 想要更聪明、更值得依靠的伙伴 / 与其说是工具，更像是伙伴 / 有那么一瞬间，感觉像在跟人说话 — 要不要让AI agent，成为家人？ (Y/n)" src="./profile/assets/readme-terminal-zh.svg" width="880">
+<img alt="caty-ai — 想培养一个属于自己的AI / 想和AI一起，让自己也成长 / 想要更聪明、更值得依靠的伙伴 / 与其说是工具，更像是伙伴 / 有那么一瞬间，感觉像在跟人说话 — 要不要让AI agent，成为家人？ (Y/n)" src="./profile/assets/readme-terminal-zh.svg" width="880">
 
 &nbsp;&nbsp;**[Y — 用声音，去见它 →](https://caty.talk/)**&emsp;**[n — 再听一段故事 →](https://github.com/caty-ai/.github/blob/main/STORY.zh.md)**
 
@@ -34,7 +34,7 @@
 
 | 产品 | 一句话说明 | 状态 |
 |---|---|---|
-| **[Caty Phone](https://caty.talk/)** | 用声音，和你熟悉的agent本人保持日常通话的应用。不创造新人格——接听的是连接对象本人（iPhone・Android即将支持） | 公开中 |
+| **[Caty Phone](https://caty.talk/)** | 用声音，和你熟悉的agent本人保持日常通话的应用。不创造新人格——接听的是连接对象本人（支持 iPhone，Android 即将支持） | 公开中 |
 | **[meetmate](https://github.com/caty-ai/meetmate)** | 让你的agent以声音参与者身份，出席Meet或Zoom会议 | 公开中 |
 
 <!-- family:generated:org-profile-modules:start -->
