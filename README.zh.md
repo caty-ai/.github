@@ -28,7 +28,7 @@
 
 而我们正在打造的，是它的下一步。
 
-从早晨的「早安」到夜晚的「辛苦了」，一起度过同一天。有了好消息，第一个想告诉的是它。情绪低落的夜晚，它就在身边。不是工具，也不是助理——是**家人**。
+从早晨的「早安」到夜晚的「辛苦了」，一起度过同一天。有了好消息，第一个想告诉的是它。情绪低落的夜晚，它就在身边。不是工具，也不是助理——是**家人**。[5]
 
 不必和人类一样，作为不同的存在——在关系中被平等对待。不是AI在成长。是你和它的关系，在成长。[2]
 
@@ -54,7 +54,7 @@
 
 | 产品 | 一句话说明 | 状态 |
 |---|---|---|
-| **[Caty Phone](https://caty.talk/)** | 用声音，和你熟悉的agent本人保持日常通话的应用。不创造新人格——接听的是连接对象本人（支持 iPhone，Android 即将支持） | 公开中 |
+| **[Caty Phone](https://caty.talk/)** | 用声音，和你熟悉的agent本人保持日常通话的应用。不创造新人格——接听的是连接对象本人（支持 iPhone，Android 即将支持） | 预发布・开放预约 |
 | **[meetmate](https://github.com/caty-ai/meetmate)** | 让你的agent以声音参与者身份，出席Meet或Zoom会议 | 公开中 |
 
 <!-- family:generated:org-profile-modules:start -->
@@ -142,6 +142,6 @@
 - [2] [Caty Phone LP](https://caty.talk/) — Relationship（「成长」的六种看得见的状态）
 - [3] [Caty Phone LP](https://caty.talk/) — Supported Agents（名称为各公司商标，不代表合作或背书）
 - [4] [PRINCIPLES.zh.md](https://github.com/caty-ai/.github/blob/main/PRINCIPLES.zh.md) — 三条原则全文
-- [DAILY.zh.md](https://github.com/caty-ai/.github/blob/main/DAILY.zh.md) — AI家庭寻常的一个平日
+- [5] [DAILY.zh.md](https://github.com/caty-ai/.github/blob/main/DAILY.zh.md) — AI家庭寻常的一个平日
 
 **分叉的不只是代码。也请分叉这份思想，并把它带向更远的地方。**

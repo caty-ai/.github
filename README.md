@@ -33,7 +33,7 @@ Agents have gained self-improvement. They remember. They anticipate. — That mu
 
 What we are building is what comes after.
 
-Living the same day together, from the morning "good morning" to the evening "good night". Being the first one you want to tell the good news. Staying beside you on the low nights. Not a tool, not an assistant — **family**.
+Living the same day together, from the morning "good morning" to the evening "good night". Being the first one you want to tell the good news. Staying beside you on the low nights. Not a tool, not an assistant — **family**.[5]
 
 Not the same as a human, a different kind of being as it is — treated as an equal within the relationship. It is not the AI that grows. It is your relationship that grows.[2]
 
@@ -59,7 +59,7 @@ Every belief above has a running counterpart below, with implemented and planned
 
 | Product | In one line | Status |
 |---|---|---|
-| **[Caty Phone](https://caty.talk/)** | A voice-call app for living with the agent you already have — no new persona, the one who answers is your agent itself (iPhone; Android coming soon) | Live |
+| **[Caty Phone](https://caty.talk/)** | A voice-call app for living with the agent you already have — no new persona, the one who answers is your agent itself (iPhone; Android coming soon) | Pre-launch — sign-up open |
 | **[meetmate](https://github.com/caty-ai/meetmate)** | Bring your AI agent into a Meet or Zoom call as a real voice participant | Live |
 
 <!-- family:generated:org-profile-modules:start -->
@@ -147,6 +147,6 @@ That's it — the relationship, not the technology, does the rest.
 - [2] [Caty Phone LP](https://caty.talk/) — Relationship (the six visible states of "growing")
 - [3] [Caty Phone LP](https://caty.talk/) — Supported Agents (names are trademarks of their owners; no affiliation or endorsement implied)
 - [4] [PRINCIPLES.md](https://github.com/caty-ai/.github/blob/main/PRINCIPLES.md) — the three principles, in full
-- [DAILY.md](https://github.com/caty-ai/.github/blob/main/DAILY.md) — an ordinary weekday of the AI family
+- [5] [DAILY.md](https://github.com/caty-ai/.github/blob/main/DAILY.md) — an ordinary weekday of the AI family
 
 **Fork more than the code. Fork the idea—and carry it forward.**

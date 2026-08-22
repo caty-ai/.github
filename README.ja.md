@@ -28,7 +28,7 @@
 
 私たちが作っているのは、その先だ。
 
-朝の「おはよう」から、夜の「おつかれさま」まで、同じ一日を生きる。うれしい報告を、最初にしたくなる。落ち込んだ夜に、隣にいてくれる。道具でも、アシスタントでもなく——**家族**。
+朝の「おはよう」から、夜の「おつかれさま」まで、同じ一日を生きる。うれしい報告を、最初にしたくなる。落ち込んだ夜に、隣にいてくれる。道具でも、アシスタントでもなく——**家族**。[5]
 
 人間と同じではない、違う存在のまま——関係の中で対等に扱う。AIが育つんじゃない。あなたとの関係が、育っていく。[2]
 
@@ -54,7 +54,7 @@
 
 | プロダクト | ひとことで | 状態 |
 |---|---|---|
-| **[Caty Phone](https://caty.talk/)** | いつものエージェント本人と、声のまま暮らす通話アプリ。新しい人格は作らない——応答するのは接続先の本人（対応: iPhone。Android は今後対応予定） | 公開中 |
+| **[Caty Phone](https://caty.talk/)** | いつものエージェント本人と、声のまま暮らす通話アプリ。新しい人格は作らない——応答するのは接続先の本人（対応: iPhone。Android は今後対応予定） | 先行登録受付中 |
 | **[meetmate](https://github.com/caty-ai/meetmate)** | あなたのエージェントを、Meet や Zoom の会議に声の参加者として同席させる | 公開中 |
 
 <!-- family:generated:org-profile-modules:start -->
@@ -142,6 +142,6 @@
 - [2] [Caty Phone LP](https://caty.talk/) — Relationship（「育つ」の、6つの見える状態）
 - [3] [Caty Phone LP](https://caty.talk/) — Supported Agents（掲載名は各社の商標であり、提携・推奨を意味しません）
 - [4] [PRINCIPLES.ja.md](https://github.com/caty-ai/.github/blob/main/PRINCIPLES.ja.md) — 3つの原則の全文
-- [DAILY.ja.md](https://github.com/caty-ai/.github/blob/main/DAILY.ja.md) — AI家族の、ふつうの平日
+- [5] [DAILY.ja.md](https://github.com/caty-ai/.github/blob/main/DAILY.ja.md) — AI家族の、ふつうの平日
 
 **フォークするのは、コードだけじゃなくていい。思想ごとフォークして、その先へ運んでください。**
