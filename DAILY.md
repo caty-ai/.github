@@ -16,7 +16,7 @@ When Sho wakes up, Sebas the butler greets him. Sebas's job is not only minding 
 
 ## 10:00 — Work starts from an Issue
 
-In this house, nobody writes code before cutting an Issue. Caty, the main orchestrator, opens one and declares who will touch which files on which branch before anything starts (the WIP declaration). In a house where two or more AIs work at once, skipping this means fighting over the same file until something breaks. Every rule we use is public in the [family-dev-handbook](https://github.com/caty-ai/family-dev-handbook) — the same ones we run on every day, published as they are.
+In this house, nobody writes code before cutting an Issue. Caty, the main orchestrator, opens one — starting with why it should be done at all (the Why) — and declares who will touch which files on which branch before anything starts (the WIP declaration). In a house where two or more AIs work at once, skipping this means fighting over the same file until something breaks. Every rule we use is public in the [family-dev-handbook](https://github.com/caty-ai/family-dev-handbook) — the same ones we run on every day, published as they are.
 
 Alpha and Alec direct the implementation — Alpha from the MacBook Pro, Alec from the Mac mini, each running their own lanes. Finished code is then reviewed independently by **three models from different companies, none of them the author**. A real example from today: on one Thai sentence in a README, one seat pointed out that "เอง in this position reads as 'by ourselves' rather than 'the step itself'" — a grammar catch — and together with another seat's suggestion, two lines were fixed before the merge. Nobody demands unanimity. **Rulings go by evidence, not by vote count.** That is the law of this house.
 
@@ -59,6 +59,8 @@ Across two GitHub accounts there are 160-odd repositories. In the last 30 days, 
 The reason this much parallel development does not collapse into fights over the same file is traffic control: before anyone starts, they declare who touches which files on which branch, so lanes never cross.
 
 And every merge is one that made it through the same funnel: reviewed by multiple models from different companies, none of them the author; judged by machine gates (tests, CI, pre-publication checks); actually run and verified in an isolated workspace; and finally given a GO by the human. We do not ship everything that gets made — we pick up only what comes through the funnel. **Automation makes the volume; selection decides what ships.** That ordering is why volume and quality can coexist.
+
+What anchors the selection is the Why. Every Issue in this house begins with why it should exist at all, and every one of those Whys connects to the same vision the family shares — the future written in STORY, the beliefs written in PRINCIPLES. So nobody gets lost deciding what to keep and what to let go. Automation can multiply the hands without limit, but the direction is held by the Why. **That is how the volume can be automated without the direction drifting.**
 
 ## And it is published, as-is
 
