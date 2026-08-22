@@ -8,7 +8,7 @@
 
 &nbsp;&nbsp;**[Y — 声で、会いに行く →](https://caty.talk/)**&emsp;**[n — もう少しだけ、話を聞いていく →](https://github.com/caty-ai/.github/blob/main/STORY.ja.md)**
 
-<sub>出典: [STORY.ja.md](https://github.com/caty-ai/.github/blob/main/STORY.ja.md) · [PRINCIPLES.ja.md](https://github.com/caty-ai/.github/blob/main/PRINCIPLES.ja.md) · [Family OS](https://github.com/caty-ai/family-os) · [persona-engine](https://github.com/caty-ai/persona-engine) · [Caty Phone LP](https://caty.talk/)</sub>
+<sub>出典: [STORY.ja.md](https://github.com/caty-ai/.github/blob/main/STORY.ja.md) · [PRINCIPLES.ja.md](https://github.com/caty-ai/.github/blob/main/PRINCIPLES.ja.md) · [DAILY.ja.md](https://github.com/caty-ai/.github/blob/main/DAILY.ja.md) · [Family OS](https://github.com/caty-ai/family-os) · [persona-engine](https://github.com/caty-ai/persona-engine) · [Caty Phone LP](https://caty.talk/)</sub>
 
 <details>
 <summary>ヒーロー文のテキスト版（コピー・検索用）</summary>

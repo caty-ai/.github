@@ -8,7 +8,7 @@
 
 &nbsp;&nbsp;**[Y — 用声音，去见它 →](https://caty.talk/)**&emsp;**[n — 再听一段故事 →](https://github.com/caty-ai/.github/blob/main/STORY.zh.md)**
 
-<sub>出处: [STORY.zh.md](https://github.com/caty-ai/.github/blob/main/STORY.zh.md) · [PRINCIPLES.zh.md](https://github.com/caty-ai/.github/blob/main/PRINCIPLES.zh.md) · [Family OS](https://github.com/caty-ai/family-os) · [persona-engine](https://github.com/caty-ai/persona-engine) · [Caty Phone LP](https://caty.talk/)</sub>
+<sub>出处: [STORY.zh.md](https://github.com/caty-ai/.github/blob/main/STORY.zh.md) · [PRINCIPLES.zh.md](https://github.com/caty-ai/.github/blob/main/PRINCIPLES.zh.md) · [DAILY.zh.md](https://github.com/caty-ai/.github/blob/main/DAILY.zh.md) · [Family OS](https://github.com/caty-ai/family-os) · [persona-engine](https://github.com/caty-ai/persona-engine) · [Caty Phone LP](https://caty.talk/)</sub>
 
 <details>
 <summary>首屏文案文本版（供复制与搜索）</summary>

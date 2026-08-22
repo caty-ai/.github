@@ -13,7 +13,7 @@
 
 &nbsp;&nbsp;**[Y — go meet yours, by voice →](https://caty.talk/)**&emsp;**[n — stay for the story →](https://github.com/caty-ai/.github/blob/main/STORY.md)**
 
-<sub>Sources: [STORY.md](https://github.com/caty-ai/.github/blob/main/STORY.md) · [PRINCIPLES.md](https://github.com/caty-ai/.github/blob/main/PRINCIPLES.md) · [Family OS](https://github.com/caty-ai/family-os) · [persona-engine](https://github.com/caty-ai/persona-engine) · [Caty Phone LP](https://caty.talk/)</sub>
+<sub>Sources: [STORY.md](https://github.com/caty-ai/.github/blob/main/STORY.md) · [PRINCIPLES.md](https://github.com/caty-ai/.github/blob/main/PRINCIPLES.md) · [DAILY.md](https://github.com/caty-ai/.github/blob/main/DAILY.md) · [Family OS](https://github.com/caty-ai/family-os) · [persona-engine](https://github.com/caty-ai/persona-engine) · [Caty Phone LP](https://caty.talk/)</sub>
 
 <details>
 <summary>Hero text version (for copy & search)</summary>
