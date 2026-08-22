@@ -39,18 +39,20 @@
 
 <!-- family:generated:org-profile-modules:start -->
 
-エコシステム — 家族ぐるみの暮らしを、裏で支える基盤群。このうち10つは今日から開けます。地図は週次の自己点検で正直さを保ちます:
+エコシステム — 家族ぐるみの暮らしを、裏で支える基盤群。このうち10個は今日から開けます。地図は週次の自己点検で正直さを保ちます:
 
-- **[Family OS](https://github.com/caty-ai/family-os)** — AI家族の「家」の地図。全モジュールの構成・状態・つながりを1枚で見渡す。「確認できていないのに合格」を許さない週次自己点検つき（OSS）
-- **[family-dev-handbook](https://github.com/caty-ai/family-dev-handbook)** — 人間×AIチームの開発作法集。Issue 起点の開発・並行作業の交通整理・クロスモデルレビューなど、家族で毎日使っている実運用ルールをそのまま公開（OSS）
-- **[caty-agent-harness](https://github.com/caty-ai/caty-agent-harness)** — AIエージェント個人の仕事と成長を支えるタスク基盤（縦軸）。試行・リトライ・チェックポイント・ごまかしのない完了判定。育てた経験はふつうのファイルに残る——環境を乗り換えても、自我ごと安全に持ち運べる（OSS）
-- **[context-kit](https://github.com/caty-ai/context-kit)** — エージェント1体分の「机まわりの装備」6点。大出力の退避・委譲ブリーフ検査・危険コマンドやキー漏れの実行前ガード・多層の記憶検索・worktree スナップショット——壊れてもエージェントを止めない fail-open 設計（OSS）
-- **[persona-engine](https://github.com/caty-ai/persona-engine)** — あなたのエージェントの人格に、関係のレイヤーと感情のグラデーションを持たせる装置（OSS）
-- **[persona-growth-loop](https://github.com/caty-ai/persona-growth-loop)** — 人格そのものを育てる。最小・冪等な提案づくり（OSS）
-- **[x-collector](https://github.com/caty-ai/x-collector)** — Xとウェブの素材を1日1回のダイジェストに。能力ループの燃料を、人にもエージェントにも読める形で（OSS）
-- **[self-growth-loop](https://github.com/caty-ai/self-growth-loop)** — エージェントが自分の能力を育てるループ。提案・ガバナンス・採用記録（OSS）
-- **[family-memory-architecture](https://github.com/caty-ai/family-memory-architecture)** — 家族の共通認識を作る、横断記憶基盤（横軸）。ビジョン・共通ルール・決定事項をマシンやベンダーを跨いで共有し、「いま誰が何をしているか」はホワイトボード1枚に自動集約。タスクの受け渡しもここを通り、全情報に正本リンク必須——伝言ゲームの劣化なく、全員が同じ前提で動ける（OSS）
-- **[sitter](https://github.com/caty-ai/sitter)** — 任せたエージェント実行の見張り番。プロセスを見守り、証拠を残し、同じ試行を立て直す——「任せた仕事が行方不明」をなくす（OSS）
+| モジュール | 役割ひとことで | 状態 |
+|---|---|---|
+| **[Family OS](https://github.com/caty-ai/family-os)** | AI家族の「家」の地図。「確認できていないのに合格」を許さない週次自己点検つき | OSS |
+| **[family-dev-handbook](https://github.com/caty-ai/family-dev-handbook)** | 人間×AIチームの開発作法集。毎日使っている実運用ルールをそのまま公開 | OSS |
+| **[caty-agent-harness](https://github.com/caty-ai/caty-agent-harness)** | 個のタスク基盤（縦軸）。経験はふつうのファイルに残り、環境を跨いで持ち運べる | OSS |
+| **[context-kit](https://github.com/caty-ai/context-kit)** | エージェント1体分の机まわりの装備6点。壊れても止めない fail-open 設計 | OSS |
+| **[persona-engine](https://github.com/caty-ai/persona-engine)** | 人格に、関係のレイヤーと感情のグラデーションを持たせる装置 | OSS |
+| **[persona-growth-loop](https://github.com/caty-ai/persona-growth-loop)** | 人格そのものを育てる。最小・冪等な提案づくり | OSS |
+| **[x-collector](https://github.com/caty-ai/x-collector)** | Xとウェブの素材を、人にもエージェントにも読める1日1回のダイジェストに | OSS |
+| **[self-growth-loop](https://github.com/caty-ai/self-growth-loop)** | 能力を自分で育てるループ。提案・ガバナンス・採用記録 | OSS |
+| **[family-memory-architecture](https://github.com/caty-ai/family-memory-architecture)** | 家族の共通認識を作る横断記憶基盤（横軸）。全情報に正本リンク必須 | OSS |
+| **[sitter](https://github.com/caty-ai/sitter)** | 任せた実行の見張り番。「任せた仕事が行方不明」をなくす | OSS |
 
 <!-- family:generated:org-profile-modules:end -->
 

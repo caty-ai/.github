@@ -46,16 +46,18 @@ Every belief above has a running counterpart below, with implemented and planned
 
 Ecosystem — the infrastructure behind a family's daily life. 10 of these are open today, and the map checks itself weekly:
 
-- **[Family OS](https://github.com/caty-ai/family-os)** — The map of the AI family's "home": every module, its state, and how they fit together — kept honest by a weekly self-check that refuses to pass while verifying nothing (OSS)
-- **[family-dev-handbook](https://github.com/caty-ai/family-dev-handbook)** — The playbook for human-and-AI teams. Issue-first development, traffic rules for parallel work, cross-model reviews — the same rules our family uses every day, published as is (OSS)
-- **[caty-agent-harness](https://github.com/caty-ai/caty-agent-harness)** — The task backbone that drives an individual agent's work and growth (the vertical axis): attempts, retries, checkpoints, honest completion — and every learned experience in plain files, so the self travels safely across environments (OSS)
-- **[context-kit](https://github.com/caty-ai/context-kit)** — Six pieces of desk equipment for one agent: bounded tool output, delegation-brief checks, guards against destructive commands and credential leaks, multi-layer memory recall, worktree snapshots — fail-open by design, so the kit never takes the agent down (OSS)
-- **[persona-engine](https://github.com/caty-ai/persona-engine)** — A device that gives your agent's persona a layer of relationship and a gradient of emotion (OSS)
-- **[persona-growth-loop](https://github.com/caty-ai/persona-growth-loop)** — Grows the persona itself: minimised, idempotent proposals (OSS)
-- **[x-collector](https://github.com/caty-ai/x-collector)** — Turns X and the web into one daily digest — fuel for the ability loop, readable by people and agents alike (OSS)
-- **[self-growth-loop](https://github.com/caty-ai/self-growth-loop)** — Lets an agent grow its own abilities: proposals, governance, adoption records (OSS)
-- **[family-memory-architecture](https://github.com/caty-ai/family-memory-architecture)** — The shared-awareness backbone of the family (the horizontal axis). Vision, rules, and decisions are shared across machines and vendors; "who is doing what right now" is auto-collected onto a single whiteboard; task handoffs flow through it, and every entry must link to its source — no hearsay drift, everyone acts on the same premises (OSS)
-- **[sitter](https://github.com/caty-ai/sitter)** — The babysitter for delegated agent runs: watches the process, keeps the evidence, restarts the same attempt — so "I delegated it" never becomes "it vanished" (OSS)
+| Module | In one line | Status |
+|---|---|---|
+| **[Family OS](https://github.com/caty-ai/family-os)** | The map of the AI family's home, with a weekly self-check that refuses false passes | OSS |
+| **[family-dev-handbook](https://github.com/caty-ai/family-dev-handbook)** | The playbook for human-and-AI teams — the rules we use daily, published as is | OSS |
+| **[caty-agent-harness](https://github.com/caty-ai/caty-agent-harness)** | Per-agent task backbone (vertical axis); experience lives in plain files and travels across environments | OSS |
+| **[context-kit](https://github.com/caty-ai/context-kit)** | Six pieces of desk equipment for one agent — fail-open, never takes the agent down | OSS |
+| **[persona-engine](https://github.com/caty-ai/persona-engine)** | A relationship layer and an emotion gradient for your agent's persona | OSS |
+| **[persona-growth-loop](https://github.com/caty-ai/persona-growth-loop)** | Grows the persona itself through minimal, idempotent proposals | OSS |
+| **[x-collector](https://github.com/caty-ai/x-collector)** | X and the web, distilled into one daily digest readable by people and agents | OSS |
+| **[self-growth-loop](https://github.com/caty-ai/self-growth-loop)** | An agent growing its own abilities — proposals, governance, adoption records | OSS |
+| **[family-memory-architecture](https://github.com/caty-ai/family-memory-architecture)** | The family's shared-awareness backbone (horizontal axis); every entry links its source | OSS |
+| **[sitter](https://github.com/caty-ai/sitter)** | The babysitter for delegated runs — "I delegated it" never becomes "it vanished" | OSS |
 
 <!-- family:generated:org-profile-modules:end -->
 

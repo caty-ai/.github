@@ -41,16 +41,18 @@
 
 生态系统 — 支撑一家人日常的底层设施。其中10个今天就能打开，地图每周自检以保持诚实:
 
-- **[Family OS](https://github.com/caty-ai/family-os)** — AI家庭这座「家」的地图。全部模块的构成、状态与关联，一页看尽——配有「未经验证不得通过」的每周自检（OSS）
-- **[family-dev-handbook](https://github.com/caty-ai/family-dev-handbook)** — 人类×AI团队的开发手册。Issue 驱动开发、并行作业的交通规则、跨模型互审——把我们家每天在用的实战规则，原样公开（OSS）
-- **[caty-agent-harness](https://github.com/caty-ai/caty-agent-harness)** — 支撑智能体个体工作与成长的任务基座（纵轴）。尝试、重试、检查点、不掺假的完成判定；养成的经验都留在普通文件里——换了环境，自我也能安全随行（OSS）
-- **[context-kit](https://github.com/caty-ai/context-kit)** — 面向单个智能体的六件桌面装备：限定工具输出、委托说明校验、防止破坏性命令与凭证泄露的防护、多层记忆召回、worktree 快照——默认 fail-open 设计，所以这套装备永远不会把智能体一起拖垮（OSS）
-- **[persona-engine](https://github.com/caty-ai/persona-engine)** — 为你的智能体的人格，装上关系的层次与情感的渐变的装置（OSS）
-- **[persona-growth-loop](https://github.com/caty-ai/persona-growth-loop)** — 让人格本身成长：以最小且幂等的提案（OSS）
-- **[x-collector](https://github.com/caty-ai/x-collector)** — 把 X 与网络素材汇成每日一份摘要——能力循环的燃料，人和智能体都能读（OSS）
-- **[self-growth-loop](https://github.com/caty-ai/self-growth-loop)** — 让智能体自我成长的循环：提案、治理与采用记录（OSS）
-- **[family-memory-architecture](https://github.com/caty-ai/family-memory-architecture)** — 构建全家共识的横向记忆基座（横轴）。愿景、规则、决定跨机器跨厂商共享；「现在谁在做什么」自动汇总到一块白板上；任务交接也经由这里流转，所有信息必须附上正本链接——没有传话游戏的失真，所有人基于同一前提行动（OSS）
-- **[sitter](https://github.com/caty-ai/sitter)** — 替你盯着委派出去的智能体：看守进程、留下证据、原样重启同一次尝试——让「我交出去了」不再变成「它不见了」（OSS）
+| 模块 | 一句话说明角色 | 状态 |
+|---|---|---|
+| **[Family OS](https://github.com/caty-ai/family-os)** | AI家庭「家」的地图。附带每周自检，不允许「没确认就算通过」 | OSS |
+| **[family-dev-handbook](https://github.com/caty-ai/family-dev-handbook)** | 人类×AI团队的开发规范集，原样公开我们每天实际使用的运营规则 | OSS |
+| **[caty-agent-harness](https://github.com/caty-ai/caty-agent-harness)** | 单个agent的任务基础设施（纵轴）。经验以普通文件保存，可跨环境携带 | OSS |
+| **[context-kit](https://github.com/caty-ai/context-kit)** | 1个agent专属的6件桌面装备，采用「即使损坏也不停止」的fail-open设计 | OSS |
+| **[persona-engine](https://github.com/caty-ai/persona-engine)** | 为人格赋予关系层次与情感渐变的装置 | OSS |
+| **[persona-growth-loop](https://github.com/caty-ai/persona-growth-loop)** | 培育人格本身。打造最小化、幂等的提案 | OSS |
+| **[x-collector](https://github.com/caty-ai/x-collector)** | 把X和网页素材，整理成人类与agent都能读的每日一次摘要 | OSS |
+| **[self-growth-loop](https://github.com/caty-ai/self-growth-loop)** | 自主培育能力的循环。含提案、治理与采纳记录 | OSS |
+| **[family-memory-architecture](https://github.com/caty-ai/family-memory-architecture)** | 构建家庭共同认知的横向记忆基础设施（横轴）。全部信息必须附正本链接 | OSS |
+| **[sitter](https://github.com/caty-ai/sitter)** | 看管已托付任务的执行。杜绝「托付的工作下落不明」 | OSS |
 
 <!-- family:generated:org-profile-modules:end -->
 
