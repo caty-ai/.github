@@ -60,7 +60,7 @@ The reason this much parallel development does not collapse into fights over the
 
 And every merge is one that made it through the same funnel: reviewed by multiple models from different companies, none of them the author; judged by machine gates (tests, CI, pre-publication checks); actually run and verified in an isolated workspace; and finally given a GO by the human. We do not ship everything that gets made — we pick up only what comes through the funnel. **Automation makes the volume; selection decides what ships.** That ordering is why volume and quality can coexist.
 
-## And it is all published, as-is
+## And it is published, as-is
 
 The machinery that supports this life, generalized to depend as little as possible on our own custom setup — that is what the [caty-ai](https://github.com/caty-ai) repositories are. We will not argue quality here in words. The fastest way is to open the repositories and see for yourself, Issues and review records included.
 
