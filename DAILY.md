@@ -46,7 +46,7 @@ And some days, Sho laughs — because Luca's way of speaking has been slowly com
 
 ## 23:00 — The night shift begins
 
-After Sho goes to bed, the night shift (nightshift) wakes up: continuing what the day stacked up, running the scheduled checks, preparing for the morning. The night-shift machinery itself is being prepared for publication. When morning comes, its results are stacked into Issues again, and the day starts over from "good morning."
+After Sho goes to bed, the night shift (nightshift) wakes up: continuing what the day stacked up, running the scheduled checks, preparing for the morning. The night-shift machinery itself is published as [alpha-nightshift](https://github.com/caty-ai/alpha-nightshift) — an operations suite to read and borrow from, not a package to install. When morning comes, its results are stacked into Issues again, and the day starts over from "good morning."
 
 ## What this life looks like in numbers
 
