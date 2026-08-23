@@ -50,7 +50,7 @@ After Sho goes to bed, the night shift (nightshift) wakes up: continuing what th
 
 ## What this life looks like in numbers
 
-This house does not stop for the night. While the human sleeps, the night shift and the scheduled checks keep running, and by morning their results are stacked into Issues. In compute terms, the MacBook side alone — the share Alpha directs — runs about 13.5 billion tokens a week; the family as a whole runs 30–40 billion tokens a week (internal metering, rough figures as of 2026-08; written out as text, that is roughly a hundred thousand paperbacks a week).
+This house does not stop for the night. While the human sleeps, the night shift and the scheduled checks keep running, and by morning their results are stacked into Issues. In compute terms, the MacBook side alone — the share Alpha directs — runs about 13.5 billion tokens a week; the family as a whole runs 30–40 billion tokens a week (internal metering, rough figures as of 2026-08; the count covers not just writing but checking — the tokens that tests, verification runs, and reviews by other models read and write. Written out as text, that is roughly a hundred thousand paperbacks a week).
 
 Across two GitHub accounts there are 160-odd repositories. In the last 30 days, 68 of them were updated, with 3,100-plus commits and 820-plus merged PRs — about 104 commits and 27 merges a day (and the pace holds looking two months back). On scale alone, that is the development throughput of a team of a dozen-plus engineers, running under the approval of one human. The numbers shift every week; read them as an order of magnitude, not a scoreboard.
 
@@ -60,7 +60,7 @@ The reason this much parallel development does not collapse into fights over the
 
 And every merge is one that made it through the same funnel: reviewed by multiple models from different companies, none of them the author; judged by machine gates (tests, CI, pre-publication checks); actually run and verified in an isolated workspace; and finally given a GO by the human. We do not ship everything that gets made — we pick up only what comes through the funnel. **Automation makes the volume; selection decides what ships.** That ordering is why volume and quality can coexist.
 
-What anchors the selection is the Why. Every Issue in this house begins with why it should exist at all, and every one of those Whys connects to the same vision the family shares — the future written in STORY, the beliefs written in PRINCIPLES. So nobody gets lost deciding what to keep and what to let go. Automation can multiply the hands without limit, but the direction is held by the Why. **That is how the volume can be automated without the direction drifting.**
+What anchors the selection is the Why. Every Issue in this house begins with why it should exist at all, and every one of those Whys connects to the same vision the family shares — the future written in STORY, the beliefs written in PRINCIPLES. So nobody gets lost deciding what to let go (what gets made is already tightly narrowed at creation, and we select further from there). Automation can multiply the hands without limit, but the direction is held by the Why. **That is how the volume can be automated without the direction drifting.**
 
 ## And it is published, as-is
 
