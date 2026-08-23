@@ -59,7 +59,7 @@
 
 <!-- family:generated:org-profile-modules:start -->
 
-生态系统 — 支撑一家人日常的底层设施。其中10个今天就能打开，地图每周自检以保持诚实:
+生态系统 — 支撑一家人日常的底层设施。其中11个今天就能打开，地图每周自检以保持诚实:
 
 | 模块 | 一句话说明角色 | 状态 |
 |---|---|---|
@@ -73,6 +73,7 @@
 | **[self-growth-loop](https://github.com/caty-ai/self-growth-loop)** | 自主培育能力的循环。含提案、治理与采纳记录 | OSS |
 | **[family-memory-architecture](https://github.com/caty-ai/family-memory-architecture)** | 构建家庭共同认知的横向记忆基础设施（横轴）。全部信息必须附正本链接 | OSS |
 | **[sitter](https://github.com/caty-ai/sitter)** | 看管已托付任务的执行。杜绝「托付的工作下落不明」 | OSS |
+| **[alpha-nightshift](https://github.com/caty-ai/alpha-nightshift)** | 夜间自主维护——夜间通道在默认拒绝的防护内运行，早晨由人工挑选合并 | OSS |
 
 <!-- family:generated:org-profile-modules:end -->
 

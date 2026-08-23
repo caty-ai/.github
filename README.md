@@ -64,7 +64,7 @@ Every belief above has a running counterpart below, with implemented and planned
 
 <!-- family:generated:org-profile-modules:start -->
 
-Ecosystem — the infrastructure behind a family's daily life. 10 of these are open today, and the map checks itself weekly:
+Ecosystem — the infrastructure behind a family's daily life. 11 of these are open today, and the map checks itself weekly:
 
 | Module | In one line | Status |
 |---|---|---|
@@ -78,6 +78,7 @@ Ecosystem — the infrastructure behind a family's daily life. 10 of these are o
 | **[self-growth-loop](https://github.com/caty-ai/self-growth-loop)** | An agent growing its own abilities — proposals, governance, adoption records | OSS |
 | **[family-memory-architecture](https://github.com/caty-ai/family-memory-architecture)** | The family's shared-awareness backbone (horizontal axis); every entry links its source | OSS |
 | **[sitter](https://github.com/caty-ai/sitter)** | The babysitter for delegated runs — "I delegated it" never becomes "it vanished" | OSS |
+| **[alpha-nightshift](https://github.com/caty-ai/alpha-nightshift)** | Nightly autonomous maintenance — night lanes behind a deny-by-default guard; humans cherry-pick in the morning | OSS |
 
 <!-- family:generated:org-profile-modules:end -->
 

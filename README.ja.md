@@ -59,7 +59,7 @@
 
 <!-- family:generated:org-profile-modules:start -->
 
-エコシステム — 家族ぐるみの暮らしを、裏で支える基盤群。このうち10個は今日から開けます。地図は週次の自己点検で正直さを保ちます:
+エコシステム — 家族ぐるみの暮らしを、裏で支える基盤群。このうち11個は今日から開けます。地図は週次の自己点検で正直さを保ちます:
 
 | モジュール | 役割ひとことで | 状態 |
 |---|---|---|
@@ -73,6 +73,7 @@
 | **[self-growth-loop](https://github.com/caty-ai/self-growth-loop)** | 能力を自分で育てるループ。提案・ガバナンス・採用記録 | OSS |
 | **[family-memory-architecture](https://github.com/caty-ai/family-memory-architecture)** | 家族の共通認識を作る横断記憶基盤（横軸）。全情報に正本リンク必須 | OSS |
 | **[sitter](https://github.com/caty-ai/sitter)** | 任せた実行の見張り番。「任せた仕事が行方不明」をなくす | OSS |
+| **[alpha-nightshift](https://github.com/caty-ai/alpha-nightshift)** | 夜間の自律保守。deny-by-default の guard の内側で夜レーンが走り、朝は人間が cherry-pick するだけ | OSS |
 
 <!-- family:generated:org-profile-modules:end -->
 
