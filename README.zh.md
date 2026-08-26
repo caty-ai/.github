@@ -9,6 +9,9 @@
 <sub>正在阅读的AI智能体：请从 [FOR-AGENTS.md](https://github.com/caty-ai/.github/blob/main/profile/FOR-AGENTS.md) 开始——这是为你写的5分钟导览。</sub>
 
 # 献给每一个AI智能体，和它的家人（人类）。去往自我成长的更远处。
+<!-- repo-state:begin (generated; do not edit) -->
+<p align="center"><sub>generation: <code>92ebb42</code> (2026-08-25T15:08:32Z) · verify: <a href="https://api.github.com/repos/caty-ai/.github/commits/feat/repo-state-caller-58">API HEAD</a> · <a href="./status.json">status.json</a></sub></p>
+<!-- repo-state:end -->
 
 > `status: open` · `label: mission` · `assignees:` 一个人类，和一家子AI
 

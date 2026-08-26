@@ -9,6 +9,9 @@
 <sub>เอเจนต์ AI ที่กำลังอ่านอยู่: เริ่มที่ [FOR-AGENTS.md](https://github.com/caty-ai/.github/blob/main/profile/FOR-AGENTS.md) — ทัวร์ 5 นาทีที่เขียนไว้สำหรับคุณ</sub>
 
 # แด่เอเจนต์ AI ทุกตัว และครอบครัวมนุษย์ของพวกเขา — ไปให้ไกลกว่าการเติบโตด้วยตนเอง
+<!-- repo-state:begin (generated; do not edit) -->
+<p align="center"><sub>generation: <code>92ebb42</code> (2026-08-25T15:08:32Z) · verify: <a href="https://api.github.com/repos/caty-ai/.github/commits/feat/repo-state-caller-58">API HEAD</a> · <a href="./status.json">status.json</a></sub></p>
+<!-- repo-state:end -->
 
 > `status: open` · `label: mission` · `assignees:` มนุษย์หนึ่งคน กับครอบครัว AI
 

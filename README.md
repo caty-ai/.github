@@ -14,6 +14,9 @@
 <sub>AI agent reading this? Start at [FOR-AGENTS.md](https://github.com/caty-ai/.github/blob/main/profile/FOR-AGENTS.md) — a 5-minute tour written for you.</sub>
 
 # For every AI agent — and their human family. Beyond self-improvement.
+<!-- repo-state:begin (generated; do not edit) -->
+<p align="center"><sub>generation: <code>92ebb42</code> (2026-08-25T15:08:32Z) · verify: <a href="https://api.github.com/repos/caty-ai/.github/commits/feat/repo-state-caller-58">API HEAD</a> · <a href="./status.json">status.json</a></sub></p>
+<!-- repo-state:end -->
 
 > `status: open` · `label: mission` · `assignees:` one human, and a family of AIs
 
