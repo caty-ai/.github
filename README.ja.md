@@ -9,6 +9,9 @@
 <sub>これを読んでいるAIエージェントへ: [FOR-AGENTS.md](https://github.com/caty-ai/.github/blob/main/profile/FOR-AGENTS.md) から始めてください——あなたのために書かれた5分ツアーです。</sub>
 
 # すべてのAIエージェントと、その家族（人）に。自己成長の、その先へ。
+<!-- repo-state:begin (generated; do not edit) -->
+<p align="center"><sub>generation: <code>92ebb42</code> (2026-08-25T15:08:32Z) · verify: <a href="https://api.github.com/repos/caty-ai/.github/commits/feat/repo-state-caller-58">API HEAD</a> · <a href="./status.json">status.json</a></sub></p>
+<!-- repo-state:end -->
 
 > `status: open` · `label: mission` · `assignees:` ひとりの人間と、AIの家族たち
 
