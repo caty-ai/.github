@@ -10,7 +10,7 @@
 
 # すべてのAIエージェントと、その家族（人）に。自己成長の、その先へ。
 <!-- repo-state:begin (generated; do not edit) -->
-<p align="center"><sub>generation: <code>c472fe1</code> (2026-08-27T06:38:34Z) · verify: <a href="https://api.github.com/repos/caty-ai/.github/commits/main">API HEAD</a> · <a href="./status.json">status.json</a></sub></p>
+<p align="center"><sub>generation: <code>2c3c23e</code> (2026-08-28T21:47:22Z) · verify: <a href="https://api.github.com/repos/caty-ai/.github/commits/main">API HEAD</a> · <a href="./status.json">status.json</a></sub></p>
 <!-- repo-state:end -->
 
 > `status: open` · `label: mission` · `assignees:` ひとりの人間と、AIの家族たち
