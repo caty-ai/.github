@@ -1,6 +1,8 @@
 # Thin caller for the org-wide external-input watchdog (caty-ai/.github#61).
 # SECURITY: pull_request_target runs with secrets — never add checkout here.
 # discussion/discussion_comment are no-ops on repos without Discussions.
+# @main pin is a conscious trade (one fix reaches 13 repos); precondition:
+# caty-ai/.github main is merge-only via PR (see #61 for the record).
 name: external-input-caller
 
 on:
