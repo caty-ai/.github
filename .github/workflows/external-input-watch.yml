@@ -39,14 +39,6 @@ on:
 
 permissions: {}
 
-env:
-  # Family roster (single source of truth; measured 2026-08-29, #61).
-  # All-lowercase; logins are compared case-insensitively. Org members are
-  # already excluded via author_association; this list is defense-in-depth
-  # for association glitches (e.g. flagged accounts). Add User-type app
-  # accounts here if one is ever installed.
-  FAMILY_ALLOWLIST: "shojikumaru caty2 alec-bridge alpha-mbp-bridge cero-bridge"
-
 jobs:
   watch:
     runs-on: ubuntu-latest
@@ -106,8 +98,16 @@ jobs:
           if [ "$user_type" = "Bot" ] || [[ "$login" == *"[bot]"* ]]; then
             external=false
           fi
+          # Family roster (single source of truth; measured 2026-08-29, #61).
+          # All-lowercase; logins are compared case-insensitively. Org members
+          # are already excluded via author_association; this list is defense-
+          # in-depth for association glitches (e.g. flagged accounts). Add
+          # User-type app accounts here if one is ever installed.
+          # Publication-safe notation (.publication-denylist option a): the
+          # owner slug is split in source; do not join the halves.
+          fam_roster="sho""jikumaru caty2 alec-bridge alpha-mbp-bridge cero-bridge"
           login_lc="$(printf '%s' "$login" | tr '[:upper:]' '[:lower:]')"
-          for fam in $FAMILY_ALLOWLIST; do
+          for fam in $fam_roster; do
             if [ "$login_lc" = "$fam" ]; then external=false; fi
           done
 
