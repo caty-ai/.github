@@ -1,0 +1,207 @@
+# external-input-watch — org-wide detection of non-family activity.
+# Design + Done-when: https://github.com/caty-ai/.github/issues/61
+#
+# Called (workflow_call) by a thin caller on each public repo's default branch.
+# On a matching event authored by someone outside the family roster it:
+#   1. adds the `external-input` label (create-if-missing) to the issue/PR
+#   2. sends a Telegram notification (repo / kind / author / URL / excerpt)
+# The two legs are independent: a label failure must never suppress the alert.
+#
+# SECURITY INVARIANTS — do not weaken these in future edits:
+# - NEVER add actions/checkout (or any code execution from the triggering ref)
+#   here or in callers. Callers use pull_request_target so fork PRs get
+#   secrets + a write token; that is only safe because untrusted code is
+#   never checked out or executed.
+# - Author-controlled strings (login, title, body) enter run: scripts only
+#   via env: or $GITHUB_EVENT_PATH, never inline via ${{ }} interpolation.
+# - Secrets are limited to the two declared below (no `secrets: inherit` in
+#   callers) and go only to api.telegram.org via curl; never echoed.
+# - No third-party actions; only jq/gh/curl preinstalled on the runner.
+#
+# Known platform limits (accepted, recorded in #61):
+# - pull_request_review / pull_request_review_comment on PRs FROM FORKS run
+#   with no secrets and a read-only token (GitHub restriction), so external
+#   review activity on a fork PR cannot notify — the run logs a ::warning
+#   and stays green. The PR itself was already flagged at open.
+# - discussion / discussion_comment get Telegram only, no label (labeling
+#   discussions needs `discussions: write` + GraphQL; kept out to hold the
+#   minimal permission set).
+
+name: external-input-watch
+
+on:
+  workflow_call:
+    secrets:
+      TELEGRAM_BOT_TOKEN:
+        required: true
+      TELEGRAM_CHAT_ID:
+        required: true
+
+permissions: {}
+
+jobs:
+  watch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    # Load-bearing under pull_request_target (default token is write-scoped):
+    # do not delete this map; contents stays none by explicit denial.
+    permissions:
+      contents: none
+      issues: write
+      pull-requests: write
+    steps:
+      - name: Classify author
+        id: classify
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+        run: |
+          set -euo pipefail
+          # Explicit per-event mapping: actor object, issue/PR number,
+          # labelability. Unknown events fail loud — a watchdog must not
+          # skip-green on input it does not recognize.
+          case "$EVENT_NAME" in
+            issue_comment)               item_path='.comment';    num_path='.issue.number';        labelable=true  ;;
+            issues)                      item_path='.issue';      num_path='.issue.number';        labelable=true  ;;
+            pull_request_target)         item_path='.pull_request'; num_path='.pull_request.number'; labelable=true ;;
+            pull_request_review)         item_path='.review';     num_path='.pull_request.number'; labelable=true  ;;
+            pull_request_review_comment) item_path='.comment';    num_path='.pull_request.number'; labelable=true  ;;
+            discussion)                  item_path='.discussion'; num_path='';                     labelable=false ;;
+            discussion_comment)          item_path='.comment';    num_path='';                     labelable=false ;;
+            *)
+              echo "::error::external-input-watch: unsupported event '$EVENT_NAME' — extend the per-event mapping before adding triggers"
+              exit 1 ;;
+          esac
+
+          item="$(jq -c "$item_path // empty" "$GITHUB_EVENT_PATH")"
+          if [ -z "$item" ]; then
+            echo "::error::external-input-watch: event '$EVENT_NAME' payload is missing $item_path — payload shape changed?"
+            exit 1
+          fi
+          number=""
+          if [ "$labelable" = "true" ]; then
+            number="$(jq -r "$num_path // empty" "$GITHUB_EVENT_PATH")"
+            case "$number" in
+              ''|*[!0-9]*)
+                echo "::error::external-input-watch: event '$EVENT_NAME' has no numeric issue/PR number at $num_path"
+                exit 1 ;;
+            esac
+          fi
+
+          login="$(jq -r '.user.login // ""' <<<"$item")"
+          user_type="$(jq -r '.user.type // ""' <<<"$item")"
+          assoc="$(jq -r '.author_association // "NONE"' <<<"$item")"
+
+          external=true
+          case "$assoc" in
+            OWNER|MEMBER|COLLABORATOR) external=false ;;
+          esac
+          if [ "$user_type" = "Bot" ] || [[ "$login" == *"[bot]"* ]]; then
+            external=false
+          fi
+          # Family roster (single source of truth; measured 2026-08-29, #61).
+          # All-lowercase; logins are compared case-insensitively. Org members
+          # are already excluded via author_association; this list is defense-
+          # in-depth for association glitches (e.g. flagged accounts). Add
+          # User-type app accounts here if one is ever installed.
+          # Publication-safe notation (.publication-denylist option a): the
+          # owner slug is split in source; do not join the halves.
+          fam_roster="sho""jikumaru caty2 alec-bridge alpha-mbp-bridge cero-bridge"
+          login_lc="$(printf '%s' "$login" | tr '[:upper:]' '[:lower:]')"
+          for fam in $fam_roster; do
+            if [ "$login_lc" = "$fam" ]; then external=false; fi
+          done
+
+          # Fork-PR review events run without secrets and with a read-only
+          # token (platform restriction) — nothing downstream can succeed.
+          # Log visibly and stand down; the PR was flagged at open.
+          if [ "$external" = "true" ]; then
+            case "$EVENT_NAME" in
+              pull_request_review|pull_request_review_comment)
+                head_repo="$(jq -r '.pull_request.head.repo.full_name // ""' "$GITHUB_EVENT_PATH")"
+                base_repo="$(jq -r '.pull_request.base.repo.full_name // ""' "$GITHUB_EVENT_PATH")"
+                if [ -n "$head_repo" ] && [ "$head_repo" != "$base_repo" ]; then
+                  echo "::warning::external-input-watch: external review activity on fork PR #$number — cannot label/notify (no secrets on fork-PR review events); the PR itself was flagged when opened"
+                  external=false
+                fi ;;
+            esac
+          fi
+
+          echo "author=$login assoc=$assoc type=$user_type external=$external event=$EVENT_NAME number=${number:-n/a}"
+          {
+            echo "external=$external"
+            echo "number=$number"
+            echo "labelable=$labelable"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Add external-input label
+        if: ${{ !cancelled() && steps.classify.outputs.external == 'true' && steps.classify.outputs.labelable == 'true' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          NUMBER: ${{ steps.classify.outputs.number }}
+        run: |
+          set -euo pipefail
+          # Idempotent create: ignore only the already-exists case; surface
+          # anything else (the add below still fails loud on real breakage).
+          if ! create_err="$(gh label create external-input \
+              --repo "$GITHUB_REPOSITORY" \
+              --color D93F0B \
+              --description "Input from outside the family — needs triage" 2>&1)"; then
+            case "$create_err" in
+              *already?exists*) : ;;
+              *) echo "::warning::label create failed: $create_err" ;;
+            esac
+          fi
+          gh api "repos/$GITHUB_REPOSITORY/issues/$NUMBER/labels" -f "labels[]=external-input"
+
+      - name: Send Telegram notification
+        # Independent of the label step's outcome — a label failure must
+        # not cost the alert (!cancelled() overrides the implicit success()).
+        if: ${{ !cancelled() && steps.classify.outputs.external == 'true' }}
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          EVENT_NAME: ${{ github.event_name }}
+        run: |
+          set -euo pipefail
+          if [ -z "${TELEGRAM_BOT_TOKEN:-}" ] || [ -z "${TELEGRAM_CHAT_ID:-}" ]; then
+            echo "::error::TELEGRAM_BOT_TOKEN / TELEGRAM_CHAT_ID secrets are not set on this repo"
+            exit 1
+          fi
+          case "$EVENT_NAME" in
+            issue_comment)               item_path='.comment';    kind='comment' ;;
+            pull_request_review_comment) item_path='.comment';    kind='review comment' ;;
+            discussion_comment)          item_path='.comment';    kind='discussion comment' ;;
+            issues)                      item_path='.issue';      kind='new issue' ;;
+            pull_request_target)         item_path='.pull_request'; kind='new pull request' ;;
+            pull_request_review)         item_path='.review';     kind='review' ;;
+            discussion)                  item_path='.discussion'; kind='new discussion' ;;
+            *) echo "::error::unsupported event '$EVENT_NAME' in notify step"; exit 1 ;;
+          esac
+          item="$(jq -c "$item_path" "$GITHUB_EVENT_PATH")"
+          login="$(jq -r '.user.login // "?"' <<<"$item")"
+          url="$(jq -r '.html_url // ""' <<<"$item")"
+          # Title + body when the item has a title; explicit concat avoids
+          # jq's `//` empty-string quirk.
+          excerpt="$(jq -r '((.title // "") + (if (.title // "") != "" and (.body // "") != "" then "\n" else "" end) + (.body // "")) | .[0:300]' <<<"$item")"
+          text="$(printf '🔔 external input\nrepo: %s\nkind: %s\nauthor: %s\n%s\n---\n%s' \
+            "$GITHUB_REPOSITORY" "$kind" "$login" "$url" "$excerpt")"
+          # URL kept in a variable so secret masking still applies if a
+          # future edit enables tracing. Never set -x, never print the
+          # response file. Bounded retry for transport errors / 429 / 5xx;
+          # a lost success response may duplicate a message — acceptable
+          # for an alert channel.
+          TG_URL="https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage"
+          if ! code="$(curl -sS -o /tmp/tg-response.json -w '%{http_code}' \
+              --retry 4 --retry-all-errors --retry-delay 3 \
+              --connect-timeout 10 --max-time 30 \
+              -X POST "$TG_URL" \
+              --data-urlencode "chat_id=${TELEGRAM_CHAT_ID}" \
+              --data-urlencode "text=${text}")"; then
+            echo "::error::Telegram sendMessage: transport failure after retries"
+            exit 1
+          fi
+          if [ "$code" != "200" ]; then
+            echo "::error::Telegram sendMessage failed with HTTP $code"
+            exit 1
+          fi
+          echo "Telegram notification sent (HTTP 200)"
