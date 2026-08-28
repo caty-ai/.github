@@ -1,0 +1,20 @@
+# Thin caller for the org-wide external-input watchdog (caty-ai/.github#61).
+# SECURITY: pull_request_target runs with secrets — never add checkout here.
+name: external-input-caller
+
+on:
+  issue_comment:
+    types: [created]
+  issues:
+    types: [opened]
+  pull_request_target:
+    types: [opened]
+
+permissions:
+  issues: write
+  pull-requests: write
+
+jobs:
+  watch:
+    uses: caty-ai/.github/.github/workflows/external-input-watch.yml@main
+    secrets: inherit

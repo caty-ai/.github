@@ -1,0 +1,113 @@
+# external-input-watch — org-wide detection of non-family activity.
+# Design + Done-when: https://github.com/caty-ai/.github/issues/61
+#
+# Called (workflow_call) by a thin caller on each public repo's default branch.
+# On a matching event authored by someone outside the family roster it:
+#   1. adds the `external-input` label (create-if-missing) to the issue/PR
+#   2. sends a Telegram notification (repo / kind / author / URL / excerpt)
+#
+# SECURITY INVARIANTS — do not weaken these in future edits:
+# - NEVER add actions/checkout (or any code execution from the triggering ref)
+#   here or in callers. Callers use pull_request_target so fork PRs get
+#   secrets + a write token; that is only safe because untrusted code is
+#   never checked out or executed.
+# - Author-controlled strings (login, title, body) enter run: scripts only
+#   via env: or $GITHUB_EVENT_PATH, never inline via ${{ }} interpolation.
+# - Secrets go only to api.telegram.org via curl; they are never echoed.
+# - No third-party actions; only jq/gh/curl preinstalled on the runner.
+
+name: external-input-watch
+
+on:
+  workflow_call: {}
+
+permissions: {}
+
+env:
+  # Family roster (single source of truth; measured 2026-08-29, #61).
+  # Org members are already excluded via author_association; this list is
+  # defense-in-depth for association glitches (e.g. flagged accounts).
+  FAMILY_ALLOWLIST: "shojikumaru caty2 alec-bridge alpha-mbp-bridge cero-bridge"
+
+jobs:
+  watch:
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+      pull-requests: write
+    steps:
+      - name: Classify author
+        id: classify
+        run: |
+          set -euo pipefail
+          item="$(jq -c '(.comment // .issue // .pull_request // .discussion) // empty' "$GITHUB_EVENT_PATH")"
+          if [ -z "$item" ]; then
+            echo "unsupported event payload; skipping"
+            echo "external=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          login="$(jq -r '.user.login // ""' <<<"$item")"
+          user_type="$(jq -r '.user.type // ""' <<<"$item")"
+          assoc="$(jq -r '.author_association // "NONE"' <<<"$item")"
+          number="$(jq -r '.issue.number // .pull_request.number // .number // ""' "$GITHUB_EVENT_PATH")"
+          is_discussion="$(jq -r 'if (.discussion != null) then "true" else "false" end' "$GITHUB_EVENT_PATH")"
+
+          external=true
+          case "$assoc" in
+            OWNER|MEMBER|COLLABORATOR) external=false ;;
+          esac
+          if [ "$user_type" = "Bot" ] || [[ "$login" == *"[bot]"* ]]; then
+            external=false
+          fi
+          for fam in $FAMILY_ALLOWLIST; do
+            if [ "$login" = "$fam" ]; then external=false; fi
+          done
+
+          echo "author=$login assoc=$assoc type=$user_type external=$external"
+          {
+            echo "external=$external"
+            echo "number=$number"
+            echo "is_discussion=$is_discussion"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Add external-input label
+        if: steps.classify.outputs.external == 'true' && steps.classify.outputs.is_discussion == 'false' && steps.classify.outputs.number != ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+          NUMBER: ${{ steps.classify.outputs.number }}
+        run: |
+          set -euo pipefail
+          gh label create external-input \
+            --repo "$GITHUB_REPOSITORY" \
+            --color D93F0B \
+            --description "Input from outside the family — needs triage" \
+            2>/dev/null || true
+          gh api "repos/$GITHUB_REPOSITORY/issues/$NUMBER/labels" -f "labels[]=external-input"
+
+      - name: Send Telegram notification
+        if: steps.classify.outputs.external == 'true'
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          EVENT_NAME: ${{ github.event_name }}
+        run: |
+          set -euo pipefail
+          if [ -z "${TELEGRAM_BOT_TOKEN:-}" ] || [ -z "${TELEGRAM_CHAT_ID:-}" ]; then
+            echo "::error::TELEGRAM_BOT_TOKEN / TELEGRAM_CHAT_ID secrets are not set on this repo"
+            exit 1
+          fi
+          item="$(jq -c '(.comment // .issue // .pull_request // .discussion)' "$GITHUB_EVENT_PATH")"
+          login="$(jq -r '.user.login // "?"' <<<"$item")"
+          url="$(jq -r '.html_url // ""' <<<"$item")"
+          excerpt="$(jq -r '(.body // .title // "") | .[0:300]' <<<"$item")"
+          text="$(printf '🔔 external input\nrepo: %s\nkind: %s\nauthor: %s\n%s\n---\n%s' \
+            "$GITHUB_REPOSITORY" "$EVENT_NAME" "$login" "$url" "$excerpt")"
+          code="$(curl -sS -o /tmp/tg-response.json -w '%{http_code}' \
+            -X POST "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage" \
+            --data-urlencode "chat_id=${TELEGRAM_CHAT_ID}" \
+            --data-urlencode "text=${text}")"
+          if [ "$code" != "200" ]; then
+            echo "::error::Telegram sendMessage failed with HTTP $code"
+            exit 1
+          fi
+          echo "Telegram notification sent (HTTP 200)"
