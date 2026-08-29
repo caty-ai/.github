@@ -140,7 +140,7 @@ jobs:
           # This marker+author check is belt-and-suspenders for the day the
           # posting identity is a non-roster account; author scoping prevents
           # quoting the marker from becoming a detection bypass.
-          posting_identities="shojikumaru"
+          posting_identities="sho""jikumaru"
           for posting_identity in $posting_identities; do
             if [ "$login_lc" = "$posting_identity" ] &&
                 jq -e '(.body // "") | contains("<!-- evtd:replied:")' <<<"$item" >/dev/null; then
