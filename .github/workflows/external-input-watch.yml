@@ -4,8 +4,10 @@
 # Called (workflow_call) by a thin caller on each public repo's default branch.
 # On a matching event authored by someone outside the family roster it:
 #   1. adds the `external-input` label (create-if-missing) to the issue/PR
-#   2. sends a Telegram notification (repo / kind / author / URL / excerpt)
-# The two legs are independent: a label failure must never suppress the alert.
+#   2. files a machine ticket in caty-ai/evtd-inbox for supported events
+#   3. sends a Telegram notification (repo / kind / author / URL / excerpt)
+# The three legs are independent: label/ticket failure must never suppress the
+# Telegram alert.
 #
 # SECURITY INVARIANTS — do not weaken these in future edits:
 # - NEVER add actions/checkout (or any code execution from the triggering ref)
@@ -14,8 +16,10 @@
 #   never checked out or executed.
 # - Author-controlled strings (login, title, body) enter run: scripts only
 #   via env: or $GITHUB_EVENT_PATH, never inline via ${{ }} interpolation.
-# - Secrets are limited to the two declared below (no `secrets: inherit` in
-#   callers) and go only to api.telegram.org via curl; never echoed.
+# - Secrets are limited to the three declared below (no `secrets: inherit` in
+#   callers). Telegram secrets go only to api.telegram.org via curl; the
+#   EVTD inbox token goes only to api.github.com and is scoped exclusively to
+#   caty-ai/evtd-inbox Issues:write. Secrets are never echoed.
 # - No third-party actions; only jq/gh/curl preinstalled on the runner.
 #
 # Known platform limits (accepted, recorded in #61):
@@ -36,6 +40,8 @@ on:
         required: true
       TELEGRAM_CHAT_ID:
         required: true
+      EVTD_INBOX_TICKET_TOKEN:
+        required: false
 
 permissions: {}
 
@@ -57,16 +63,20 @@ jobs:
         run: |
           set -euo pipefail
           # Explicit per-event mapping: actor object, issue/PR number,
-          # labelability. Unknown events fail loud — a watchdog must not
-          # skip-green on input it does not recognize.
+          # labelability, and ticket eligibility. Unknown events fail loud —
+          # a watchdog must not skip-green on input it does not recognize.
+          # v1 limitation: review events and discussions get no inbox ticket
+          # because evtd-inbox re-fetches via the issues API, which cannot
+          # address review comments or discussions; their existing
+          # label/Telegram behavior continues unchanged.
           case "$EVENT_NAME" in
-            issue_comment)               item_path='.comment';    num_path='.issue.number';        labelable=true  ;;
-            issues)                      item_path='.issue';      num_path='.issue.number';        labelable=true  ;;
-            pull_request_target)         item_path='.pull_request'; num_path='.pull_request.number'; labelable=true ;;
-            pull_request_review)         item_path='.review';     num_path='.pull_request.number'; labelable=true  ;;
-            pull_request_review_comment) item_path='.comment';    num_path='.pull_request.number'; labelable=true  ;;
-            discussion)                  item_path='.discussion'; num_path='';                     labelable=false ;;
-            discussion_comment)          item_path='.comment';    num_path='';                     labelable=false ;;
+            issue_comment)               item_path='.comment';      num_path='.issue.number';        labelable=true;  ticket_eligible=true  ;;
+            issues)                      item_path='.issue';        num_path='.issue.number';        labelable=true;  ticket_eligible=true  ;;
+            pull_request_target)         item_path='.pull_request'; num_path='.pull_request.number'; labelable=true;  ticket_eligible=true  ;;
+            pull_request_review)         item_path='.review';       num_path='.pull_request.number'; labelable=true;  ticket_eligible=false ;;
+            pull_request_review_comment) item_path='.comment';      num_path='.pull_request.number'; labelable=true;  ticket_eligible=false ;;
+            discussion)                  item_path='.discussion';   num_path='';                     labelable=false; ticket_eligible=false ;;
+            discussion_comment)          item_path='.comment';      num_path='';                     labelable=false; ticket_eligible=false ;;
             *)
               echo "::error::external-input-watch: unsupported event '$EVENT_NAME' — extend the per-event mapping before adding triggers"
               exit 1 ;;
@@ -83,6 +93,21 @@ jobs:
             case "$number" in
               ''|*[!0-9]*)
                 echo "::error::external-input-watch: event '$EVENT_NAME' has no numeric issue/PR number at $num_path"
+                exit 1 ;;
+            esac
+          fi
+          repo_id="$(jq -r '.repository.id // empty' "$GITHUB_EVENT_PATH")"
+          case "$repo_id" in
+            ''|*[!0-9]*)
+              echo "::error::external-input-watch: event '$EVENT_NAME' has no numeric repository id at .repository.id"
+              exit 1 ;;
+          esac
+          comment_id="-"
+          if [ "$EVENT_NAME" = "issue_comment" ]; then
+            comment_id="$(jq -r '.id // empty' <<<"$item")"
+            case "$comment_id" in
+              ''|*[!0-9]*)
+                echo "::error::external-input-watch: issue_comment item has no numeric .id"
                 exit 1 ;;
             esac
           fi
@@ -111,6 +136,19 @@ jobs:
             if [ "$login_lc" = "$fam" ]; then external=false; fi
           done
 
+          # The family roster already excludes the current posting login.
+          # This marker+author check is belt-and-suspenders for the day the
+          # posting identity is a non-roster account; author scoping prevents
+          # quoting the marker from becoming a detection bypass.
+          posting_identities="sho""jikumaru"
+          for posting_identity in $posting_identities; do
+            if [ "$login_lc" = "$posting_identity" ] &&
+                jq -e '(.body // "") | contains("<!-- evtd:replied:")' <<<"$item" >/dev/null; then
+              echo "external-input-watch: evtd reply author+marker found; excluding publisher echo"
+              external=false
+            fi
+          done
+
           # Fork-PR review events run without secrets and with a read-only
           # token (platform restriction) — nothing downstream can succeed.
           # Log visibly and stand down; the PR was flagged at open.
@@ -131,6 +169,10 @@ jobs:
             echo "external=$external"
             echo "number=$number"
             echo "labelable=$labelable"
+            echo "repo_id=$repo_id"
+            echo "comment_id=$comment_id"
+            echo "ticket_eligible=$ticket_eligible"
+            echo "event_name=$EVENT_NAME"
           } >> "$GITHUB_OUTPUT"
 
       - name: Add external-input label
@@ -152,6 +194,51 @@ jobs:
             esac
           fi
           gh api "repos/$GITHUB_REPOSITORY/issues/$NUMBER/labels" -f "labels[]=external-input"
+
+      - name: File evtd-inbox ticket
+        if: ${{ !cancelled() && steps.classify.outputs.external == 'true' && steps.classify.outputs.ticket_eligible == 'true' }}
+        env:
+          EVTD_TOKEN: ${{ secrets.EVTD_INBOX_TICKET_TOKEN }}
+          REPO_ID: ${{ steps.classify.outputs.repo_id }}
+          NUMBER: ${{ steps.classify.outputs.number }}
+          COMMENT_ID: ${{ steps.classify.outputs.comment_id }}
+          EVENT_NAME: ${{ steps.classify.outputs.event_name }}
+        run: |
+          set -euo pipefail
+          if [ -z "${EVTD_TOKEN:-}" ]; then
+            echo "::warning::EVTD_INBOX_TICKET_TOKEN not configured — the 6h evtd-inbox sweep remains the safety net"
+            exit 0
+          fi
+
+          title="[intake] ${GITHUB_REPOSITORY}#${NUMBER} comment:${COMMENT_ID} id:${REPO_ID}"
+          body="$(jq -cn \
+            --argjson source_repository_id "$REPO_ID" \
+            --arg source_repo "$GITHUB_REPOSITORY" \
+            --argjson issue_number "$NUMBER" \
+            --arg comment_id "$COMMENT_ID" \
+            --arg event "$EVENT_NAME" \
+            '{source_repository_id: $source_repository_id, source_repo: $source_repo, issue_number: $issue_number, comment_id: (if $comment_id == "-" then null else ($comment_id | tonumber) end), event: $event}')"
+
+          max_attempts=5
+          attempt=1
+          while [ "$attempt" -le "$max_attempts" ]; do
+            if GH_TOKEN="$EVTD_TOKEN" gh api repos/caty-ai/evtd-inbox/issues \
+                --hostname github.com \
+                --method POST \
+                -f "title=$title" \
+                -f "body=$body" \
+                --silent; then
+              echo "evtd-inbox ticket filed"
+              exit 0
+            fi
+            if [ "$attempt" -lt "$max_attempts" ]; then
+              echo "::warning::evtd-inbox ticket attempt $attempt/$max_attempts failed; retrying"
+              sleep "$((attempt * 2))"
+            fi
+            attempt="$((attempt + 1))"
+          done
+          echo "::error::evtd-inbox ticket creation failed after $max_attempts attempts"
+          exit 1
 
       - name: Send Telegram notification
         # Independent of the label step's outcome — a label failure must
