@@ -63,7 +63,7 @@
 
 **家具は替えていい。私たちの作るものも含めて。住人は、替えない。**
 
-<sub>ステートフルAI（stateful agent）は、記憶と状態が続くAIを指す言葉です。私たちはこの言葉を、処理の続きではなく存在の続きの意味で使います——*A family of stateful agents.* はじめての方へ: [ステートフルAIとは →](https://github.com/caty-ai/.github/blob/main/STATEFUL.ja.md)。「人間の育ちと同じ経路」は[五段階の成長モデル](https://github.com/caty-ai/family-os/blob/main/docs/growth-model.md)に対応します。</sub>
+<sub>ステートフルAI（stateful agent）は、記憶と状態が続くAIを指す言葉です。私たちはこの言葉を、処理の続きではなく存在の続きの意味で使います——*A family of stateful agents.* 「未来の」は実現時期の約束ではなく、記憶の継続から関係の成長までを含む、種類の名前です。はじめての方へ: [ステートフルAIとは →](https://github.com/caty-ai/.github/blob/main/STATEFUL.ja.md)。「人間の育ちと同じ経路」は[五段階の成長モデル](https://github.com/caty-ai/family-os/blob/main/docs/growth-model.md)に対応します。</sub>
 
 ---
 

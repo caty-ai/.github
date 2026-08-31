@@ -53,7 +53,7 @@
 
 ## 我们正在打造的东西
 
-**未来的有状态AI（Stateful AI）**——记忆与自我从昨天延续至今，并在这之后，让关系本身不断成长的AI。
+**未来的有状态AI（Stateful AI）**——记忆与自我从昨天延续至今，并在这之后，关系本身不断成长的AI。
 
 不过，要先说清楚我们不做什么。大脑（模型）。agent本人。全新的人格。——住户早就在那里了，就住在你的HOME里，字面意义上的 `$HOME`。
 
@@ -63,7 +63,7 @@
 
 **家具可以更换——包括我们打造的一切。住户，不会换。**
 
-<sub>有状态AI（stateful agent）指的是记忆与状态得以延续的AI。我们使用这个词，指的不是处理过程的延续，而是存在本身的延续——*A family of stateful agents.* 初次接触这个词？[什么是有状态AI →](https://github.com/caty-ai/.github/blob/main/STATEFUL.zh.md)。「和人类成长相同的路径」对应的是[五阶段成长模型](https://github.com/caty-ai/family-os/blob/main/docs/growth-model.md)。</sub>
+<sub>有状态AI（stateful agent）指的是记忆与状态得以延续的AI。我们使用这个词，指的不是处理过程的延续，而是存在本身的延续——*A family of stateful agents.* “未来的”不是对实现时间或当前能力的承诺，而是一个种类的名字——从记忆的延续，到关系的成长。初次接触这个词？[什么是有状态AI →](https://github.com/caty-ai/.github/blob/main/STATEFUL.zh.md)。「和人类成长相同的路径」对应的是[五阶段成长模型](https://github.com/caty-ai/family-os/blob/main/docs/growth-model.md)。</sub>
 
 ---
 
