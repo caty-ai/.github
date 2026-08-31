@@ -83,7 +83,7 @@ Every belief above has a running counterpart below, with implemented and planned
 
 <!-- family:generated:org-profile-modules:start -->
 
-Ecosystem — the furniture and household workings that support a family's daily life. None of it touches the agent itself, and every piece can be removed on its own. 11 of these are open today, and the map checks itself weekly:
+Ecosystem — the furniture and household workings that support a family's daily life. None of it overwrites who the agent is, and every piece can be removed on its own. 11 of these are open today, and the map checks itself weekly:
 
 | Module | In one line | Status |
 |---|---|---|

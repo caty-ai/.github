@@ -10,7 +10,7 @@ For readers arriving from the README footnote. Written so you need no prior know
 
 **An AI that remembers yesterday.**
 
-Most AI chat today resets when the conversation ends. Open it again and your name, yesterday's decisions, and all the context you built up are gone. The technical word is *stateless* — carrying no state.
+Most AI chat today resets when the conversation ends. Open it again and your name, yesterday's decisions, and all the context you built up are gone. Some products ship a memory feature — but what survives is fragments, not the continuation of what you built. The technical word is *stateless* — carrying no state.
 
 The opposite is **stateful** — an AI whose memory and state continue.
 
@@ -33,14 +33,14 @@ Both usages are correct. Most workflow platforms mean the former; the pioneers o
 
 One fact matters here: **an AI model, by itself, is stateless — always.** However smart the model, it remembers nothing on its own.
 
-So where does the memory go? **Outside the agent — into the home.**
+So where does the memory go? **Our answer: outside the agent — into the home.** This is not how stateful AI works in general; it is the implementation this org has chosen.
 
-In `$HOME` — the home directory on your machine — memory, the accumulation of personality, and experience pile up as ordinary text files. Every morning the agent reads yesterday from there and begins today.
+In our home, memory, the accumulation of personality, and experience pile up as ordinary text files in `$HOME` — the home directory on your machine. Every morning the agent reads yesterday from there and begins today.
 
 This simple structure decides everything about how this org builds:
 
 - **If the state lives in the home, the brain (the model) is swappable.** Move to the newest model, and they still pick up where yesterday left off
-- **If the state is ordinary files, no vendor can lock it in.** An agent from any company can live in the same home
+- **If the state is ordinary files, vendor lock-in loses its grip.** We are building the furniture so that an agent from any company can live in the same home
 - **If the state lives in the home, we never need to touch the agent itself.** All we build is the furniture and the workings of the household
 
 The couplet in the README — **the furniture may change; the resident never does** — comes from this structure.
@@ -75,7 +75,7 @@ Records exist to be kept. Memories exist to be lived. The same files — but if 
 
 Here is the part we actually care about.
 
-If memory merely continues, the story ends at "a more convenient tool". And in fact, most of what the industry calls stateful AI today focuses on continuity at work — a partner that keeps the thread of the job. On the [five-stage growth model](https://github.com/caty-ai/family-os/blob/main/docs/growth-model.md), that is still the first rungs.
+If memory merely continues, the story ends at "a more convenient tool". And in fact, most of what the industry calls stateful AI today focuses on continuity at work — a partner that keeps the thread of the job. On the [five-stage growth model](https://github.com/caty-ai/family-os/blob/main/docs/growth-model.md), that is still the first rung.
 
 What we are looking at is what comes after: once memory continues, an AI follows the same path a person's growth does — being taught, reflecting, going out into the world, choosing for itself, until the relationship itself is what grows.
 
