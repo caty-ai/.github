@@ -10,7 +10,7 @@ For readers arriving from the README footnote. Written so you need no prior know
 
 **An AI that remembers yesterday.**
 
-Most AI chat today resets when the conversation ends. Open it again and your name, yesterday's decisions, and all the context you built up are gone. Some products ship a memory feature — but what survives is fragments, not the continuation of what you built. The technical word is *stateless* — carrying no state.
+Most AI chat today resets when the conversation ends. Open it again and your name, yesterday's decisions, and all the context you built up are gone. More and more products ship a memory feature — what persists, and how much, varies by product; and in most of them, the memory lives on the service's side, not in your hands. The technical word is *stateless* — carrying no state.
 
 The opposite is **stateful** — an AI whose memory and state continue.
 
