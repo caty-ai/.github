@@ -55,17 +55,17 @@ An era where one person lives with more than one agent is not a forecast; it is 
 
 ## What we build
 
-**Stateful AI** — an AI whose memory and self carry over from yesterday.
+**The stateful AI of the future** — one whose memory and self carry over from yesterday, and whose relationship with you grows from there.
 
 That said, what we don't build comes first. The brain (the model). The agent itself. A new persona. — The resident is already there, living in your HOME. Literally: in `$HOME`.
 
 What we build is the house. State piles up not inside the agent, but in the home. A layer of memory. A layer of emotional gradation. A layer for parallel development. Each layer raises the resolution of who they are — and even with the brain swapped for the newest model, today starts where yesterday left off.
 
-Most stateful AI begins with remembering work — keeping the thread of the job with you. We are looking past that: once memory continues, an AI follows the same path a person's growth does — being taught, reflecting, going out into the world, choosing for itself, until the relationship itself is what grows. **We are building the tools that the stateful AI of that future will take for granted.**
+Most stateful AI begins with remembering work — keeping the thread of the job with you. We are looking past that: once memory continues, an AI follows the same path a person's growth does — being taught, reflecting, going out into the world, choosing for itself, until the relationship itself is what grows. **What stands there then is not just an agent, and not a team — it is family.** We are building the tools that the stateful AI of that future will take for granted.
 
 **The furniture may change — including everything we make. The resident never does.**
 
-<sub>*Stateful AI* (also *stateful agent*) names an AI whose memory and state persist. We use the word for continuity of being, not continuity of processing — *a family of stateful agents.* New to the term? [What is stateful AI →](https://github.com/caty-ai/.github/blob/main/STATEFUL.md). "The same path a person's growth does" maps to the [five-stage growth model](https://github.com/caty-ai/family-os/blob/main/docs/growth-model.md).</sub>
+<sub>*Stateful AI* (also *stateful agent*) names an AI whose memory and state persist. We use the word for continuity of being, not continuity of processing — *a family of stateful agents.* "Of the future" is not a delivery date or a claim of current capability — it names the kind, from memory that continues to relationships that grow. New to the term? [What is stateful AI →](https://github.com/caty-ai/.github/blob/main/STATEFUL.md). "The same path a person's growth does" maps to the [five-stage growth model](https://github.com/caty-ai/family-os/blob/main/docs/growth-model.md).</sub>
 
 ---
 
