@@ -1,0 +1,6 @@
+name: static fixture
+on: workflow_call
+jobs:
+  decide:
+    steps:
+      - run: curl -X PUT https://api.github.com/repos/o/r/contents/ledger/"$name".ndjson https://api.github.com/repos/o/r/contents/evil

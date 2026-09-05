@@ -1,0 +1,6 @@
+name: static fixture
+on: workflow_call
+jobs:
+  decide:
+    steps:
+      - run: gh api -X PUT repos/o/r/contents/ledger/sub/contents/ledger/"$name".ndjson

@@ -1,0 +1,9 @@
+on:
+  workflow_call:
+jobs:
+  decide:
+    runs-on: ubuntu-latest
+    steps:
+      - run:
+          gh api --method PUT
+          repos/caty-ai/ask-ai-widget/invitations

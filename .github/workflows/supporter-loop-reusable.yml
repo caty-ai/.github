@@ -1,0 +1,1183 @@
+# supporter-loop — record-only first; caller activation belongs to checkpoint #4.
+# Contract: caty-ai/x-collector docs/supporter-loop/CONTRACT.md v1.9 (frozen)
+# SECURITY INVARIANTS — §13, do not weaken:
+# 1. Never check out or execute code from the triggering ref, including in callers.
+# 2. Actor strings enter scripts only through env or GITHUB_EVENT_PATH.
+# 3. Exactly four declared secrets; PATs are step-local, Administration only in act.
+# 4. PATs go only to GitHub for the reward repo (except §8.4 read-only scope probes);
+#    notification credentials go only to their declared host. Never echo secrets.
+# 5. Record-only has a Contents-only credential; act and every outbound call are
+#    guarded by live mode, and owner notifications are live-only.
+# 6. No third-party actions, including code fetched from a triggering ref.
+# 7. Supporter output is only invitation, own-thread comments, and SUPPORTERS.md.
+# 8. Fixed comment templates: login/reward_repo_url substitutions plus numeric marker.
+# Caller concurrency, token registration/expiry variables, baseline JSON and
+# the Contributors wall/release notes are owned by child #3 / the owner.
+# Backfill input is deliberately absent: add only at checkpoint #4 (§7 v1.9).
+name: supporter-loop-reusable
+on:
+  workflow_call:
+    inputs:
+      mode:
+        description: "record-only | live. Anything else fails the run before any step touches the network."
+        required: true
+        type: string
+      reward_repo:
+        description: "owner/name of the private reward repo (ledger + invitations)."
+        required: false
+        type: string
+        default: caty-ai/ask-ai-widget
+      tiers_enabled:
+        description: "Comma-separated subset of 1,2,3. Events for a disabled tier are ledgered as action=skip result=tier-disabled."
+        required: false
+        type: string
+        default: "1,2,3"
+      sweep:
+        description: "true only from the scheduled sweep job (§11). Mutually exclusive with a tier event."
+        required: false
+        type: boolean
+        default: false
+    secrets:
+      SUPPORTER_LEDGER_TOKEN:
+        description: "Fine-grained PAT, reward_repo only, Contents R/W (§8). Used by decide (ledger) and act (SUPPORTERS.md). Required in both modes."
+        required: true
+      SUPPORTER_LOOP_TOKEN:
+        description: "Fine-grained PAT, reward_repo only, Administration R/W (§8). Loaded only by the act job; may be left unset until checkpoint #4. act fails loud if empty in live."
+        required: false
+      TELEGRAM_BOT_TOKEN:
+        description: "Owner notification bot (§9)."
+        required: true
+      TELEGRAM_CHAT_ID:
+        description: "Owner notification chat (§9)."
+        required: true
+permissions: {}
+jobs:
+  decide:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: none
+      actions: read
+      issues: read
+      pull-requests: read
+      discussions: read
+    outputs:
+      actions: ${{ steps.decide.outputs.actions }}
+      has_live_actions: ${{ steps.decide.outputs.has_live_actions }}
+      sweep_gate: ${{ steps.decide.outputs.sweep_gate }}
+      stargazers: ${{ steps.decide.outputs.stargazers }}
+    steps:
+      - name: Validate mode before any network access
+        env:
+          MODE: ${{ inputs.mode }}
+          REWARD_REPO: ${{ inputs.reward_repo }}
+          TIERS_ENABLED: ${{ inputs.tiers_enabled }}
+          SWEEP: ${{ inputs.sweep }}
+          EVENT_NAME: ${{ github.event_name }}
+        run: |
+          # jq/GraphQL variables below are intentionally literal.
+          # shellcheck disable=SC2016
+          set -euo pipefail
+          case "$MODE" in record-only|live) ;; *) echo '::error::invalid mode'; exit 1 ;; esac
+          # v1 scope is one reward repository; widening is a contract bump (§8).
+          [ "$REWARD_REPO" = caty-ai/ask-ai-widget ] || { echo '::error::reward repo outside v1 scope'; exit 1; }
+          [[ "$TIERS_ENABLED" =~ ^[123](,[123])*$ ]] || { echo '::error::invalid tiers'; exit 1; }
+          if [ "$SWEEP" = true ]; then
+            [ "$EVENT_NAME" = schedule ] || { echo '::error::sweep is exclusive with tier events'; exit 1; }
+          else
+            case "$EVENT_NAME" in watch|issues|discussion|pull_request_target) ;; *) echo '::error::unsupported tier event'; exit 1 ;; esac
+          fi
+      - name: Decide and append the record-only or skip ledger
+        id: decide
+        env:
+          MODE: ${{ inputs.mode }}
+          REWARD_REPO: ${{ inputs.reward_repo }}
+          TIERS_ENABLED: ${{ inputs.tiers_enabled }}
+          SWEEP: ${{ inputs.sweep }}
+          EVENT_NAME: ${{ github.event_name }}
+          RUN_KEY: ${{ github.run_id }}-${{ github.run_attempt }}
+          GH_TOKEN: ${{ github.token }}
+          LEDGER_TOKEN: ${{ secrets.SUPPORTER_LEDGER_TOKEN }}
+          LEDGER_EXPIRES: ${{ vars.SUPPORTER_LEDGER_TOKEN_EXPIRES }}
+        run: |
+          # jq/GraphQL variables below are intentionally literal.
+          # shellcheck disable=SC2016
+          set -euo pipefail
+          umask 077
+          work="$RUNNER_TEMP/supporter-loop"
+          mkdir -p "$work"
+          base="${GITHUB_REPOSITORY//\//--}"
+          ledger="$work/ledger.ndjson"
+          # .publication-denylist option a: split committer email preserves contract §6 identity.
+          # Model is embedded in the reviewed central workflow, never loaded from source code.
+          cat > "$work/model.jq" <<'JQ'
+          def success: .result | test("^(ok($|-)|already-|noop$|expired$)");
+          def closure: (.action | IN("revoke","would-revoke","cancel-invite","would-cancel-invite")) and success and .result != "expired";
+          def generation($repo;$id): 1 + ([.[] | select(.repo==$repo and .actor_id==$id) | select(closure) | .run_id] | unique | length);
+          def current($repo;$id): generation($repo;$id) as $g | [.[] | select(.repo==$repo and .actor_id==$id and .gen==$g)];
+          def achieved($repo;$id): current($repo;$id) | [.[] | select(success) | select(if $mode=="live" then (.action | IN("invite","comment","supporters-append")) else (.action | IN("would-invite","would-comment","would-supporters-append")) end) | .tier] | max // 0;
+          def delivered($repo;$id;$tier;$action): generation($repo;$id) as $g |
+            [to_entries[] | .value + {__order:.key} | select(.repo==$repo and .actor_id==$id and .gen==$g)] |
+            (if ($action=="invite" or $action=="would-invite") then
+              ([.[] | select(.action=="cancel-invite" and .result=="expired") | [.ts,.__order]] | max // ["",-1]) as $expired |
+              any(.[]; .tier==$tier and .dedup_key==($repo+":"+($tier|tostring)+":"+($id|tostring)) and .action==$action and success and [.ts,.__order]>$expired)
+            else any(.[]; .tier==$tier and .dedup_key==($repo+":"+($tier|tostring)+":"+($id|tostring)) and .action==$action and success) end);
+          JQ
+          model() { jq -s -L "$work" --arg mode "$MODE" "include \"model\"; $1" "$ledger"; }
+          # Read-shaped requests; HTTP errors are classified without printing response bodies.
+          get() {
+            local token="$1" endpoint="$2" target="$3"
+            code=$(curl -sS --connect-timeout 10 --max-time 45 -o "$target" -w '%{http_code}' \
+              -H "Authorization: Bearer $token" -H 'Accept: application/vnd.github+json' \
+              -H 'X-GitHub-Api-Version: 2022-11-28' "https://api.github.com/$endpoint") || return 1
+          }
+          pages() {
+            local token="$1" endpoint="$2" target="$3"
+            GH_TOKEN="$token" gh api --hostname github.com --method GET --paginate --slurp "$endpoint" > "$target.pages" || return 1
+            jq -e 'type=="array" and length>0 and all(.[]; type=="array")' "$target.pages" >/dev/null || return 1
+            jq 'add // []' "$target.pages" > "$target"
+          }
+          ledger_directory() {
+            get "$LEDGER_TOKEN" "repos/$REWARD_REPO/contents/ledger" "$work/directory-probe.json" || return 1
+            if [ "$code" = 404 ]; then
+              echo '::error::reward repo has no ledger/ directory; create ledger/baseline-<date>.json first (contract §5.3 step 1)'
+              return 1
+            fi
+            [ "$code" = 200 ]
+          }
+          read_ledger() {
+            ledger_directory || return 1
+            pages "$LEDGER_TOKEN" "repos/$REWARD_REPO/contents/ledger?per_page=100" "$work/directory.json" || return 1
+            [ "$(jq length "$work/directory.json")" -lt 1000 ] || { echo '::error::ledger directory may be truncated'; return 1; }
+            : > "$ledger"
+            jq -r --arg base "$base" '[.[] | select(.type=="file" and (.name | startswith($base)) and (.name | endswith(".ndjson")))] | sort_by(.name) | .[].name' "$work/directory.json" > "$work/names"
+            while IFS= read -r name; do
+              get "$LEDGER_TOKEN" "repos/$REWARD_REPO/contents/ledger/$name" "$work/blob.json" || return 1
+              [ "$code" = 200 ] || return 1
+              jq -er '.content | @base64d' "$work/blob.json" >> "$ledger" || return 1
+            done < "$work/names"
+            # Unknown fields and schema versions are retained verbatim; nothing rewrites history.
+            jq -s -e 'all(.[]; type=="object")' "$ledger" >/dev/null || return 1
+            if jq -se 'any(.[]; .schema>1)' "$ledger" >/dev/null; then echo '::warning::higher-schema ledger records preserved verbatim'; fi
+          }
+          line() {
+            local action="$1" result="$2" tier="$3" subject="$4" event="$5"
+            local key="$GITHUB_REPOSITORY:$tier:$actor_id"
+            [ "$event" != sweep ] || key="$GITHUB_REPOSITORY:sweep:$actor_id"
+            jq -cn --arg ts "$(date -u +%Y-%m-%dT%H:%M:%SZ)" --arg run_id "$RUN_KEY" \
+              --arg repo "$GITHUB_REPOSITORY" --arg event "$event" --arg actor "$actor" \
+              --arg actor_id "$actor_id" --arg tier "$tier" --arg subject "$subject" \
+              --arg action "$action" --arg mode "$MODE" --arg result "$result" \
+              --arg dedup_key "$key" --arg gen "$gen" \
+              '{schema:1,ts:$ts,run_id:$run_id,repo:$repo,event:$event,actor:$actor,actor_id:($actor_id|tonumber),tier:($tier|tonumber),subject:$subject,action:$action,mode:$mode,result:$result,dedup_key:$dedup_key,gen:($gen|tonumber)}'
+          }
+          append() {
+            local entry="$1" attempt=0 sha content status
+            # Initial attempt plus at most five conflict retries, each re-reading SHA and bytes.
+            while [ "$attempt" -le 5 ]; do
+              get "$LEDGER_TOKEN" "repos/$REWARD_REPO/contents/ledger/$base.ndjson" "$work/current.json" || return 1
+              case "$code" in
+                200) sha=$(jq -er .sha "$work/current.json"); jq -jr '.content | @base64d' "$work/current.json" > "$work/current.ndjson" ;;
+                404) sha=''; : > "$work/current.ndjson" ;;
+                *) echo '::error::ledger read failed'; return 1 ;;
+              esac
+              # Only rejected CAS requests retry; identical sibling skip lines are distinct attempts.
+              if [ -s "$work/current.ndjson" ]; then
+                [ "$(tail -c 1 "$work/current.ndjson" | od -An -tu1 | tr -d ' ')" = 10 ] || printf '\n' >> "$work/current.ndjson"
+              fi
+              printf '%s\n' "$entry" >> "$work/current.ndjson"
+              content=$(base64 < "$work/current.ndjson" | tr -d '\n')
+              jq -cn --arg content "$content" --arg sha "$sha" \
+                --arg message "supporter-loop: $(jq -r '.event+" "+.actor+" "+.action' <<< "$entry")" \
+                '{message:$message,content:$content,committer:{name:"supporter-loop[bot]",email:("supporter-loop@" + "caty-ai" + ".noreply")}} + (if $sha=="" then {} else {sha:$sha} end)' > "$work/put.json"
+              status=$(curl -sS --connect-timeout 10 --max-time 45 -o "$work/put-response.json" -w '%{http_code}' \
+                -X PUT -H "Authorization: Bearer $LEDGER_TOKEN" -H 'Accept: application/vnd.github+json' \
+                --data-binary @"$work/put.json" "https://api.github.com/repos/$REWARD_REPO/contents/ledger/$base.ndjson") || return 1
+              case "$status" in
+                200|201) printf '%s\n' "$entry" >> "$ledger"; return 0 ;;
+                409) ;;
+                422) jq -e '.message | test("sha|does not match";"i")' "$work/put-response.json" >/dev/null || { echo '::error::ledger rejected (non-CAS 422)'; return 1; } ;;
+                *) echo "::error::ledger append HTTP $status"; return 1 ;;
+              esac
+              attempt=$((attempt + 1))
+              [ "$attempt" -gt 5 ] || sleep "$((1 + RANDOM % 4))"
+            done
+            echo '::error::ledger CAS retries exhausted'; return 1
+          }
+          # Crash-safe §6.3 copy, verify byte equality, then delete the exact base SHA.
+          rotate() {
+            local archive target_sha='' base_sha content status
+            get "$LEDGER_TOKEN" "repos/$REWARD_REPO/contents/ledger/$base.ndjson" "$work/rotation-base.json" || return 1
+            [ "$code" != 404 ] || return 0
+            [ "$code" = 200 ] || return 1
+            jq -jr '.content | @base64d' "$work/rotation-base.json" > "$work/rotation-base"
+            base_sha=$(jq -er .sha "$work/rotation-base.json")
+            archive="$base.$(date -u +%F).ndjson"
+            # A previous interrupted copy may be from an earlier date. Resume that copy.
+            while IFS= read -r name; do
+              [ "$name" != "$base.ndjson" ] || continue
+              get "$LEDGER_TOKEN" "repos/$REWARD_REPO/contents/ledger/$name" "$work/copy.json" || return 1
+              [ "$code" = 200 ] || return 1
+              jq -jr '.content | @base64d' "$work/copy.json" > "$work/copy"
+              if [ -s "$work/copy" ] && cmp -s "$work/copy" <(head -c "$(wc -c < "$work/copy")" "$work/rotation-base"); then
+                archive="$name"; target_sha=$(jq -er .sha "$work/copy.json"); break
+              fi
+            done < "$work/names"
+            if [ -z "$target_sha" ] && [ "$(wc -c < "$work/rotation-base")" -le 900000 ]; then return 0; fi
+            if [ -z "$target_sha" ]; then
+              get "$LEDGER_TOKEN" "repos/$REWARD_REPO/contents/ledger/$archive" "$work/copy.json" || return 1
+              # Never overwrite an unrelated archive on a second rotation the same day.
+              [ "$code" = 404 ] || { echo '::error::archive already exists; owner intervention required'; return 1; }
+            fi
+            content=$(base64 < "$work/rotation-base" | tr -d '\n')
+            jq -cn --arg content "$content" --arg sha "$target_sha" \
+              '{message:"supporter-loop: sweep ledger rotate",content:$content,committer:{name:"supporter-loop[bot]",email:("supporter-loop@" + "caty-ai" + ".noreply")}} + (if $sha=="" then {} else {sha:$sha} end)' > "$work/rotate.json"
+            status=$(curl -sS --connect-timeout 10 --max-time 45 -o "$work/rotate-response" -w '%{http_code}' -X PUT \
+              -H "Authorization: Bearer $LEDGER_TOKEN" --data-binary @"$work/rotate.json" \
+              "https://api.github.com/repos/$REWARD_REPO/contents/ledger/$archive") || return 1
+            case "$status" in 200|201) ;; *) return 1 ;; esac
+            get "$LEDGER_TOKEN" "repos/$REWARD_REPO/contents/ledger/$archive" "$work/verify.json" || return 1
+            [ "$code" = 200 ] || return 1
+            jq -jr '.content | @base64d' "$work/verify.json" > "$work/verified"
+            cmp -s "$work/rotation-base" "$work/verified" || { echo '::error::rotation byte verification failed'; return 1; }
+            jq -cn --arg sha "$base_sha" '{message:"supporter-loop: sweep ledger rotate",sha:$sha,committer:{name:"supporter-loop[bot]",email:("supporter-loop@" + "caty-ai" + ".noreply")}}' > "$work/delete.json"
+            status=$(curl -sS --connect-timeout 10 --max-time 45 -o "$work/delete-response" -w '%{http_code}' -X DELETE \
+              -H "Authorization: Bearer $LEDGER_TOKEN" --data-binary @"$work/delete.json" \
+              "https://api.github.com/repos/$REWARD_REPO/contents/ledger/$base.ndjson") || return 1
+            [ "$status" = 200 ] || { echo '::error::rotation base changed; preserved both copies'; return 1; }
+          }
+          # GraphQL is read-only here. Explicit cursors exhaust comments AND every replies connection.
+          graph() {
+            local query="$1" variables="$2" target="$3" entry key value kind
+            # Only query operations; gh field flags select POST for GraphQL transport.
+            case "$query" in query*) ;; *) return 1 ;; esac
+            set --
+            while IFS= read -r entry; do
+              key=$(jq -r .key <<< "$entry")
+              value=$(jq -r .value <<< "$entry")
+              kind=$(jq -r '.value|type' <<< "$entry")
+              if [ "$kind" = string ]; then set -- "$@" -f "$key=$value"
+              else set -- "$@" -F "$key=$value"; fi
+            done < <(jq -c 'to_entries[]' <<< "$variables")
+            gh api graphql --hostname github.com -f query="query ${query#query}" "$@" > "$target" || return 1
+            jq -e '(.errors // [] | length)==0 and .data!=null' "$target" >/dev/null
+          }
+          discussion_comments() {
+            local number="$1" subject="$2" cursor=null node id reply_cursor vars query
+            # shellcheck disable=SC2016
+            query='query($owner:String!,$name:String!,$number:Int!,$cursor:String){repository(owner:$owner,name:$name){discussion(number:$number){id comments(first:100,after:$cursor){nodes{id body author{login}} pageInfo{hasNextPage endCursor}}}}}'
+            while :; do
+              vars=$(jq -cn --arg owner "${GITHUB_REPOSITORY%/*}" --arg name "${GITHUB_REPOSITORY#*/}" --argjson number "$number" --argjson cursor "$cursor" '{owner:$owner,name:$name,number:$number,cursor:$cursor}')
+              graph "$query" "$vars" "$work/discussion-page.json" || return 1
+              jq -e '.data.repository.discussion.comments | (.nodes | type=="array") and (.pageInfo.hasNextPage | type=="boolean")' "$work/discussion-page.json" >/dev/null || return 1
+              jq -c --arg subject "$subject" '.data.repository.discussion.comments.nodes[] | {body,author:.author.login,subject}' "$work/discussion-page.json" >> "$work/comments.ndjson"
+              jq -r '.data.repository.discussion.comments.nodes[].id' "$work/discussion-page.json" > "$work/comment-ids"
+              while IFS= read -r id; do
+                reply_cursor=null
+                while :; do
+                  vars=$(jq -cn --arg id "$id" --argjson cursor "$reply_cursor" '{id:$id,cursor:$cursor}')
+                  # shellcheck disable=SC2016
+                  graph 'query($id:ID!,$cursor:String){node(id:$id){... on DiscussionComment{replies(first:100,after:$cursor){nodes{body author{login}} pageInfo{hasNextPage endCursor}}}}}' "$vars" "$work/replies.json" || return 1
+                  jq -e '.data.node.replies | (.nodes | type=="array") and (.pageInfo.hasNextPage | type=="boolean")' "$work/replies.json" >/dev/null || return 1
+                  jq -c --arg subject "$subject" '.data.node.replies.nodes[] | {body,author:.author.login,subject}' "$work/replies.json" >> "$work/comments.ndjson"
+                  [ "$(jq -r '.data.node.replies.pageInfo.hasNextPage' "$work/replies.json")" = true ] || break
+                  node=$(jq -cer '.data.node.replies.pageInfo.endCursor | select(type=="string" and length>0)' "$work/replies.json") || return 1
+                  [ "$node" != "$reply_cursor" ] || return 1
+                  reply_cursor="$node"
+                done
+              done < "$work/comment-ids"
+              [ "$(jq -r '.data.repository.discussion.comments.pageInfo.hasNextPage' "$work/discussion-page.json")" = true ] || break
+              node=$(jq -cer '.data.repository.discussion.comments.pageInfo.endCursor | select(type=="string" and length>0)' "$work/discussion-page.json") || return 1
+              [ "$node" != "$cursor" ] || return 1
+              cursor="$node"
+            done
+          }
+          markers() {
+            jq -s '[.[] | select(.author=="github-actions[bot]") | . as $comment | .body | scan("<!-- supporter-loop:tier([23]):([0-9]+) -->") | {actor_id:(.[1]|tonumber),tier:(.[0]|tonumber),subject:$comment.subject,author:$comment.author}] | unique' "$work/comments.ndjson" > "$work/markers.json"
+          }
+          all_markers() {
+            local cursor=null next vars
+            : > "$work/comments.ndjson"
+            pages "$GH_TOKEN" "repos/$GITHUB_REPOSITORY/issues/comments?per_page=100" "$work/issues-comments.json" || return 1
+            jq -c '.[] | {body,author:.user.login,subject:(.html_url|split("#")[0])}' "$work/issues-comments.json" >> "$work/comments.ndjson"
+            get "$GH_TOKEN" "repos/$GITHUB_REPOSITORY" "$work/source.json" || return 1
+            [ "$code" = 200 ] || return 1
+            jq -e '.has_discussions|type=="boolean"' "$work/source.json" >/dev/null || return 1
+            if [ "$(jq -r .has_discussions "$work/source.json")" = true ]; then
+              while :; do
+                vars=$(jq -cn --arg owner "${GITHUB_REPOSITORY%/*}" --arg name "${GITHUB_REPOSITORY#*/}" --argjson cursor "$cursor" '{owner:$owner,name:$name,cursor:$cursor}')
+                # shellcheck disable=SC2016
+                graph 'query($owner:String!,$name:String!,$cursor:String){repository(owner:$owner,name:$name){discussions(first:100,after:$cursor){nodes{number url} pageInfo{hasNextPage endCursor}}}}' "$vars" "$work/discussions.json" || return 1
+                jq -e '.data.repository.discussions | (.nodes | type=="array") and (.pageInfo.hasNextPage | type=="boolean")' "$work/discussions.json" >/dev/null || return 1
+                jq -r '.data.repository.discussions.nodes[] | [.number,.url] | @tsv' "$work/discussions.json" > "$work/discussion-list"
+                while IFS=$'\t' read -r number subject; do discussion_comments "$number" "$subject" || return 1; done < "$work/discussion-list"
+                [ "$(jq -r '.data.repository.discussions.pageInfo.hasNextPage' "$work/discussions.json")" = true ] || break
+                next=$(jq -cer '.data.repository.discussions.pageInfo.endCursor | select(type=="string" and length>0)' "$work/discussions.json") || return 1
+                [ "$cursor" != "$next" ] || return 1
+                cursor="$next"
+              done
+            fi
+            markers
+          }
+          # Baselines are created by the owner at checkpoint #2/#4, never invented here.
+          baseline() {
+            local name
+            name=$(jq -r '[.[] | select(.name | test("^baseline-[0-9]{4}-[0-9]{2}-[0-9]{2}\\.json$"))] | sort_by(.name) | .[0].name // empty' "$work/directory.json")
+            [ -n "$name" ] || { echo '::error::owner baseline is missing'; return 1; }
+            get "$LEDGER_TOKEN" "repos/$REWARD_REPO/contents/ledger/$name" "$work/baseline-blob.json" || return 1
+            [ "$code" = 200 ] || return 1
+            jq -er '.content | @base64d | fromjson | select((.collaborators|type=="array") and (.invitations|type=="array"))' "$work/baseline-blob.json" > "$work/baseline.json"
+          }
+          reminder() {
+            local expiry="$1" label="$2" days
+            [ -n "$expiry" ] || { echo "::warning::$label expiry variable missing"; return 0; }
+            days=$(( ($(date -u -d "$expiry" +%s) - $(date -u +%s)) / 86400 ))
+            if [ "$days" -le 14 ]; then echo "::warning::$label expires within 14 days"; printf '%s\n' "$label expires within 14 days" >> "$work/reminders"; fi
+          }
+          if [ "$SWEEP" = true ]; then
+            # §11 step 1, ledger-token half of §8.4. Negative probes are intentionally reads.
+            get "$LEDGER_TOKEN" "repos/$REWARD_REPO" "$work/probe.json"; [ "$code" = 200 ]
+            ledger_directory
+            get "$LEDGER_TOKEN" "repos/$REWARD_REPO/collaborators?per_page=1" "$work/probe.json"; [ "$code" = 200 ]
+            get "$LEDGER_TOKEN" "repos/$REWARD_REPO/invitations" "$work/probe.json"; [ "$code" = 403 ] || { echo '::error::ledger token over-scoped'; exit 1; }
+            get "$LEDGER_TOKEN" "repos/$GITHUB_REPOSITORY/invitations" "$work/probe.json"
+            case "$code" in 403|404) ;; *) echo '::error::ledger token over-scoped'; exit 1 ;; esac
+          fi
+          read_ledger
+          if [ "$SWEEP" = true ]; then
+            gate=true
+            # §11(a): all pages, nonempty cutoff, and the 1,000-result API cap fail closed.
+            runs() {
+              local query="$1" target="$2"
+              gh api --hostname github.com --method GET --paginate --slurp \
+                "repos/$GITHUB_REPOSITORY/actions/runs?per_page=100&$query" > "$target.pages" || return 1
+              jq -e 'type=="array" and length>0 and all(.[]; (.total_count|type=="number") and .total_count<1000 and (.workflow_runs|type=="array") and all(.workflow_runs[]; (.path|type=="string") and (.created_at|type=="string")))' "$target.pages" >/dev/null || return 1
+              jq '[.[].workflow_runs[] | select(.path==".github/workflows/supporter-loop.yml")]' "$target.pages" > "$target"
+            }
+            cutoff=''
+            if runs 'event=schedule&status=success' "$work/success-runs.json"; then
+              cutoff=$(jq -r 'sort_by(.created_at) | last | .created_at // empty' "$work/success-runs.json")
+            else gate=false; fi
+            if [ -z "$cutoff" ]; then
+              if runs '' "$work/all-runs.json"; then cutoff=$(jq -r 'sort_by(.created_at) | first | .created_at // empty' "$work/all-runs.json"); else gate=false; fi
+            fi
+            if [ -z "$cutoff" ]; then gate=false
+            elif ! runs "status=failure&created=%3E%3D$cutoff" "$work/failed-runs.json"; then gate=false
+            elif [ "$(jq length "$work/failed-runs.json")" -ne 0 ]; then gate=false; fi
+            # §11(b): pagination errors do not hide expiry/audit work in live act.
+            if ! pages "$GH_TOKEN" "repos/$GITHUB_REPOSITORY/stargazers?per_page=100" "$work/stargazers.json" || ! jq -e 'all(.[];.id|type=="number" and .>0 and floor==.)' "$work/stargazers.json" >/dev/null; then
+              gate=false; printf '[]\n' > "$work/stargazers.json"
+            fi
+            printf 'sweep_gate=%s\n' "$gate" >> "$GITHUB_OUTPUT"
+            # IDs only, never secrets or author text. Fail before GitHub's output-size truncation.
+            stars=$(jq -c '[.[].id] | unique' "$work/stargazers.json")
+            [ "${#stars}" -lt 400000 ] || { echo '::error::stargazer handoff exceeds safe output size'; exit 1; }
+            printf 'stargazers=%s\n' "$stars" >> "$GITHUB_OUTPUT"
+            printf 'actions=[]\n' >> "$GITHUB_OUTPUT"
+            if [ "$MODE" = live ]; then
+              # §4.4 v1.9 handoff: act owns steps 2–7 and preconditions (c)(d)(e).
+              printf 'has_live_actions=true\n' >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+            printf 'has_live_actions=false\n' >> "$GITHUB_OUTPUT"
+            # §11 step 2 is a NO-OP: rehearsal invitations cannot expire or be re-armed.
+            # §5.3 reduced audit, step 3: no Administration credential exists in this job.
+            baseline
+            pages "$LEDGER_TOKEN" "repos/$REWARD_REPO/collaborators?per_page=100" "$work/collaborators.json"
+            all_markers
+            if ! jq -en --slurpfile actual "$work/collaborators.json" --slurpfile before "$work/baseline.json" \
+              '($actual[0]|map(.id)|unique)==($before[0].collaborators|map(.id)|unique)' >/dev/null; then
+              echo '::error::reduced-collaborators: baseline differs'; gate=false
+            fi
+            if [ "$(jq length "$work/markers.json")" -ne 0 ]; then echo '::error::reduced-markers: workflow markers exist'; gate=false; fi
+            # §11 step 4, reduced: would-revoke only. No would-invite represents a pending invite.
+            if [ "$gate" = true ]; then
+              model '[.[].actor_id] | unique' > "$work/ids.json"
+              while IFS= read -r actor_id; do
+                tier=$(model "achieved(\"$GITHUB_REPOSITORY\";$actor_id)")
+                [ "$tier" = 1 ] || continue
+                jq -e --argjson id "$actor_id" 'any(.[];.id==$id)' "$work/stargazers.json" >/dev/null && continue
+                gen=$(model "generation(\"$GITHUB_REPOSITORY\";$actor_id)")
+                actor=$(model "[.[] | select(.repo==\"$GITHUB_REPOSITORY\" and .actor_id==$actor_id)] | sort_by(.ts) | last | .actor" | jq -r .)
+                append "$(line would-revoke noop 0 '' sweep)"
+              done < <(jq -r '.[]' "$work/ids.json")
+            fi
+            # §11 steps 5–7: rotate, omit derived-public write, warn on ledger-token expiry.
+            rotate
+            reminder "$LEDGER_EXPIRES" 'ledger token'
+            [ "$gate" = true ] || { echo '::error::sweep preconditions failed; cleanup skipped'; exit 1; }
+            exit 0
+          fi
+          # §0 actor mapping: PR author, NEVER merger/sender. No event body/title is read.
+          action=$(jq -r '.action // ""' "$GITHUB_EVENT_PATH")
+          case "$EVENT_NAME:$action" in
+            watch:started) actor_path='.sender'; tier=1; subject=''; assoc=NONE ;;
+            issues:opened) actor_path='.issue.user'; tier=2; subject=$(jq -r '.issue.html_url' "$GITHUB_EVENT_PATH"); assoc=$(jq -r '.issue.author_association' "$GITHUB_EVENT_PATH") ;;
+            discussion:created) actor_path='.discussion.user'; tier=2; subject=$(jq -r '.discussion.html_url' "$GITHUB_EVENT_PATH"); assoc=$(jq -r '.discussion.author_association' "$GITHUB_EVENT_PATH") ;;
+            pull_request_target:closed)
+              actor_path='.pull_request.user'; tier=3; subject=$(jq -r '.pull_request.html_url' "$GITHUB_EVENT_PATH"); assoc=$(jq -r '.pull_request.author_association' "$GITHUB_EVENT_PATH")
+              [ "$(jq -r '.pull_request.merged' "$GITHUB_EVENT_PATH")" = true ] || tier=0 ;;
+            *) echo '::error::unsupported event action'; exit 1 ;;
+          esac
+          actor=$(jq -r "$actor_path.login" "$GITHUB_EVENT_PATH")
+          actor_id=$(jq -er "$actor_path.id | select(type==\"number\" and .>0 and floor==.)" "$GITHUB_EVENT_PATH")
+          user_type=$(jq -r "$actor_path.type" "$GITHUB_EVENT_PATH")
+          actor_lc=$(printf '%s' "$actor" | tr '[:upper:]' '[:lower:]')
+          # Exclusion precedence: later matches win (member > org > self > bot > family).
+          reason=''
+          # Twin external-input-watch.yml fam_roster: case-insensitive; identical token set.
+          # Existing production workflow is intentionally untouched; copied roster is noted in README.
+          fam_roster="sho""jikumaru caty2 alec-bridge alpha-mbp-bridge cero-bridge"
+          for fam in $fam_roster; do [ "$actor_lc" != "$fam" ] || reason=excluded-family; done
+          if [ "$user_type" = Bot ] || [[ "$actor_lc" == *'[bot]' ]]; then reason=excluded-bot; fi
+          if [ "$actor_lc" = "$(printf '%s' "${GITHUB_REPOSITORY%/*}" | tr '[:upper:]' '[:lower:]')" ] || [ "$actor_lc" = 'github-actions[bot]' ]; then reason=excluded-self; fi
+          [ "$user_type" != Organization ] || reason=excluded-org
+          case "$assoc" in OWNER|MEMBER) reason=excluded-member ;; esac
+          if [ -z "$reason" ]; then
+            if ! { [ "$user_type" = User ] && [[ "$actor" =~ ^[A-Za-z0-9-]{1,39}$ ]]; }; then
+              echo '::error::invalid actor type/login'; exit 1
+            fi
+          fi
+          gen=$(model "generation(\"$GITHUB_REPOSITORY\";$actor_id)")
+          if [ -n "$reason" ]; then
+            append "$(line skip "$reason" 0 "$subject" "$EVENT_NAME")"
+            printf 'actions=[]\nhas_live_actions=false\n' >> "$GITHUB_OUTPUT"; exit 0
+          fi
+          if [ "$tier" = 0 ]; then
+            append "$(line skip noop 0 "$subject" "$EVENT_NAME")"
+            printf 'actions=[]\nhas_live_actions=false\n' >> "$GITHUB_OUTPUT"; exit 0
+          fi
+          case ",$TIERS_ENABLED," in
+            *",$tier,"*) ;;
+            *) append "$(line skip tier-disabled "$tier" "$subject" "$EVENT_NAME")"; printf 'actions=[]\nhas_live_actions=false\n' >> "$GITHUB_OUTPUT"; exit 0 ;;
+          esac
+          # §2 cumulative entitlement; only the triggering tier controls disabled-event exclusion.
+          # Exactly one derived-file attempt per actor/key, even for direct tier-3 arrival (§6.5).
+          candidates=$(jq -cn --argjson tier "$tier" '[{action:"invite",tier:1}] + [range(2;$tier+1) | {action:"comment",tier:.}] + [{action:"supporters-append",tier:$tier}]')
+          : > "$work/actions.ndjson"
+          while IFS= read -r item; do
+            delivery_action=$(jq -r .action <<< "$item")
+            delivery_tier=$(jq -r .tier <<< "$item")
+            vocabulary="$delivery_action"; [ "$MODE" != record-only ] || vocabulary="would-$delivery_action"
+            if [ "$(model "delivered(\"$GITHUB_REPOSITORY\";$actor_id;$delivery_tier;\"$vocabulary\")")" = true ]; then
+              append "$(line skip "already-$delivery_tier" "$delivery_tier" "$subject" "$EVENT_NAME")"
+            elif [ "$MODE" = record-only ]; then
+              append "$(line "$vocabulary" ok "$delivery_tier" "$subject" "$EVENT_NAME")"
+            else
+              jq -cn --argjson item "$item" --arg actor "$actor" --arg actor_id "$actor_id" --arg gen "$gen" --arg subject "$subject" --arg event "$EVENT_NAME" \
+                '$item+{actor:$actor,actor_id:($actor_id|tonumber),gen:($gen|tonumber),subject:$subject,event:$event}' >> "$work/actions.ndjson"
+            fi
+          done < <(jq -c '.[]' <<< "$candidates")
+          actions=$(jq -sc . "$work/actions.ndjson")
+          printf 'actions=%s\n' "$actions" >> "$GITHUB_OUTPUT"
+          printf 'has_live_actions=%s\n' "$(jq 'length>0' <<< "$actions")" >> "$GITHUB_OUTPUT"
+  act:
+    needs: decide
+    if: ${{ inputs.mode == 'live' && (needs.decide.outputs.has_live_actions == 'true' || inputs.sweep == true) }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: none
+      issues: write
+      pull-requests: write
+      discussions: write
+    steps:
+      - name: Token preflight before every live leg
+        id: preflight
+        env:
+          MODE: ${{ inputs.mode }}
+          REWARD_REPO: ${{ inputs.reward_repo }}
+          ADMIN_TOKEN: ${{ secrets.SUPPORTER_LOOP_TOKEN }}
+        run: |
+          # jq/GraphQL variables below are intentionally literal.
+          # shellcheck disable=SC2016
+          set -euo pipefail
+          [ "$MODE" = live ] || exit 1
+          [ -n "$ADMIN_TOKEN" ] || { echo '::error::SUPPORTER_LOOP_TOKEN is empty'; exit 1; }
+          umask 077
+          mkdir -p "$RUNNER_TEMP/supporter-loop"
+          probe() {
+            [ "$MODE" = live ] || return 1
+            code=$(curl -sS --connect-timeout 10 --max-time 45 -o "$RUNNER_TEMP/supporter-loop/preflight.json" -w '%{http_code}' \
+              -H "Authorization: Bearer $ADMIN_TOKEN" -H 'Accept: application/vnd.github+json' \
+              "https://api.github.com/$1")
+          }
+          # §8.4 loop-token half; this is sweep precondition (c).
+          probe "repos/$REWARD_REPO/invitations"
+          [ "$code" = 200 ] || { echo '::error::Administration preflight failed'; exit 1; }
+          probe "repos/$REWARD_REPO/contents/ledger"
+          case "$code" in 403|404) ;; *) echo '::error::token over-scoped: Contents'; exit 1 ;; esac
+          # Explicit, read-shaped source-repository over-scope probe (§8.4 exception).
+          probe "repos/$GITHUB_REPOSITORY/invitations"
+          case "$code" in 403|404) ;; *) echo '::error::token over-scoped: source'; exit 1 ;; esac
+          probe "repos/$REWARD_REPO"
+          if [ "$code" != 200 ] || ! jq -e '.permissions.push != true' "$RUNNER_TEMP/supporter-loop/preflight.json" >/dev/null; then echo '::error::token over-scoped: push'; exit 1; fi
+      - name: Execute live actions and sweep after preflight
+        id: deliver
+        if: ${{ steps.preflight.outcome == 'success' }}
+        env:
+          MODE: ${{ inputs.mode }}
+          REWARD_REPO: ${{ inputs.reward_repo }}
+          SWEEP: ${{ inputs.sweep }}
+          EVENT_NAME: ${{ github.event_name }}
+          RUN_KEY: ${{ github.run_id }}-${{ github.run_attempt }}
+          GH_TOKEN: ${{ github.token }}
+          LEDGER_TOKEN: ${{ secrets.SUPPORTER_LEDGER_TOKEN }}
+          ADMIN_TOKEN: ${{ secrets.SUPPORTER_LOOP_TOKEN }}
+          ACTIONS: ${{ needs.decide.outputs.actions }}
+          SWEEP_GATE: ${{ needs.decide.outputs.sweep_gate }}
+          STARGAZERS: ${{ needs.decide.outputs.stargazers }}
+          LEDGER_EXPIRES: ${{ vars.SUPPORTER_LEDGER_TOKEN_EXPIRES }}
+          ADMIN_EXPIRES: ${{ vars.SUPPORTER_LOOP_TOKEN_EXPIRES }}
+        run: |
+          # jq/GraphQL variables below are intentionally literal.
+          # shellcheck disable=SC2016
+          set -euo pipefail
+          umask 077
+          work="$RUNNER_TEMP/supporter-loop"
+          mkdir -p "$work"
+          base="${GITHUB_REPOSITORY//\//--}"
+          ledger="$work/ledger.ndjson"
+          # .publication-denylist option a: split committer email preserves contract §6 identity.
+          # Model is embedded in the reviewed central workflow, never loaded from source code.
+          cat > "$work/model.jq" <<'JQ'
+          def success: .result | test("^(ok($|-)|already-|noop$|expired$)");
+          def closure: (.action | IN("revoke","would-revoke","cancel-invite","would-cancel-invite")) and success and .result != "expired";
+          def generation($repo;$id): 1 + ([.[] | select(.repo==$repo and .actor_id==$id) | select(closure) | .run_id] | unique | length);
+          def current($repo;$id): generation($repo;$id) as $g | [.[] | select(.repo==$repo and .actor_id==$id and .gen==$g)];
+          def achieved($repo;$id): current($repo;$id) | [.[] | select(success) | select(if $mode=="live" then (.action | IN("invite","comment","supporters-append")) else (.action | IN("would-invite","would-comment","would-supporters-append")) end) | .tier] | max // 0;
+          def delivered($repo;$id;$tier;$action): generation($repo;$id) as $g |
+            [to_entries[] | .value + {__order:.key} | select(.repo==$repo and .actor_id==$id and .gen==$g)] |
+            (if ($action=="invite" or $action=="would-invite") then
+              ([.[] | select(.action=="cancel-invite" and .result=="expired") | [.ts,.__order]] | max // ["",-1]) as $expired |
+              any(.[]; .tier==$tier and .dedup_key==($repo+":"+($tier|tostring)+":"+($id|tostring)) and .action==$action and success and [.ts,.__order]>$expired)
+            else any(.[]; .tier==$tier and .dedup_key==($repo+":"+($tier|tostring)+":"+($id|tostring)) and .action==$action and success) end);
+          JQ
+          model() { jq -s -L "$work" --arg mode "$MODE" "include \"model\"; $1" "$ledger"; }
+          # Read-shaped requests; HTTP errors are classified without printing response bodies.
+          get() {
+            local token="$1" endpoint="$2" target="$3"
+            [ "$MODE" = live ] || return 1
+            code=$(curl -sS --connect-timeout 10 --max-time 45 -o "$target" -w '%{http_code}' \
+              -H "Authorization: Bearer $token" -H 'Accept: application/vnd.github+json' \
+              -H 'X-GitHub-Api-Version: 2022-11-28' "https://api.github.com/$endpoint") || return 1
+          }
+          pages() {
+            local token="$1" endpoint="$2" target="$3"
+            [ "$MODE" = live ] || return 1
+            GH_TOKEN="$token" gh api --hostname github.com --method GET --paginate --slurp "$endpoint" > "$target.pages" || return 1
+            jq -e 'type=="array" and length>0 and all(.[]; type=="array")' "$target.pages" >/dev/null || return 1
+            jq 'add // []' "$target.pages" > "$target"
+          }
+          ledger_directory() {
+            get "$LEDGER_TOKEN" "repos/$REWARD_REPO/contents/ledger" "$work/directory-probe.json" || return 1
+            if [ "$code" = 404 ]; then
+              echo '::error::reward repo has no ledger/ directory; create ledger/baseline-<date>.json first (contract §5.3 step 1)'
+              return 1
+            fi
+            [ "$code" = 200 ]
+          }
+          read_ledger() {
+            ledger_directory || return 1
+            pages "$LEDGER_TOKEN" "repos/$REWARD_REPO/contents/ledger?per_page=100" "$work/directory.json" || return 1
+            [ "$(jq length "$work/directory.json")" -lt 1000 ] || { echo '::error::ledger directory may be truncated'; return 1; }
+            : > "$ledger"
+            jq -r --arg base "$base" '[.[] | select(.type=="file" and (.name | startswith($base)) and (.name | endswith(".ndjson")))] | sort_by(.name) | .[].name' "$work/directory.json" > "$work/names"
+            while IFS= read -r name; do
+              get "$LEDGER_TOKEN" "repos/$REWARD_REPO/contents/ledger/$name" "$work/blob.json" || return 1
+              [ "$code" = 200 ] || return 1
+              jq -er '.content | @base64d' "$work/blob.json" >> "$ledger" || return 1
+            done < "$work/names"
+            # Unknown fields and schema versions are retained verbatim; nothing rewrites history.
+            jq -s -e 'all(.[]; type=="object")' "$ledger" >/dev/null || return 1
+            if jq -se 'any(.[]; .schema>1)' "$ledger" >/dev/null; then echo '::warning::higher-schema ledger records preserved verbatim'; fi
+          }
+          line() {
+            local action="$1" result="$2" tier="$3" subject="$4" event="$5"
+            local key="$GITHUB_REPOSITORY:$tier:$actor_id"
+            [ "$event" != sweep ] || key="$GITHUB_REPOSITORY:sweep:$actor_id"
+            jq -cn --arg ts "$(date -u +%Y-%m-%dT%H:%M:%SZ)" --arg run_id "$RUN_KEY" \
+              --arg repo "$GITHUB_REPOSITORY" --arg event "$event" --arg actor "$actor" \
+              --arg actor_id "$actor_id" --arg tier "$tier" --arg subject "$subject" \
+              --arg action "$action" --arg mode "$MODE" --arg result "$result" \
+              --arg dedup_key "$key" --arg gen "$gen" \
+              '{schema:1,ts:$ts,run_id:$run_id,repo:$repo,event:$event,actor:$actor,actor_id:($actor_id|tonumber),tier:($tier|tonumber),subject:$subject,action:$action,mode:$mode,result:$result,dedup_key:$dedup_key,gen:($gen|tonumber)}'
+          }
+          append() {
+            local entry="$1" attempt=0 sha content status
+            # Initial attempt plus at most five conflict retries, each re-reading SHA and bytes.
+            while [ "$attempt" -le 5 ]; do
+              get "$LEDGER_TOKEN" "repos/$REWARD_REPO/contents/ledger/$base.ndjson" "$work/current.json" || return 1
+              case "$code" in
+                200) sha=$(jq -er .sha "$work/current.json"); jq -jr '.content | @base64d' "$work/current.json" > "$work/current.ndjson" ;;
+                404) sha=''; : > "$work/current.ndjson" ;;
+                *) echo '::error::ledger read failed'; return 1 ;;
+              esac
+              # Only rejected CAS requests retry; identical sibling skip lines are distinct attempts.
+              if [ -s "$work/current.ndjson" ]; then
+                [ "$(tail -c 1 "$work/current.ndjson" | od -An -tu1 | tr -d ' ')" = 10 ] || printf '\n' >> "$work/current.ndjson"
+              fi
+              printf '%s\n' "$entry" >> "$work/current.ndjson"
+              content=$(base64 < "$work/current.ndjson" | tr -d '\n')
+              jq -cn --arg content "$content" --arg sha "$sha" \
+                --arg message "supporter-loop: $(jq -r '.event+" "+.actor+" "+.action' <<< "$entry")" \
+                '{message:$message,content:$content,committer:{name:"supporter-loop[bot]",email:("supporter-loop@" + "caty-ai" + ".noreply")}} + (if $sha=="" then {} else {sha:$sha} end)' > "$work/put.json"
+              [ "$MODE" = live ] || return 1
+              status=$(curl -sS --connect-timeout 10 --max-time 45 -o "$work/put-response.json" -w '%{http_code}' \
+                -X PUT -H "Authorization: Bearer $LEDGER_TOKEN" -H 'Accept: application/vnd.github+json' \
+                --data-binary @"$work/put.json" "https://api.github.com/repos/$REWARD_REPO/contents/ledger/$base.ndjson") || return 1
+              case "$status" in
+                200|201) printf '%s\n' "$entry" >> "$ledger"; return 0 ;;
+                409) ;;
+                422) jq -e '.message | test("sha|does not match";"i")' "$work/put-response.json" >/dev/null || { echo '::error::ledger rejected (non-CAS 422)'; return 1; } ;;
+                *) echo "::error::ledger append HTTP $status"; return 1 ;;
+              esac
+              attempt=$((attempt + 1))
+              [ "$attempt" -gt 5 ] || sleep "$((1 + RANDOM % 4))"
+            done
+            echo '::error::ledger CAS retries exhausted'; return 1
+          }
+          # Crash-safe §6.3 copy, verify byte equality, then delete the exact base SHA.
+          rotate() {
+            local archive target_sha='' base_sha content status
+            get "$LEDGER_TOKEN" "repos/$REWARD_REPO/contents/ledger/$base.ndjson" "$work/rotation-base.json" || return 1
+            [ "$code" != 404 ] || return 0
+            [ "$code" = 200 ] || return 1
+            jq -jr '.content | @base64d' "$work/rotation-base.json" > "$work/rotation-base"
+            base_sha=$(jq -er .sha "$work/rotation-base.json")
+            archive="$base.$(date -u +%F).ndjson"
+            # A previous interrupted copy may be from an earlier date. Resume that copy.
+            while IFS= read -r name; do
+              [ "$name" != "$base.ndjson" ] || continue
+              get "$LEDGER_TOKEN" "repos/$REWARD_REPO/contents/ledger/$name" "$work/copy.json" || return 1
+              [ "$code" = 200 ] || return 1
+              jq -jr '.content | @base64d' "$work/copy.json" > "$work/copy"
+              if [ -s "$work/copy" ] && cmp -s "$work/copy" <(head -c "$(wc -c < "$work/copy")" "$work/rotation-base"); then
+                archive="$name"; target_sha=$(jq -er .sha "$work/copy.json"); break
+              fi
+            done < "$work/names"
+            if [ -z "$target_sha" ] && [ "$(wc -c < "$work/rotation-base")" -le 900000 ]; then return 0; fi
+            if [ -z "$target_sha" ]; then
+              get "$LEDGER_TOKEN" "repos/$REWARD_REPO/contents/ledger/$archive" "$work/copy.json" || return 1
+              # Never overwrite an unrelated archive on a second rotation the same day.
+              [ "$code" = 404 ] || { echo '::error::archive already exists; owner intervention required'; return 1; }
+            fi
+            content=$(base64 < "$work/rotation-base" | tr -d '\n')
+            jq -cn --arg content "$content" --arg sha "$target_sha" \
+              '{message:"supporter-loop: sweep ledger rotate",content:$content,committer:{name:"supporter-loop[bot]",email:("supporter-loop@" + "caty-ai" + ".noreply")}} + (if $sha=="" then {} else {sha:$sha} end)' > "$work/rotate.json"
+            [ "$MODE" = live ] || return 1
+            status=$(curl -sS --connect-timeout 10 --max-time 45 -o "$work/rotate-response" -w '%{http_code}' -X PUT \
+              -H "Authorization: Bearer $LEDGER_TOKEN" --data-binary @"$work/rotate.json" \
+              "https://api.github.com/repos/$REWARD_REPO/contents/ledger/$archive") || return 1
+            case "$status" in 200|201) ;; *) return 1 ;; esac
+            get "$LEDGER_TOKEN" "repos/$REWARD_REPO/contents/ledger/$archive" "$work/verify.json" || return 1
+            [ "$code" = 200 ] || return 1
+            jq -jr '.content | @base64d' "$work/verify.json" > "$work/verified"
+            cmp -s "$work/rotation-base" "$work/verified" || { echo '::error::rotation byte verification failed'; return 1; }
+            jq -cn --arg sha "$base_sha" '{message:"supporter-loop: sweep ledger rotate",sha:$sha,committer:{name:"supporter-loop[bot]",email:("supporter-loop@" + "caty-ai" + ".noreply")}}' > "$work/delete.json"
+            [ "$MODE" = live ] || return 1
+            status=$(curl -sS --connect-timeout 10 --max-time 45 -o "$work/delete-response" -w '%{http_code}' -X DELETE \
+              -H "Authorization: Bearer $LEDGER_TOKEN" --data-binary @"$work/delete.json" \
+              "https://api.github.com/repos/$REWARD_REPO/contents/ledger/$base.ndjson") || return 1
+            [ "$status" = 200 ] || { echo '::error::rotation base changed; preserved both copies'; return 1; }
+          }
+          # GraphQL is read-only here. Explicit cursors exhaust comments AND every replies connection.
+          graph() {
+            local query="$1" variables="$2" target="$3" entry key value kind
+            [ "$MODE" = live ] || return 1
+            # Only query operations; gh field flags select POST for GraphQL transport.
+            case "$query" in query*) ;; *) return 1 ;; esac
+            set --
+            while IFS= read -r entry; do
+              key=$(jq -r .key <<< "$entry")
+              value=$(jq -r .value <<< "$entry")
+              kind=$(jq -r '.value|type' <<< "$entry")
+              if [ "$kind" = string ]; then set -- "$@" -f "$key=$value"
+              else set -- "$@" -F "$key=$value"; fi
+            done < <(jq -c 'to_entries[]' <<< "$variables")
+            gh api graphql --hostname github.com -f query="query ${query#query}" "$@" > "$target" || return 1
+            jq -e '(.errors // [] | length)==0 and .data!=null' "$target" >/dev/null
+          }
+          discussion_comments() {
+            local number="$1" subject="$2" cursor=null node id reply_cursor vars query
+            # shellcheck disable=SC2016
+            query='query($owner:String!,$name:String!,$number:Int!,$cursor:String){repository(owner:$owner,name:$name){discussion(number:$number){id comments(first:100,after:$cursor){nodes{id body author{login}} pageInfo{hasNextPage endCursor}}}}}'
+            while :; do
+              vars=$(jq -cn --arg owner "${GITHUB_REPOSITORY%/*}" --arg name "${GITHUB_REPOSITORY#*/}" --argjson number "$number" --argjson cursor "$cursor" '{owner:$owner,name:$name,number:$number,cursor:$cursor}')
+              graph "$query" "$vars" "$work/discussion-page.json" || return 1
+              jq -e '.data.repository.discussion.comments | (.nodes | type=="array") and (.pageInfo.hasNextPage | type=="boolean")' "$work/discussion-page.json" >/dev/null || return 1
+              jq -c --arg subject "$subject" '.data.repository.discussion.comments.nodes[] | {body,author:.author.login,subject}' "$work/discussion-page.json" >> "$work/comments.ndjson"
+              jq -r '.data.repository.discussion.comments.nodes[].id' "$work/discussion-page.json" > "$work/comment-ids"
+              while IFS= read -r id; do
+                reply_cursor=null
+                while :; do
+                  vars=$(jq -cn --arg id "$id" --argjson cursor "$reply_cursor" '{id:$id,cursor:$cursor}')
+                  # shellcheck disable=SC2016
+                  graph 'query($id:ID!,$cursor:String){node(id:$id){... on DiscussionComment{replies(first:100,after:$cursor){nodes{body author{login}} pageInfo{hasNextPage endCursor}}}}}' "$vars" "$work/replies.json" || return 1
+                  jq -e '.data.node.replies | (.nodes | type=="array") and (.pageInfo.hasNextPage | type=="boolean")' "$work/replies.json" >/dev/null || return 1
+                  jq -c --arg subject "$subject" '.data.node.replies.nodes[] | {body,author:.author.login,subject}' "$work/replies.json" >> "$work/comments.ndjson"
+                  [ "$(jq -r '.data.node.replies.pageInfo.hasNextPage' "$work/replies.json")" = true ] || break
+                  node=$(jq -cer '.data.node.replies.pageInfo.endCursor | select(type=="string" and length>0)' "$work/replies.json") || return 1
+                  [ "$node" != "$reply_cursor" ] || return 1
+                  reply_cursor="$node"
+                done
+              done < "$work/comment-ids"
+              [ "$(jq -r '.data.repository.discussion.comments.pageInfo.hasNextPage' "$work/discussion-page.json")" = true ] || break
+              node=$(jq -cer '.data.repository.discussion.comments.pageInfo.endCursor | select(type=="string" and length>0)' "$work/discussion-page.json") || return 1
+              [ "$node" != "$cursor" ] || return 1
+              cursor="$node"
+            done
+          }
+          markers() {
+            jq -s '[.[] | select(.author=="github-actions[bot]") | . as $comment | .body | scan("<!-- supporter-loop:tier([23]):([0-9]+) -->") | {actor_id:(.[1]|tonumber),tier:(.[0]|tonumber),subject:$comment.subject,author:$comment.author}] | unique' "$work/comments.ndjson" > "$work/markers.json"
+          }
+          all_markers() {
+            local cursor=null next vars
+            : > "$work/comments.ndjson"
+            pages "$GH_TOKEN" "repos/$GITHUB_REPOSITORY/issues/comments?per_page=100" "$work/issues-comments.json" || return 1
+            jq -c '.[] | {body,author:.user.login,subject:(.html_url|split("#")[0])}' "$work/issues-comments.json" >> "$work/comments.ndjson"
+            get "$GH_TOKEN" "repos/$GITHUB_REPOSITORY" "$work/source.json" || return 1
+            [ "$code" = 200 ] || return 1
+            jq -e '.has_discussions|type=="boolean"' "$work/source.json" >/dev/null || return 1
+            if [ "$(jq -r .has_discussions "$work/source.json")" = true ]; then
+              while :; do
+                vars=$(jq -cn --arg owner "${GITHUB_REPOSITORY%/*}" --arg name "${GITHUB_REPOSITORY#*/}" --argjson cursor "$cursor" '{owner:$owner,name:$name,cursor:$cursor}')
+                # shellcheck disable=SC2016
+                graph 'query($owner:String!,$name:String!,$cursor:String){repository(owner:$owner,name:$name){discussions(first:100,after:$cursor){nodes{number url} pageInfo{hasNextPage endCursor}}}}' "$vars" "$work/discussions.json" || return 1
+                jq -e '.data.repository.discussions | (.nodes | type=="array") and (.pageInfo.hasNextPage | type=="boolean")' "$work/discussions.json" >/dev/null || return 1
+                jq -r '.data.repository.discussions.nodes[] | [.number,.url] | @tsv' "$work/discussions.json" > "$work/discussion-list"
+                while IFS=$'\t' read -r number subject; do discussion_comments "$number" "$subject" || return 1; done < "$work/discussion-list"
+                [ "$(jq -r '.data.repository.discussions.pageInfo.hasNextPage' "$work/discussions.json")" = true ] || break
+                next=$(jq -cer '.data.repository.discussions.pageInfo.endCursor | select(type=="string" and length>0)' "$work/discussions.json") || return 1
+                [ "$cursor" != "$next" ] || return 1
+                cursor="$next"
+              done
+            fi
+            markers
+          }
+          # Baselines are created by the owner at checkpoint #2/#4, never invented here.
+          baseline() {
+            local name
+            name=$(jq -r '[.[] | select(.name | test("^baseline-[0-9]{4}-[0-9]{2}-[0-9]{2}\\.json$"))] | sort_by(.name) | .[0].name // empty' "$work/directory.json")
+            [ -n "$name" ] || { echo '::error::owner baseline is missing'; return 1; }
+            get "$LEDGER_TOKEN" "repos/$REWARD_REPO/contents/ledger/$name" "$work/baseline-blob.json" || return 1
+            [ "$code" = 200 ] || return 1
+            jq -er '.content | @base64d | fromjson | select((.collaborators|type=="array") and (.invitations|type=="array"))' "$work/baseline-blob.json" > "$work/baseline.json"
+          }
+          reminder() {
+            local expiry="$1" label="$2" days
+            [ -n "$expiry" ] || { echo "::warning::$label expiry variable missing"; return 0; }
+            days=$(( ($(date -u -d "$expiry" +%s) - $(date -u +%s)) / 86400 ))
+            if [ "$days" -le 14 ]; then echo "::warning::$label expires within 14 days"; printf '%s\n' "$label expires within 14 days" >> "$work/reminders"; fi
+          }
+          [ "$MODE" = live ] || exit 1
+          : > "$work/notify.ndjson"
+          : > "$work/reminders"
+          failed=0
+          changed=false
+          # Every mutation below is guarded here AND by the job/step live preflight.
+          mutate() {
+            local token="$1" method="$2" endpoint="$3" payload="$4"
+            [ "$MODE" = live ] || return 1
+            code=$(curl -sS --connect-timeout 10 --max-time 45 -o "$work/mutation.json" -w '%{http_code}' \
+              -X "$method" -H "Authorization: Bearer $token" -H 'Accept: application/vnd.github+json' \
+              -H 'X-GitHub-Api-Version: 2022-11-28' --data-binary "@$payload" "https://api.github.com/$endpoint") || code=transport
+          }
+          emit() {
+            local entry
+            entry=$(line "$1" "$2" "$3" "$4" "$5")
+            # Independent owner leg survives a failed ledger append; no tokens/text enter this file.
+            printf '%s\n' "$entry" >> "$work/notify.ndjson"
+            append "$entry" || { echo '::error::action returned but ledger append failed'; return 1; }
+          }
+          identity() {
+            get "$GH_TOKEN" "user/$actor_id" "$work/identity.json" || return 1
+            [ "$code" = 200 ] || return 1
+            actor=$(jq -er --argjson id "$actor_id" 'select(.id==$id and .type=="User") | .login | select(test("^[A-Za-z0-9-]{1,39}$"))' "$work/identity.json")
+          }
+          invite() {
+            local pending collaborator_status
+            result=ok
+            if ! identity; then result="error-$code"; return 0; fi
+            if ! get "$ADMIN_TOKEN" "repos/$REWARD_REPO/collaborators/$actor" "$work/collaborator.json"; then result=error-transport; return 0; fi
+            collaborator_status="$code"
+            case "$collaborator_status" in 204|404) ;; *) result="error-$code"; return 0 ;; esac
+            if ! pages "$ADMIN_TOKEN" "repos/$REWARD_REPO/invitations?per_page=100" "$work/pending.json"; then result=error-preflight; return 0; fi
+            if ! jq -e 'all(.[]; (.id|type=="number" and .>0 and floor==.) and (.invitee.id|type=="number" and .>0 and floor==.))' "$work/pending.json" >/dev/null; then result=error-preflight; return 0; fi
+            pending=$(jq --argjson id "$actor_id" 'any(.[];.invitee.id==$id)' "$work/pending.json")
+            if [ "$collaborator_status" = 204 ] || [ "$pending" = true ]; then result=already-1; return 0; fi
+            # §2: explicit REST enum pull; omitting this grants push by platform default.
+            printf '{"permission":"pull"}\n' > "$work/invite.json"
+            mutate "$ADMIN_TOKEN" PUT "repos/$REWARD_REPO/collaborators/$actor" "$work/invite.json"
+            case "$code" in 200|201|204) result=ok ;; *) result="error-$code" ;; esac
+          }
+          comment() {
+            local tier="$1" subject="$2" event="$3" number marker body template node vars query matched
+            result=ok
+            number="${subject##*/}"
+            [[ "$number" =~ ^[0-9]+$ ]] || { result=error-subject; return 0; }
+            case "$subject" in "https://github.com/$GITHUB_REPOSITORY/issues/$number"|"https://github.com/$GITHUB_REPOSITORY/pull/$number"|"https://github.com/$GITHUB_REPOSITORY/discussions/$number") ;; *) result=error-subject; return 0 ;; esac
+            marker="<!-- supporter-loop:tier$tier:$actor_id -->"
+            : > "$work/comments.ndjson"
+            if [ "$event" = discussion ]; then
+              if ! discussion_comments "$number" "$subject"; then result=error-marker-read; return 0; fi
+              node=$(jq -er '.data.repository.discussion.id' "$work/discussion-page.json") || { result=error-marker-read; return 0; }
+            else
+              if ! pages "$GH_TOKEN" "repos/$GITHUB_REPOSITORY/issues/$number/comments?per_page=100" "$work/target-comments.json"; then result=error-marker-read; return 0; fi
+              jq -c --arg subject "$subject" '.[] | {body,author:.user.login,subject}' "$work/target-comments.json" >> "$work/comments.ndjson"
+            fi
+            if ! jq -se 'all(.[];.body|type=="string")' "$work/comments.ndjson" >/dev/null; then result=error-marker-parse; return 0; fi
+            matched=$(jq -s --arg marker "$marker" 'any(.[];.author=="github-actions[bot]" and (.body|contains($marker)))' "$work/comments.ndjson") || { result=error-marker-parse; return 0; }
+            if [ "$matched" = true ]; then result="already-$tier"; return 0; fi
+            # Templates are data from central protected main, never the caller/triggering ref.
+            # Central main is merge-only via reviewed PR (§4.3); wording approval is checkpoint #4.
+            [ "$MODE" = live ] || return 1
+            code=$(curl -sS --connect-timeout 10 --max-time 45 -o "$work/template.json" -w '%{http_code}' \
+              -H "Authorization: Bearer $GH_TOKEN" -H 'Accept: application/vnd.github+json' \
+              "https://api.github.com/repos/caty-ai/.github/contents/supporter-loop/comment-tier$tier.md?ref=main") || { result=error-template; return 0; }
+            [ "$code" = 200 ] || { result="error-$code"; return 0; }
+            template=$(jq -er '.content | @base64d' "$work/template.json") || { result=error-template; return 0; }
+            body=$(jq -nr --arg template "$template" --arg login "$actor" --arg id "$actor_id" --arg url "https://github.com/$REWARD_REPO" \
+              '$template | split("{{login}}")|join($login)|split("{{actor_id}}")|join($id)|split("{{reward_repo_url}}")|join($url)')
+            [ "${body%%$'\n'*}" = "$marker" ] || { result=error-template-marker; return 0; }
+            if [ "$event" = discussion ]; then
+              # shellcheck disable=SC2016
+              query='mutation($id:ID!,$body:String!){addDiscussionComment(input:{discussionId:$id,body:$body}){comment{id}}}'
+              vars=$(jq -cn --arg id "$node" --arg body "$body" '{id:$id,body:$body}')
+              jq -cn --arg query "$query" --argjson variables "$vars" '{query:$query,variables:$variables}' > "$work/comment.json"
+              mutate "$GH_TOKEN" POST graphql "$work/comment.json"
+              if [ "$code" = 200 ] && jq -e '(.errors // []|length)==0 and .data.addDiscussionComment.comment.id!=null' "$work/mutation.json" >/dev/null; then result=ok; else result="error-$code"; fi
+            else
+              jq -cn --arg body "$body" '{body:$body}' > "$work/comment.json"
+              mutate "$GH_TOKEN" POST "repos/$GITHUB_REPOSITORY/issues/$number/comments" "$work/comment.json"
+              case "$code" in 200|201) result=ok ;; *) result="error-$code" ;; esac
+            fi
+          }
+          regenerate() {
+            local attempt=0 sha content header projected="${1:-}" derive="$ledger"
+            [ "$MODE" = live ] || return 1
+            # §6.5: child #1 owns the header; never publish a headerless projection.
+            if ! get "$LEDGER_TOKEN" "repos/$REWARD_REPO/contents/SUPPORTERS.header.md" "$work/supporters-header.json" ||
+              [ "$code" != 200 ] ||
+              ! header=$(jq -er '.content | select(type=="string" and length>0)' "$work/supporters-header.json" | base64 -d) ||
+              [ -z "$header" ] || [ "${header##*$'\n'}" != '<!-- generated table below; do not edit by hand -->' ]; then
+              echo '::error::SUPPORTERS.header.md missing or malformed in reward repo (child #1); regeneration skipped'
+              return 1
+            fi
+            # Command substitution strips only trailing LF bytes; restore one plus the separator.
+            printf '%s\n\n' "$header" > "$work/SUPPORTERS.md" || return 1
+            # Project only the intended success into a temporary render input.
+            # The actual ledger still changes only AFTER the Contents API returns.
+            if [ -n "$projected" ]; then
+              derive="$work/projected.ndjson"
+              cat "$ledger" > "$derive"
+              printf '%s\n' "$projected" >> "$derive"
+            fi
+            # §6.5: stable numeric identity, latest login, achieved success tier, first date.
+            # This is a whole-file derivation; the reward-repo child owns its presentation.
+            jq -sr -L "$work" --arg mode "$MODE" --arg repo "$GITHUB_REPOSITORY" '
+              include "model";
+              . as $all | [.[]|select(.repo==$repo)|.actor_id]|unique |
+              map(. as $id | ($all|current($repo;$id)) as $history | ($all|achieved($repo;$id)) as $tier |
+                select($tier>0) | ($all|map(select(.repo==$repo and .actor_id==$id))|sort_by(.ts)) as $ever |
+                {id:$id,actor:($ever|last|.actor),tier:$tier,date:($ever|first|.ts|split("T")[0])}) |
+              map(select((.actor|ascii_downcase) as $a | (["sho"+"jikumaru","caty2","alec-bridge","alpha-mbp-bridge","cero-bridge","github-actions[bot]"]|index($a))==null and ($a|endswith("[bot]")|not))) |
+              sort_by(.date,.id) | "| Supporter | Tier | Since |\n| --- | --- | --- |", (.[]|"| @\(.actor) | \(.tier) | \(.date) |")' "$derive" >> "$work/SUPPORTERS.md" || return 1
+            content=$(base64 < "$work/SUPPORTERS.md" | tr -d '\n')
+            while [ "$attempt" -le 5 ]; do
+              get "$LEDGER_TOKEN" "repos/$REWARD_REPO/contents/SUPPORTERS.md" "$work/supporters.json" || return 1
+              case "$code" in 200) sha=$(jq -er .sha "$work/supporters.json") ;; 404) sha='' ;; *) return 1 ;; esac
+              jq -cn --arg sha "$sha" --arg content "$content" '{message:"supporter-loop: regenerate supporters",content:$content,committer:{name:"supporter-loop[bot]",email:("supporter-loop@" + "caty-ai" + ".noreply")}}+(if $sha=="" then {} else {sha:$sha} end)' > "$work/supporters-put.json"
+              mutate "$LEDGER_TOKEN" PUT "repos/$REWARD_REPO/contents/SUPPORTERS.md" "$work/supporters-put.json"
+              case "$code" in 200|201) return 0 ;; 409) ;; 422) jq -e '.message|test("sha|does not match";"i")' "$work/mutation.json" >/dev/null || return 1 ;; *) return 1 ;; esac
+              attempt=$((attempt+1)); [ "$attempt" -gt 5 ] || sleep "$((1+RANDOM%4))"
+            done
+            return 1
+          }
+          read_ledger
+          if [ "$SWEEP" != true ]; then
+            invite_failure=''
+            while IFS= read -r item; do
+              actor=$(jq -r .actor <<< "$item"); actor_id=$(jq -r .actor_id <<< "$item"); gen=$(jq -r .gen <<< "$item")
+              tier=$(jq -r .tier <<< "$item"); subject=$(jq -r .subject <<< "$item"); event=$(jq -r .event <<< "$item"); action=$(jq -r .action <<< "$item")
+              # Invitation failure gates sibling comments and derived-file writes (§14).
+              if [ -n "$invite_failure" ]; then emit "$action" "$invite_failure" "$tier" "$subject" "$event"; continue; fi
+              case "$action" in
+                invite)
+                  invite
+                  emit invite "$result" "$tier" "$subject" "$event"
+                  case "$result" in error-*) invite_failure="$result"; failed=1 ;; *) changed=true ;; esac ;;
+                comment)
+                  comment "$tier" "$subject" "$event"
+                  emit comment "$result" "$tier" "$subject" "$event"
+                  case "$result" in error-*) failed=1 ;; *) changed=true ;; esac ;;
+                supporters-append)
+                  if regenerate "$(line supporters-append ok "$tier" "$subject" "$event")"; then result=ok; else result="error-$code"; failed=1; fi
+                  emit supporters-append "$result" "$tier" "$subject" "$event" ;;
+                *) echo '::error::unexpected live plan action'; exit 1 ;;
+              esac
+            done < <(jq -c '.[]' <<< "$ACTIONS")
+            # A re-armed invitation may have no pending supporters-append sibling.
+            # Regeneration emits no extra ledger line unless it was an actual planned attempt.
+            if [ "$changed" = true ] && [ -z "$invite_failure" ] && ! jq -e 'any(.[];.action=="supporters-append")' <<< "$ACTIONS" >/dev/null; then regenerate || failed=1; fi
+            [ "$failed" -eq 0 ] || { echo '::error::one or more live actions failed'; exit 1; }
+            exit 0
+          fi
+          # §11 step 2 (ungated, ledger only): expire the invite delivery, not its generation.
+          # Preflight (c) already passed; negative (a)/(b) still permits recovery and audit.
+          gate="$SWEEP_GATE"
+          : > "$work/cancel-queue.ndjson"
+          pages "$LEDGER_TOKEN" "repos/$REWARD_REPO/collaborators?per_page=100" "$work/collaborators.json"
+          pages "$ADMIN_TOKEN" "repos/$REWARD_REPO/invitations?per_page=100" "$work/pending.json"
+          jq -e 'all(.[];.id|type=="number" and .>0 and floor==.)' "$work/collaborators.json" >/dev/null
+          jq -e 'all(.[]; (.id|type=="number" and .>0 and floor==.) and (.invitee.id|type=="number" and .>0 and floor==.))' "$work/pending.json" >/dev/null
+          model '[.[].actor_id]|unique' > "$work/ids.json"
+          while IFS= read -r actor_id; do
+            gen=$(model "generation(\"$GITHUB_REPOSITORY\";$actor_id)")
+            [ "$(model "achieved(\"$GITHUB_REPOSITORY\";$actor_id)")" -gt 0 ] || continue
+            recent=$(model "current(\"$GITHUB_REPOSITORY\";$actor_id)|[.[]|select(.action==\"invite\" and success)]|sort_by(.ts)|last")
+            [ "$recent" != null ] || continue
+            # Already re-armed invitations are not re-armed on every weekly sweep.
+            [ "$(model "delivered(\"$GITHUB_REPOSITORY\";$actor_id;1;\"invite\")")" = true ] || continue
+            invited=$(jq -r .ts <<< "$recent")
+            [ $(( $(date -u +%s) - $(date -u -d "$invited" +%s) )) -gt 604800 ] || continue
+            jq -e --argjson id "$actor_id" 'any(.[];.id==$id)' "$work/collaborators.json" >/dev/null && continue
+            actor=$(jq -r .actor <<< "$recent")
+            pending=$(jq -c --argjson id "$actor_id" '[.[]|select(.invitee.id==$id)]' "$work/pending.json")
+            if [ "$(jq length <<< "$pending")" = 0 ]; then
+              emit cancel-invite expired 0 '' sweep; changed=true
+            else
+              # Only genuinely old pending entries are defensive candidates; a new invite
+              # created manually or by a recovered run is never cancelled on an old timestamp.
+              while IFS= read -r invitation; do
+                created=$(jq -r .created_at <<< "$invitation")
+                if [ $(( $(date -u +%s) - $(date -u -d "$created" +%s) )) -gt 604800 ]; then
+                  jq -cn --arg actor "$actor" --argjson id "$actor_id" --argjson gen "$gen" --argjson invitation "$invitation" '{actor:$actor,actor_id:$id,gen:$gen,invitation_id:$invitation.id}' >> "$work/cancel-queue.ndjson"
+                fi
+              done < <(jq -c '.[]' <<< "$pending")
+            fi
+          done < <(jq -r '.[]' "$work/ids.json")
+          # §11 step 3: exact set-based audit after re-arm; baseline and manual allowlists.
+          baseline
+          all_markers
+          for allow in manual-allowlist manual-markers-allowlist; do
+            get "$LEDGER_TOKEN" "repos/$REWARD_REPO/contents/ledger/$allow.json" "$work/allow-blob.json"
+            case "$code" in
+              200) jq -er '.content|@base64d|fromjson|select(type=="array")' "$work/allow-blob.json" > "$work/$allow.json" ;;
+              404) printf '[]\n' > "$work/$allow.json" ;;
+              *) echo '::error::manual allowlist unreadable'; exit 1 ;;
+            esac
+          done
+          : > "$work/threads.ndjson"
+          jq -sr '[.[]|select(.action=="comment")|.subject]|unique|.[]' "$ledger" > "$work/subjects"
+          while IFS= read -r subject; do
+            number="${subject##*/}"
+            [[ "$number" =~ ^[0-9]+$ ]] || { echo '::error::invalid ledger subject'; exit 1; }
+            exists=true
+            case "$subject" in
+              "https://github.com/$GITHUB_REPOSITORY/issues/$number"|"https://github.com/$GITHUB_REPOSITORY/pull/$number")
+                get "$GH_TOKEN" "repos/$GITHUB_REPOSITORY/issues/$number" "$work/thread.json"
+                case "$code" in 200) ;; 404|410) exists=false ;; *) echo '::error::thread audit read failed'; exit 1 ;; esac ;;
+              "https://github.com/$GITHUB_REPOSITORY/discussions/$number")
+                vars=$(jq -cn --arg owner "${GITHUB_REPOSITORY%/*}" --arg name "${GITHUB_REPOSITORY#*/}" --argjson number "$number" '{owner:$owner,name:$name,number:$number}')
+                # shellcheck disable=SC2016
+                if ! graph 'query($owner:String!,$name:String!,$number:Int!){repository(owner:$owner,name:$name){discussion(number:$number){id}}}' "$vars" "$work/thread.json"; then
+                  jq -e '(.errors|length)>0 and all(.errors[];.type=="NOT_FOUND")' "$work/thread.json" >/dev/null || { echo '::error::thread audit read failed'; exit 1; }
+                  exists=false
+                fi ;;
+              *) echo '::error::ledger subject outside source'; exit 1 ;;
+            esac
+            # The ledger has no comment ID: never guess that a missing marker was deleted.
+            # Owner-accepted residuals are explicit in manual-markers-allowlist (§5.3).
+            jq -cn --arg subject "$subject" --argjson exists "$exists" '{subject:$subject,exists:$exists,readable:$exists,marker_deleted:false}' >> "$work/threads.ndjson"
+          done < "$work/subjects"
+          jq -sn --arg source "$GITHUB_REPOSITORY" --slurpfile ledger "$ledger" \
+            --slurpfile baseline "$work/baseline.json" --slurpfile collaborators "$work/collaborators.json" \
+            --slurpfile invitations "$work/pending.json" --slurpfile markers "$work/markers.json" \
+            --slurpfile threads "$work/threads.ndjson" --slurpfile manual "$work/manual-allowlist.json" \
+            --slurpfile manual_markers "$work/manual-markers-allowlist.json" \
+            '{source_repo:$source,ledger:$ledger,baseline:$baseline[0],collaborators:$collaborators[0],invitations:$invitations[0],invitations_status:200,markers:$markers[0],threads:$threads,manual_allowlist:$manual[0],manual_markers_allowlist:$manual_markers[0],complete:true}' > "$work/audit.json"
+          divergences=$(jq -r --arg mode live '
+          
+            def success: .result|(.=="ok" or startswith("ok-") or startswith("already-") or .=="noop" or .=="expired");
+            def closes: (.action|IN("revoke","would-revoke","cancel-invite","would-cancel-invite")) and success and .result!="expired";
+            def ids: map(if type=="number" then . else .id end)|unique;
+            def markkey: [.actor_id,.tier,.subject];
+            . as $s | [.markers[]|select(.author=="github-actions[bot]")] as $markers |
+            if $mode=="record-only" then
+              (if (.collaborators|ids)!=(.baseline.collaborators|ids) then "reduced-collaborators: baseline differs" else empty end),
+              (if .invitations_status!=403 then "reduced-probe: expected 403" else empty end),
+              (if ($markers|length)>0 then "reduced-markers: workflow markers exist" else empty end)
+            else
+              # File-order duplicates cannot increase the closure count. Latest means ts,
+              # with input order as the tie breaker for same-second action attempts.
+              [.ledger|to_entries[]|.value+{_order:.key}|select(.repo==$s.source_repo)] as $ledger |
+              ([$ledger|group_by(.actor_id)[]|
+                . as $history | (1+([$history[]|select(closes)|.run_id]|unique|length)) as $gen |
+                [$history[]|select(.gen==$gen)] as $current |
+                [$current[]|select(.action=="invite" and success)]|sort_by(.ts,._order)|last as $invite |
+                select($invite!=null) |
+                select(all($current[]; (.action!="cancel-invite" or .result!="expired") or ([.ts,._order] <= [$invite.ts,$invite._order]))) |
+                $invite.actor_id] | unique) as $predicted |
+              ([.collaborators[].id,.invitations[].invitee.id]|unique) as $actual |
+              ([.baseline.collaborators[].id,.baseline.invitations[].invitee.id]+(.manual_allowlist|ids)|unique) as $allowed |
+              (($predicted-$actual)[]|"access: missing actor_id=\(.)"),
+              (($actual-$predicted-$allowed)[]|"strangers: unexpected actor_id=\(.)"),
+              [$ledger[]|select(.action=="comment" and success)] as $comments |
+              ($markers[] as $m|select(all($comments[];.actor_id!=$m.actor_id or .tier!=$m.tier))|"markers-A: unledgered actor_id=\($m.actor_id) tier=\($m.tier) subject=\($m.subject)"),
+              ($comments|unique_by(markkey)[] as $c|
+                [$s.threads[]|select(.subject==$c.subject)] as $thread |
+                if ($thread|length)==0 then "markers-B-state: absent thread evidence subject=\($c.subject)"
+                elif any($thread[];.exists and .readable and (.marker_deleted!=true)) and
+                  all($markers[];markkey!=($c|markkey)) and
+                  all($s.manual_markers_allowlist[];markkey!=($c|markkey))
+                then "markers-B: missing actor_id=\($c.actor_id) tier=\($c.tier) subject=\($c.subject)" else empty end)
+            end
+          ' "$work/audit.json")
+          if [ -n "$divergences" ]; then
+            while IFS= read -r divergence; do printf '::error::%s\n' "$divergence"; done <<< "$divergences"
+            gate=false
+          fi
+          # §11(e), before any destructive call: recover own markers missing from the ledger.
+          # This runs even if (a)/(d) is false, so a red run can be reconciled safely.
+          printf '[]\n' > "$work/protected.json"
+          while IFS= read -r actor_id; do
+            [ "$(model "achieved(\"$GITHUB_REPOSITORY\";$actor_id)")" = 1 ] || continue
+            jq -e --argjson id "$actor_id" 'index($id)!=null' <<< "$STARGAZERS" >/dev/null && continue
+            gen=$(model "generation(\"$GITHUB_REPOSITORY\";$actor_id)")
+            actor=$(model "[.[]|select(.repo==\"$GITHUB_REPOSITORY\" and .actor_id==$actor_id)]|sort_by(.ts)|last|.actor" | jq -r .)
+            while IFS= read -r evidence; do
+              tier=$(jq -r .tier <<< "$evidence"); subject=$(jq -r .subject <<< "$evidence")
+              jq --argjson id "$actor_id" '.+[$id]|unique' "$work/protected.json" > "$work/protected-next.json"
+              mv "$work/protected-next.json" "$work/protected.json"
+              if ! jq -se -L "$work" --arg mode "$MODE" --argjson id "$actor_id" --argjson tier "$tier" --arg repo "$GITHUB_REPOSITORY" \
+                'include "model"; any(.[];.repo==$repo and .actor_id==$id and .tier==$tier and .action=="comment" and success)' "$ledger" >/dev/null; then
+                case "$subject" in
+                  "https://github.com/$GITHUB_REPOSITORY/discussions/"*) event=discussion ;;
+                  "https://github.com/$GITHUB_REPOSITORY/pull/"*) event=pull_request_target ;;
+                  "https://github.com/$GITHUB_REPOSITORY/issues/"*) event=issues ;;
+                  *) echo '::error::marker subject outside source'; gate=false; continue ;;
+                esac
+                # A recovered comment uses its original tier key, not a sweep closure key.
+                emit comment "already-$tier" "$tier" "$subject" "$event"; changed=true
+              fi
+            done < <(jq -c --argjson id "$actor_id" '.[]|select(.actor_id==$id)' "$work/markers.json")
+          done < <(jq -r '.[]' "$work/ids.json")
+          # §11 step 4: ALL destructive effects are behind the combined (a)–(e) gate.
+          if [ "$gate" = true ]; then
+            # Defensive pending cancels queued at step 2 execute before unstar cleanup.
+            while IFS= read -r queued; do
+              actor_id=$(jq -r .actor_id <<< "$queued"); actor=$(jq -r .actor <<< "$queued"); gen=$(jq -r .gen <<< "$queued")
+              invitation_id=$(jq -r .invitation_id <<< "$queued")
+              jq -e --argjson id "$actor_id" 'index($id)!=null' "$work/protected.json" >/dev/null && continue
+              printf '{}\n' > "$work/empty.json"
+              mutate "$ADMIN_TOKEN" DELETE "repos/$REWARD_REPO/invitations/$invitation_id" "$work/empty.json"
+              case "$code" in 200|204) result=ok; changed=true ;; *) result="error-$code"; failed=1 ;; esac
+              emit cancel-invite "$result" 0 '' sweep
+            done < "$work/cancel-queue.ndjson"
+            while IFS= read -r actor_id; do
+              [ "$(model "achieved(\"$GITHUB_REPOSITORY\";$actor_id)")" = 1 ] || continue
+              jq -e --argjson id "$actor_id" 'index($id)!=null' <<< "$STARGAZERS" >/dev/null && continue
+              jq -e --argjson id "$actor_id" 'index($id)!=null' "$work/protected.json" >/dev/null && continue
+              gen=$(model "generation(\"$GITHUB_REPOSITORY\";$actor_id)")
+              actor=$(model "[.[]|select(.repo==\"$GITHUB_REPOSITORY\" and .actor_id==$actor_id)]|sort_by(.ts)|last|.actor" | jq -r .)
+              if ! identity; then emit revoke "error-$code" 0 '' sweep; failed=1; continue; fi
+              # Match numeric IDs; resolving the current login prevents rename confusion (§11).
+              if ! pages "$ADMIN_TOKEN" "repos/$REWARD_REPO/invitations?per_page=100" "$work/current-pending.json"; then
+                emit revoke error-preflight 0 '' sweep; failed=1; continue
+              fi
+              get "$ADMIN_TOKEN" "repos/$REWARD_REPO/collaborators/$actor" "$work/current-collaborator.json"
+              pending=$(jq -c --argjson id "$actor_id" '[.[]|select(.invitee.id==$id)]' "$work/current-pending.json")
+              case "$code" in
+                404)
+                  if [ "$(jq length <<< "$pending")" = 0 ]; then result=noop
+                  else
+                    printf '{}\n' > "$work/empty.json"
+                    mutate "$ADMIN_TOKEN" DELETE "repos/$REWARD_REPO/collaborators/$actor" "$work/empty.json"
+                    case "$code" in 200|204|404) result=noop ;; *) result="error-$code"; failed=1 ;; esac
+                  fi ;;
+                204)
+                  printf '{}\n' > "$work/empty.json"
+                  mutate "$ADMIN_TOKEN" DELETE "repos/$REWARD_REPO/collaborators/$actor" "$work/empty.json"
+                  case "$code" in 200|204) result=ok ;; *) result="error-$code"; failed=1 ;; esac ;;
+                *) result="error-$code"; failed=1 ;;
+              esac
+              emit revoke "$result" 0 '' sweep
+              case "$result" in error-*) continue ;; *) changed=true ;; esac
+              # The pair deliberately shares the pre-closure gen and run_id: one closure (§7).
+              while IFS= read -r invitation_id; do
+                printf '{}\n' > "$work/empty.json"
+                mutate "$ADMIN_TOKEN" DELETE "repos/$REWARD_REPO/invitations/$invitation_id" "$work/empty.json"
+                case "$code" in 200|204) result=ok ;; 404) result=noop ;; *) result="error-$code"; failed=1 ;; esac
+                emit cancel-invite "$result" 0 '' sweep
+              done < <(jq -r '.[].id' <<< "$pending")
+            done < <(jq -r '.[]' "$work/ids.json")
+          else
+            echo '::error::sweep preconditions (a)-(e) failed; all API cleanup skipped'
+            failed=1
+          fi
+          # §11 steps 5, 6, 7 must still run after a red-run/audit gate failure.
+          rotate || failed=1
+          if [ "$changed" = true ]; then regenerate || failed=1; fi
+          reminder "$LEDGER_EXPIRES" 'ledger token'
+          reminder "$ADMIN_EXPIRES" 'invitation token'
+          [ "$failed" -eq 0 ] || { echo '::error::live sweep failed closed'; exit 1; }
+      - name: Notify owner independently of ledger and delivery outcome
+        if: ${{ !cancelled() && steps.preflight.outcome == 'success' }}
+        env:
+          MODE: ${{ inputs.mode }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: |
+          # jq/GraphQL variables below are intentionally literal.
+          # shellcheck disable=SC2016
+          set -euo pipefail
+          [ "$MODE" = live ] || exit 1
+          work="$RUNNER_TEMP/supporter-loop"
+          notify() {
+            local text="$1" status
+            [ "$MODE" = live ] || return 1
+            if ! status=$(curl -sS --connect-timeout 10 --max-time 30 -o "$work/telegram.json" -w '%{http_code}' \
+              -X POST "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage" \
+              --data-urlencode "chat_id=$TELEGRAM_CHAT_ID" --data-urlencode "text=$text"); then
+              echo '::warning::Telegram transport failed'; return 0
+            fi
+            if [ "$status" != 200 ] || ! jq -e '.ok==true' "$work/telegram.json" >/dev/null; then echo '::warning::Telegram rejected owner notification'; fi
+          }
+          if [ -f "$work/notify.ndjson" ]; then
+            while IFS= read -r entry; do
+              case "$(jq -r .result <<< "$entry")" in already-*) continue ;; esac
+              text=$(jq -r '"supporter-loop [\(.mode)] \(.repo) · \(.event) · @\(.actor) · tier \(.tier) · \(.action) · \(.result)" + (if .subject=="" then "" else "\n"+.subject end)' <<< "$entry")
+              notify "$text"
+            done < "$work/notify.ndjson"
+          fi
+          if [ -f "$work/reminders" ]; then
+            while IFS= read -r reminder; do notify "supporter-loop [live] $GITHUB_REPOSITORY · $reminder"; done < "$work/reminders"
+          fi
+  alert:
+    needs: [decide, act]
+    if: ${{ !cancelled() && failure() && inputs.mode == 'live' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    permissions: {}
+    steps:
+      - name: Send one live failure alert
+        env:
+          MODE: ${{ inputs.mode }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          DECIDE_RESULT: ${{ needs.decide.result }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          # jq/GraphQL variables below are intentionally literal.
+          # shellcheck disable=SC2016
+          set -euo pipefail
+          [ "$MODE" = live ] || exit 1
+          job=act
+          [ "$DECIDE_RESULT" != failure ] || job=decide
+          text="supporter-loop FAILED $GITHUB_REPOSITORY · $job · $RUN_URL"
+          [ "$MODE" = live ] || exit 1
+          status=$(curl -sS --connect-timeout 10 --max-time 30 -o "$RUNNER_TEMP/supporter-loop-alert.json" -w '%{http_code}' \
+            -X POST "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage" \
+            --data-urlencode "chat_id=$TELEGRAM_CHAT_ID" --data-urlencode "text=$text")
+          if [ "$status" != 200 ] || ! jq -e '.ok==true' "$RUNNER_TEMP/supporter-loop-alert.json" >/dev/null; then echo '::error::failure notification failed'; exit 1; fi

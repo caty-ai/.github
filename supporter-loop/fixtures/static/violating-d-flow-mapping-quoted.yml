@@ -1,0 +1,5 @@
+jobs:
+  decide:
+    steps:
+      - { "run": gh api --method
+          PUT /repos/o/r/collaborators/u }

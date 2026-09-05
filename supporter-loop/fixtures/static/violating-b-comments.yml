@@ -1,0 +1,6 @@
+name: static fixture
+on: workflow_call
+jobs:
+  decide:
+    steps:
+      - run: gh api --method PATCH repos/o/r/issues/comments/1 -f body=hello

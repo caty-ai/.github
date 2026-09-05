@@ -1,0 +1,7 @@
+jobs:
+  decide:
+    steps:
+      - run: |
+          M=GET
+          M=$(echo PUT)
+          gh api --method "$M" repos/o/r/collaborators/u

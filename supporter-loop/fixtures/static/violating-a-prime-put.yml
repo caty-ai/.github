@@ -1,0 +1,6 @@
+name: static fixture
+on: workflow_call
+jobs:
+  decide:
+    steps:
+      - run: gh api --method PUT repos/o/r/contents/README.md -f content=x

@@ -1,0 +1,5 @@
+jobs:
+  decide:
+    steps:
+      - run: |
+          curl --request $(echo PUT) https://api.github.com/repos/o/r/invitations/123

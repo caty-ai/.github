@@ -1,0 +1,9 @@
+name: static fixture
+on: workflow_call
+jobs:
+  decide:
+    steps:
+      - run: |
+          TARGET=/contents/SUPPORTERS.md
+          curl -X PUT "https://api.github.com/repos/o/r$TARGET"
+          TARGET=/contents/ledger/x

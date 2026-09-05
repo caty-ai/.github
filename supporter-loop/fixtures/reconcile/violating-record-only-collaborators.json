@@ -1,0 +1,25 @@
+{
+  "source_repo": "caty-ai/x-collector",
+  "ledger": [],
+  "baseline": {
+    "collaborators": [
+      {
+        "id": 1,
+        "login": "owner"
+      }
+    ],
+    "invitations": []
+  },
+  "collaborators": [
+    {
+      "id": 12
+    }
+  ],
+  "invitations": [],
+  "invitations_status": 403,
+  "markers": [],
+  "threads": [],
+  "manual_allowlist": [],
+  "manual_markers_allowlist": [],
+  "complete": true
+}

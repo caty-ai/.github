@@ -1,0 +1,5 @@
+jobs:
+  decide:
+    steps:
+      - run: 'gh api --method
+          PUT /repos/caty-ai/ask-ai-widget/collaborators/someone'

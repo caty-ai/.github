@@ -1,0 +1,6 @@
+jobs:
+  decide:
+    steps:
+      - run: >
+          gh api graphql -f
+          query='mutation { addStar(input:{starrableId:"x"}) { clientMutationId } }'

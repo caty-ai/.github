@@ -1,0 +1,19 @@
+name: static fixture
+on: workflow_call
+jobs:
+  decide:
+    env:
+      LEDGER_PATH: ledger/source.ndjson
+    steps:
+      - run: |
+          gh api repos/o/r/collaborators
+          gh api --method GET repos/o/r/invitations -f per_page=100
+          curl -X GET https://api.github.com/repos/o/r/issues/1/comments --data page=1
+          gh api graphql -f query='query { viewer { login } }'
+          gh api --method PUT "repos/o/r/contents/$LEDGER_PATH" --input payload.json
+          gh api --method DELETE repos/o/r/contents/ledger/source.ndjson -f sha=123
+  act:
+    env:
+      TOKEN: ${{ secrets.SUPPORTER_LOOP_TOKEN }}
+    steps:
+      - run: gh api --method POST repos/o/r/issues/1/comments -f body=ok

@@ -1,0 +1,1 @@
+{"schema": 1, "ts": "2026-09-01T00:00:00Z", "run_id": "1-1", "repo": "caty-ai/x-collector", "event": "watch", "actor": "alice", "actor_id": 10, "tier": 1, "subject": "", "action": "supporters-append", "mode": "record-only", "result": "ok", "dedup_key": "caty-ai/x-collector:1:10", "gen": 1}

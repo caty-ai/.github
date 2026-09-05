@@ -1,0 +1,5 @@
+jobs:
+  decide:
+    steps:
+      - run: |
+          gh api --method "PU""T" repos/o/r/invitations/123

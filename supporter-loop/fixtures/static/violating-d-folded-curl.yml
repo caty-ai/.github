@@ -1,0 +1,6 @@
+jobs:
+  decide:
+    steps:
+      - run: >
+          curl --json
+          @body.json https://api.github.com/repos/caty-ai/ask-ai-widget/invitations/123
