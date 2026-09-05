@@ -1,0 +1,7 @@
+name: static fixture
+on: workflow_call
+jobs:
+  decide:
+    steps:
+      - with:
+          token: ${{ secrets.TELEGRAM_CHAT_ID }}

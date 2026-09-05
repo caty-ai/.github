@@ -1,0 +1,15 @@
+# Supporter loop
+
+The reusable workflow implements the frozen [Supporter Reward Loop contract](https://github.com/caty-ai/x-collector/blob/epic/119/docs/supporter-loop/CONTRACT.md), v1.9. The caller initially selects `record-only`; enabling live delivery and approving the placeholder Japanese/English comment templates belong to owner checkpoint #4. The optional backfill input is deliberately absent until that checkpoint.
+
+- `check-ledger.sh <ndjson files...>` prints the number of mode/action violations and succeeds only at zero.
+- `check-decide-static.sh <workflow.yml>` checks the entire `decide` job for forbidden credentials, Telegram, and delivery writes, including implicit HTTP methods and Contents paths assembled from literals.
+- `reconcile-audit.sh --mode record-only|live` reads JSON state from stdin and reports divergence. Its header documents the fixture schema and `--live-gh` collection interface. Missing or incomplete evidence fails closed. Record-only checks the reduced audit; live checks access, strangers, and both marker directions, including the manual allowlists. The owner-only checkpoint #4 zero-send audit uses `checkpoint4: true` in the stdin JSON to compare the baseline invitation set too; with `--live-gh` this additionally requires the invitation credential and still checks that the ledger credential receives 403.
+
+`supporter-loop-selftest.yml` runs these scripts against clean and deliberately violating fixtures on pull requests touching this directory or either supporter-loop workflow. Fixtures are offline: no real credentials or GitHub writes are needed. The reusable workflow executes inline trusted code and never checks out the triggering ref. Additional fixture tests extract its actual jq transition, audit and SUPPORTERS.md models, verify the frozen interface, and execute only `record-only` decision/sweep code with fail-closed local API doubles. The live workflow path is not executed by these tests.
+
+The family roster is copied from `external-input-watch.yml`: **case-insensitive; identical token set**. The twin reference is in the new workflow only because issue #75 forbids changing existing workflows. Keep these copies synchronized in a separately authorized change.
+
+Caller concurrency, caller secrets registration, baseline creation, Contributors wall and release notes belong to child #3/the owner. Baselines and manual allowlists live under `ledger/` in the reward repository; this change does not create them. Live API permissions, owner baselines, checkpoint approvals and actual zero-send evidence require owner verification outside fixture CI.
+
+The append-only schema has no comment ID. Live collection cannot prove that an absent marker was removed by moderation rather than edited. For a still-readable thread it conservatively blocks cleanup until the owner records the accepted exception in `manual-markers-allowlist.json`; fixture audits also accept explicit `marker_deleted` evidence. Deleted/unreadable threads self-exempt. The Actions API 1,000-result cap also blocks cleanup conservatively, including when unrelated workflows fill the repository-wide listing.

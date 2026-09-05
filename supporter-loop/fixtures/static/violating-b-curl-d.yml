@@ -1,0 +1,6 @@
+name: static fixture
+on: workflow_call
+jobs:
+  decide:
+    steps:
+      - run: curl https://api.github.com/repos/o/r/issues/1/comments -d body=x

@@ -1,0 +1,8 @@
+name: static fixture
+on: workflow_call
+jobs:
+  decide:
+    env:
+      TARGET: README.md
+    steps:
+      - run: curl -X DELETE "https://api.github.com/repos/o/r/contents/${TARGET}"

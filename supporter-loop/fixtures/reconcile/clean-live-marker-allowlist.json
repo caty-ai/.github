@@ -1,0 +1,56 @@
+{
+  "source_repo": "caty-ai/x-collector",
+  "ledger": [
+    {
+      "schema": 1,
+      "ts": "2026-09-01T00:00:00Z",
+      "run_id": "1-1",
+      "repo": "caty-ai/x-collector",
+      "event": "watch",
+      "actor": "alice",
+      "actor_id": 10,
+      "tier": 2,
+      "subject": "https://github.com/caty-ai/x-collector/issues/1",
+      "action": "comment",
+      "mode": "live",
+      "result": "ok",
+      "dedup_key": "caty-ai/x-collector:2:10",
+      "gen": 1
+    }
+  ],
+  "baseline": {
+    "collaborators": [
+      {
+        "id": 1,
+        "login": "owner"
+      }
+    ],
+    "invitations": []
+  },
+  "collaborators": [
+    {
+      "id": 1,
+      "login": "owner"
+    }
+  ],
+  "invitations": [],
+  "invitations_status": 403,
+  "markers": [],
+  "threads": [
+    {
+      "subject": "https://github.com/caty-ai/x-collector/issues/1",
+      "exists": true,
+      "readable": true,
+      "marker_deleted": false
+    }
+  ],
+  "manual_allowlist": [],
+  "manual_markers_allowlist": [
+    {
+      "actor_id": 10,
+      "tier": 2,
+      "subject": "https://github.com/caty-ai/x-collector/issues/1"
+    }
+  ],
+  "complete": true
+}

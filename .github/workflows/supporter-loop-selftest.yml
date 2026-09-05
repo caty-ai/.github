@@ -1,0 +1,106 @@
+# Offline contract checks: fixtures never load credentials or call GitHub APIs.
+name: supporter-loop-selftest
+
+on:
+  pull_request:
+    paths:
+      - 'supporter-loop/**'
+      - '.github/workflows/supporter-loop-reusable.yml'
+      - '.github/workflows/supporter-loop-selftest.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  selftest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Read proposed scripts and fixtures
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - name: Install verification tools
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y shellcheck python3-yaml
+          GOBIN="$RUNNER_TEMP/bin" go install github.com/rhysd/actionlint/cmd/actionlint@v1.7.7
+          echo "$RUNNER_TEMP/bin" >> "$GITHUB_PATH"
+      - name: Check workflow and shell syntax
+        run: |
+          set -euo pipefail
+          actionlint .github/workflows/supporter-loop-reusable.yml .github/workflows/supporter-loop-selftest.yml
+          shellcheck supporter-loop/*.sh
+          python3 -c 'import yaml,sys; [yaml.safe_load(open(f)) for f in sys.argv[1:]]' .github/workflows/supporter-loop-*.yml
+      - name: Check decide boundary and every adversarial fixture
+        run: |
+          set -euo pipefail
+          bash supporter-loop/check-decide-static.sh .github/workflows/supporter-loop-reusable.yml
+          for fixture in supporter-loop/fixtures/static/clean*.yml; do
+            bash supporter-loop/check-decide-static.sh "$fixture"
+          done
+          for fixture in supporter-loop/fixtures/static/violating-*.yml; do
+            case "${fixture##*/}" in
+              violating-a-prime-*) rule=a-prime ;;
+              violating-a-*) rule=a ;;
+              violating-b-*) rule=b ;;
+              violating-c*) rule=c ;;
+              *) echo "Unknown expected rule: $fixture"; exit 1 ;;
+            esac
+            if output="$(bash supporter-loop/check-decide-static.sh "$fixture")"; then
+              echo "Violating fixture passed: $fixture"; exit 1
+            else
+              status=$?
+            fi
+            [ "$status" -eq 1 ]
+            printf '%s\n' "$output"
+            printf '%s\n' "$output" | grep -Fq ": $rule:"
+          done
+      - name: Check ledger vocabulary fixtures
+        run: |
+          set -euo pipefail
+          for fixture in supporter-loop/fixtures/ledger/clean*.ndjson; do
+            [ "$(bash supporter-loop/check-ledger.sh "$fixture")" = 0 ]
+          done
+          for fixture in supporter-loop/fixtures/ledger/violating-*.ndjson; do
+            if output="$(bash supporter-loop/check-ledger.sh "$fixture")"; then
+              echo "Violating ledger passed: $fixture"; exit 1
+            else
+              status=$?
+            fi
+            [ "$status" -eq 1 ]
+            [ "$output" -gt 0 ]
+            printf '%s: %s violation(s)\n' "$fixture" "$output"
+          done
+      - name: Check reconciliation fixtures
+        run: |
+          set -euo pipefail
+          for fixture in supporter-loop/fixtures/reconcile/*.json; do
+            case "${fixture##*/}" in
+              *record-only*) mode=record-only ;;
+              *live*) mode=live ;;
+              *) echo "Unknown fixture mode: $fixture"; exit 1 ;;
+            esac
+            case "${fixture##*/}" in
+              clean-*) bash supporter-loop/reconcile-audit.sh --mode "$mode" < "$fixture" ;;
+              violating-*)
+                if output="$(bash supporter-loop/reconcile-audit.sh --mode "$mode" < "$fixture" 2>&1)"; then
+                  echo "Divergent fixture passed: $fixture"; exit 1
+                else
+                  status=$?
+                fi
+                [ "$status" -eq 1 ]
+                printf '%s\n' "$output"
+                printf '%s\n' "$output" | grep -Fq '::error::'
+                ;;
+              *) echo "Unknown fixture expectation: $fixture"; exit 1 ;;
+            esac
+          done
+      - name: Exercise actual model and decision execution
+        run: |
+          set -euo pipefail
+          python3 supporter-loop/fixtures/workflow/test-interface.py
+          python3 supporter-loop/fixtures/workflow/test-model.py
+          python3 supporter-loop/fixtures/workflow/test-audit-model.py
+          python3 supporter-loop/fixtures/workflow/test-decide.py
