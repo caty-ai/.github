@@ -1,0 +1,9 @@
+jobs:
+  decide:
+    steps:
+      - run: |
+          gh api graphql -f query='query {
+            viewer { login }
+          }'
+          gh api --method GET \
+            /repos/o/r/issues/1/comments

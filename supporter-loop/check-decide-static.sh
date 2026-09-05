@@ -57,7 +57,7 @@ function inspect(s,n, gh,curl,explicit,implicit,get,write,path,tail,methods,unre
   # Adjacent quoted shell fragments form one method token ("PU""T" -> PUT).
   methods=s
   gsub(/["\047]/,"",methods)
-  unresolved=(methods ~ /(--method[= \t]+|-X[ \t]*|--request[= \t]+)\$/)
+  unresolved=(methods ~ /(--method[= \t]+|-X[ \t]*|--request[= \t]+)[^ \t]*[$`]/)
   explicit=(methods ~ /(--method[= \t]+|-X[ \t]*|--request[= \t]+)(PUT|POST|PATCH|DELETE)([ \t]|$)/)
   get=(gh && s ~ /--method[= \t]+["\047]?GET(["\047 \t]|$)/) || (curl && s ~ /(-X[ \t]*|--request[= \t]+)["\047]?GET(["\047 \t]|$)/)
   implicit=(gh && s ~ /(^|[ \t])(-[fF]([ \t=]|[^-])|--(input|raw-field|field)([= \t]|$))/) || (curl && s ~ /(^|[ \t])(-[dT]([ \t=]|[^-])|--(data|data-raw|data-binary|data-urlencode|json|upload-file)([= \t]|$))/)
@@ -113,9 +113,44 @@ END {
     if (line ~ /SUPPORTER_LOOP_TOKEN|TELEGRAM_[A-Za-z_0-9]*|api[.]telegram[.]org/) hit("a",numbers[i],"forbidden credential or Telegram host")
     if (line ~ /addDiscussionComment/) hit("c",numbers[i],"discussion comment mutation name")
     if (line ~ /^[ \t]*#/) continue
-    # YAML folds physical lines before the shell sees them. Refuse the whole
-    # scalar rather than pretending our shell continuation logic models YAML.
-    if (line ~ /(:[ \t]+|^[ \t]*-[ \t]+)([!&][^ \t]+[ \t]+)*>[0-9+-]*[ \t]*(#.*)?$/) hit("d",numbers[i],"folded scalar in decide is not scannable")
+    # Literal blocks preserve shell lines: do not parse their body as YAML.
+    depth=match(line,/[^ \t]/)-1
+    if (literal && trim(line)!="" && depth<=literal_depth) literal=0
+    if (!literal) {
+      if (line ~ /(:[ \t]+|^[ \t]*-[ \t]+)([!&][^ \t]+[ \t]+)*>[0-9+-]*[ \t]*(#.*)?$/) hit("d",numbers[i],"multi-line non-literal scalar in decide is not scannable")
+      mapping=trim(line)
+      key_depth=depth
+      if (mapping ~ /^-[ \t]+/) {
+        match(mapping,/^-[ \t]+/)
+        key_depth+=RLENGTH
+        mapping=substr(mapping,RLENGTH+1)
+      }
+      if (mapping ~ /^[A-Za-z_][A-Za-z_0-9-]*:[ \t]+/) {
+        value=mapping; sub(/^[^:]*:[ \t]+/,"",value)
+        # Strip YAML tags/anchors before recognizing scalar styles.
+        sub(/^([!&][^ \t]+[ \t]+)+/,"",value)
+        if (value ~ /^\|[0-9+-]*[ \t]*(#.*)?$/) {
+          literal=1; literal_depth=key_depth
+        } else if (value!="" && value !~ /^#/) {
+          multiline=0
+          if (i<count && lines[i+1] !~ /^[ \t]*$/ && match(lines[i+1],/[^ \t]/)-1>key_depth) multiline=1
+          first=substr(value,1,1)
+          if (first=="\"" || first=="\047") {
+            closed=0
+            for (j=2;j<=length(value);j++) {
+              ch=substr(value,j,1)
+              if (first=="\"" && ch=="\\") { j++; continue }
+              if (ch==first) {
+                if (first=="\047" && substr(value,j+1,1)==first) { j++; continue }
+                closed=1; break
+              }
+            }
+            if (!closed) multiline=1
+          }
+          if (multiline) hit("d",numbers[i],"multi-line non-literal scalar in decide is not scannable")
+        }
+      }
+    }
     if (command=="") start=numbers[i]
     t=trim(line)
     sub(/^- run:[ \t]*/,"",t)

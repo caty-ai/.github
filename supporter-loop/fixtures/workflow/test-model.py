@@ -135,6 +135,10 @@ with tempfile.TemporaryDirectory(prefix='supporter-render-', dir=pathlib.Path(__
         ('empty header', 200, b'', False),
         ('newline-only header', 200, b'\n\n', False),
     ]
+    reference = pathlib.Path('.omc-brief/child1-SUPPORTERS.md')
+    reference_header = pathlib.Path('.omc-brief/child1-SUPPORTERS.header.md')
+    if reference.exists() and reference_header.exists():
+        variants.append(('local child #1 byte identity', 200, reference_header.read_bytes(), True))
     for name, status, header, success in variants:
         for output in ('SUPPORTERS.md', 'published.json', 'gets'):
             (root / output).unlink(missing_ok=True)
@@ -150,16 +154,12 @@ with tempfile.TemporaryDirectory(prefix='supporter-render-', dir=pathlib.Path(__
         assert gets[0] == 'repos/caty-ai/ask-ai-widget/contents/SUPPORTERS.header.md', gets
         if success:
             rendered = base64.b64decode(json.loads((root / 'published.json').read_text())['content'])
-            expected = header_sample.rstrip(b'\n') + b'\n\n| Supporter | Tier | Since |\n| --- | --- | --- |\n| @example-supporter | 1 | 2026-09-06 |\n'
+            expected = header.rstrip(b'\n') + b'\n\n| Supporter | Tier | Since |\n| --- | --- | --- |\n| @example-supporter | 1 | 2026-09-06 |\n'
             assert rendered == expected, name
             assert (root / 'SUPPORTERS.md').read_bytes() == expected
-            if name == 'child #1 byte identity':
-                reference = pathlib.Path('.omc-brief/child1-SUPPORTERS.md')
-                if reference.exists():
-                    subprocess.run(['cmp', str(root / 'SUPPORTERS.md'), str(reference)], check=True)
-                    subprocess.run(['cmp', str(pathlib.Path(__file__).with_name('SUPPORTERS.header.sample.md')),
-                                    '.omc-brief/child1-SUPPORTERS.header.md'], check=True)
-                    print('PASS cmp rendered SUPPORTERS.md and header fixture == child #1 originals (exit 0)')
+            if name == 'local child #1 byte identity':
+                subprocess.run(['cmp', str(root / 'SUPPORTERS.md'), str(reference)], check=True)
+                print('PASS cmp rendered SUPPORTERS.md == local child #1 original (exit 0)')
         else:
             assert result.stdout.splitlines() == [error], (name, result.stdout)
             assert len(gets) == 1, gets

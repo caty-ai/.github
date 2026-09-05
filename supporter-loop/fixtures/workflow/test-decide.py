@@ -212,6 +212,8 @@ def execute(event, payload, mode='record-only', tiers='1,2,3', prior=None, cas_c
             assert (state / 'revoked').exists() == any(r['action'] == 'revoke' for r in fresh)
             if (state / 'revoked').exists():
                 assert '@external-supporter' not in (state / 'SUPPORTERS.md').read_text()
+                header = Path('supporter-loop/fixtures/workflow/SUPPORTERS.header.sample.md').read_bytes()
+                assert (state / 'SUPPORTERS.md').read_bytes() == header.rstrip(b'\n') + b'\n\n| Supporter | Tier | Since |\n| --- | --- | --- |\n'
         return fresh, rows, output.read_text()
 
 user = dict(id=42, login='external-supporter', type='User')

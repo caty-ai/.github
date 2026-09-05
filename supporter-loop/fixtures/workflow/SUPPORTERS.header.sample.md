@@ -1,4 +1,4 @@
-<!-- 文言はチェックポイント #3 のオーナー承認待ちの仮案です。 / Placeholder wording pending owner approval at checkpoint #3. -->
+<!-- 文言はチェックポイント #3 で確定する仮案です。 / Placeholder wording to be finalised at checkpoint #3. -->
 # Supporters
 
 応援ありがとうございます。tier 1 は Star への感謝として早期アクセス・一覧掲載・バッジ、tier 2 は Issue / Discussion 投稿へのお礼コメント、tier 3 はマージ済み PR へのクレジット（Contributors wall・リリースノート）を表します。上位tierには下位tierの特典も含まれます。 / Thank you for your support. Tier 1 recognizes a Star with early access, a listing, and this badge; tier 2 recognizes an Issue / Discussion post with a thank-you comment; tier 3 recognizes a merged PR with credit in the Contributors wall and release notes. Higher tiers include the benefits of lower tiers.
