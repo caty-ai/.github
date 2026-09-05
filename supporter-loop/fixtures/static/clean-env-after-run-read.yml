@@ -1,0 +1,21 @@
+name: static fixture
+on: workflow_call
+jobs:
+  decide:
+    steps:
+      - run: gh api --method GET "$U"
+        env:
+          U: repos/o/r/stargazers
+      - run: |
+          gh api --method GET "$UNKNOWN"
+          gh api -X GET "$UNKNOWN"
+          curl -X GET "$UNKNOWN"
+          curl --request GET --url="$UNKNOWN"
+          M=GET
+          M=GET
+          gh api --method "$M" "$UNKNOWN"
+          gh api graphql -f query='query { viewer { login } }' -F owner="$UNKNOWN"
+          curl -X PUT -H "Authorization: Bearer $UNKNOWN" --data-binary @"$BODY" https://api.github.com/repos/o/r/contents/ledger/x
+          gh api --method PUT "repos/$REWARD_REPO/contents/ledger/x" --input "$BODY"
+        env:
+          REWARD_REPO: ${{ inputs.reward_repo }}

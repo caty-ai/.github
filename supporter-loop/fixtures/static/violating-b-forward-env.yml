@@ -1,0 +1,10 @@
+name: t
+on: workflow_dispatch
+jobs:
+  decide:
+    runs-on: ubuntu-latest
+    steps:
+      - run: gh api --method "$M" "$U"
+        env:
+          M: PUT
+          U: /repos/o/r/collaborators/u
