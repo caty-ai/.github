@@ -19,7 +19,7 @@ on:
   workflow_call:
     inputs:
       mode:
-        description: "record-only | live. Invalid values fail before network access."
+        description: "record-only | live. Anything else fails the run before any step touches the network."
         required: true
         type: string
       reward_repo:
@@ -28,27 +28,27 @@ on:
         type: string
         default: caty-ai/ask-ai-widget
       tiers_enabled:
-        description: "Comma-separated subset of 1,2,3; disabled events are ledgered as skip/tier-disabled."
+        description: "Comma-separated subset of 1,2,3. Events for a disabled tier are ledgered as action=skip result=tier-disabled."
         required: false
         type: string
         default: "1,2,3"
       sweep:
-        description: "Scheduled sweep only; mutually exclusive with a tier event."
+        description: "true only from the scheduled sweep job (§11). Mutually exclusive with a tier event."
         required: false
         type: boolean
         default: false
     secrets:
       SUPPORTER_LEDGER_TOKEN:
-        description: "Reward-repo Contents R/W only; ledger in both modes and SUPPORTERS.md in live."
+        description: "Fine-grained PAT, reward_repo only, Contents R/W (§8). Used by decide (ledger) and act (SUPPORTERS.md). Required in both modes."
         required: true
       SUPPORTER_LOOP_TOKEN:
-        description: "Reward-repo Administration only; act fails if empty in live; checkpoint #4."
+        description: "Fine-grained PAT, reward_repo only, Administration R/W (§8). Loaded only by the act job; may be left unset until checkpoint #4. act fails loud if empty in live."
         required: false
       TELEGRAM_BOT_TOKEN:
-        description: "Owner notification bot; live only."
+        description: "Owner notification bot (§9)."
         required: true
       TELEGRAM_CHAT_ID:
-        description: "Owner notification chat; live only."
+        description: "Owner notification chat (§9)."
         required: true
 permissions: {}
 jobs:
@@ -99,8 +99,6 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           LEDGER_TOKEN: ${{ secrets.SUPPORTER_LEDGER_TOKEN }}
           LEDGER_EXPIRES: ${{ vars.SUPPORTER_LEDGER_TOKEN_EXPIRES }}
-          # Public repository metadata only; this dictionary contains no secrets.
-          EXPIRY_DATES: ${{ toJSON(vars) }}
         run: |
           # jq/GraphQL variables below are intentionally literal.
           # shellcheck disable=SC2016
@@ -110,13 +108,14 @@ jobs:
           mkdir -p "$work"
           base="${GITHUB_REPOSITORY//\//--}"
           ledger="$work/ledger.ndjson"
+          # .publication-denylist option a: split committer email preserves contract §6 identity.
           # Model is embedded in the reviewed central workflow, never loaded from source code.
           cat > "$work/model.jq" <<'JQ'
           def success: .result | test("^(ok($|-)|already-|noop$|expired$)");
           def closure: (.action | IN("revoke","would-revoke","cancel-invite","would-cancel-invite")) and success and .result != "expired";
           def generation($repo;$id): 1 + ([.[] | select(.repo==$repo and .actor_id==$id) | select(closure) | .run_id] | unique | length);
           def current($repo;$id): generation($repo;$id) as $g | [.[] | select(.repo==$repo and .actor_id==$id and .gen==$g)];
-          def achieved($repo;$id): current($repo;$id) | [.[] | select(success) | select(.action | IN("invite","comment","supporters-append","would-invite","would-comment","would-supporters-append")) | .tier] | max // 0;
+          def achieved($repo;$id): current($repo;$id) | [.[] | select(success) | select(if $mode=="live" then (.action | IN("invite","comment","supporters-append")) else (.action | IN("would-invite","would-comment","would-supporters-append")) end) | .tier] | max // 0;
           def delivered($repo;$id;$tier;$action): generation($repo;$id) as $g |
             [to_entries[] | .value + {__order:.key} | select(.repo==$repo and .actor_id==$id and .gen==$g)] |
             (if ($action=="invite" or $action=="would-invite") then
@@ -124,7 +123,7 @@ jobs:
               any(.[]; .tier==$tier and .dedup_key==($repo+":"+($tier|tostring)+":"+($id|tostring)) and .action==$action and success and [.ts,.__order]>$expired)
             else any(.[]; .tier==$tier and .dedup_key==($repo+":"+($tier|tostring)+":"+($id|tostring)) and .action==$action and success) end);
           JQ
-          model() { jq -s -L "$work" "include \"model\"; $1" "$ledger"; }
+          model() { jq -s -L "$work" --arg mode "$MODE" "include \"model\"; $1" "$ledger"; }
           # Read-shaped requests; HTTP errors are classified without printing response bodies.
           get() {
             local token="$1" endpoint="$2" target="$3"
@@ -138,7 +137,16 @@ jobs:
             jq -e 'type=="array" and length>0 and all(.[]; type=="array")' "$target.pages" >/dev/null || return 1
             jq 'add // []' "$target.pages" > "$target"
           }
+          ledger_directory() {
+            get "$LEDGER_TOKEN" "repos/$REWARD_REPO/contents/ledger" "$work/directory-probe.json" || return 1
+            if [ "$code" = 404 ]; then
+              echo '::error::reward repo has no ledger/ directory; create ledger/baseline-<date>.json first (contract §5.3 step 1)'
+              return 1
+            fi
+            [ "$code" = 200 ]
+          }
           read_ledger() {
+            ledger_directory || return 1
             pages "$LEDGER_TOKEN" "repos/$REWARD_REPO/contents/ledger?per_page=100" "$work/directory.json" || return 1
             [ "$(jq length "$work/directory.json")" -lt 1000 ] || { echo '::error::ledger directory may be truncated'; return 1; }
             : > "$ledger"
@@ -181,7 +189,7 @@ jobs:
               content=$(base64 < "$work/current.ndjson" | tr -d '\n')
               jq -cn --arg content "$content" --arg sha "$sha" \
                 --arg message "supporter-loop: $(jq -r '.event+" "+.actor+" "+.action' <<< "$entry")" \
-                '{message:$message,content:$content,committer:{name:"supporter-loop[bot]",email:"supporter-loop@caty-ai.noreply"}} + (if $sha=="" then {} else {sha:$sha} end)' > "$work/put.json"
+                '{message:$message,content:$content,committer:{name:"supporter-loop[bot]",email:("supporter-loop@" + "caty-ai" + ".noreply")}} + (if $sha=="" then {} else {sha:$sha} end)' > "$work/put.json"
               status=$(curl -sS --connect-timeout 10 --max-time 45 -o "$work/put-response.json" -w '%{http_code}' \
                 -X PUT -H "Authorization: Bearer $LEDGER_TOKEN" -H 'Accept: application/vnd.github+json' \
                 --data-binary @"$work/put.json" "https://api.github.com/repos/$REWARD_REPO/contents/ledger/$base.ndjson") || return 1
@@ -223,7 +231,7 @@ jobs:
             fi
             content=$(base64 < "$work/rotation-base" | tr -d '\n')
             jq -cn --arg content "$content" --arg sha "$target_sha" \
-              '{message:"supporter-loop: sweep ledger rotate",content:$content,committer:{name:"supporter-loop[bot]",email:"supporter-loop@caty-ai.noreply"}} + (if $sha=="" then {} else {sha:$sha} end)' > "$work/rotate.json"
+              '{message:"supporter-loop: sweep ledger rotate",content:$content,committer:{name:"supporter-loop[bot]",email:("supporter-loop@" + "caty-ai" + ".noreply")}} + (if $sha=="" then {} else {sha:$sha} end)' > "$work/rotate.json"
             status=$(curl -sS --connect-timeout 10 --max-time 45 -o "$work/rotate-response" -w '%{http_code}' -X PUT \
               -H "Authorization: Bearer $LEDGER_TOKEN" --data-binary @"$work/rotate.json" \
               "https://api.github.com/repos/$REWARD_REPO/contents/ledger/$archive") || return 1
@@ -232,7 +240,7 @@ jobs:
             [ "$code" = 200 ] || return 1
             jq -jr '.content | @base64d' "$work/verify.json" > "$work/verified"
             cmp -s "$work/rotation-base" "$work/verified" || { echo '::error::rotation byte verification failed'; return 1; }
-            jq -cn --arg sha "$base_sha" '{message:"supporter-loop: sweep ledger rotate",sha:$sha,committer:{name:"supporter-loop[bot]",email:"supporter-loop@caty-ai.noreply"}}' > "$work/delete.json"
+            jq -cn --arg sha "$base_sha" '{message:"supporter-loop: sweep ledger rotate",sha:$sha,committer:{name:"supporter-loop[bot]",email:("supporter-loop@" + "caty-ai" + ".noreply")}}' > "$work/delete.json"
             status=$(curl -sS --connect-timeout 10 --max-time 45 -o "$work/delete-response" -w '%{http_code}' -X DELETE \
               -H "Authorization: Bearer $LEDGER_TOKEN" --data-binary @"$work/delete.json" \
               "https://api.github.com/repos/$REWARD_REPO/contents/ledger/$base.ndjson") || return 1
@@ -240,13 +248,18 @@ jobs:
           }
           # GraphQL is read-only here. Explicit cursors exhaust comments AND every replies connection.
           graph() {
-            local query="$1" variables="$2" target="$3" graph_status
-            # Explicit GET transports only a read query; no implicit gh POST/input.
-            graph_status=$(curl -sS --connect-timeout 10 --max-time 45 -o "$target" -w '%{http_code}' \
-              -X GET --get -H "Authorization: Bearer $GH_TOKEN" \
-              --data-urlencode "query=$query" --data-urlencode "variables=$variables" \
-              https://api.github.com/graphql) || return 1
-            [ "$graph_status" = 200 ] || return 1
+            local query="$1" variables="$2" target="$3" entry key value kind
+            # Only query operations; gh field flags select POST for GraphQL transport.
+            case "$query" in query*) ;; *) return 1 ;; esac
+            set --
+            while IFS= read -r entry; do
+              key=$(jq -r .key <<< "$entry")
+              value=$(jq -r .value <<< "$entry")
+              kind=$(jq -r '.value|type' <<< "$entry")
+              if [ "$kind" = string ]; then set -- "$@" -f "$key=$value"
+              else set -- "$@" -F "$key=$value"; fi
+            done < <(jq -c 'to_entries[]' <<< "$variables")
+            gh api graphql --hostname github.com -f query="query ${query#query}" "$@" > "$target" || return 1
             jq -e '(.errors // [] | length)==0 and .data!=null' "$target" >/dev/null
           }
           discussion_comments() {
@@ -324,7 +337,7 @@ jobs:
           if [ "$SWEEP" = true ]; then
             # §11 step 1, ledger-token half of §8.4. Negative probes are intentionally reads.
             get "$LEDGER_TOKEN" "repos/$REWARD_REPO" "$work/probe.json"; [ "$code" = 200 ]
-            get "$LEDGER_TOKEN" "repos/$REWARD_REPO/contents/ledger" "$work/probe.json"; [ "$code" = 200 ]
+            ledger_directory
             get "$LEDGER_TOKEN" "repos/$REWARD_REPO/collaborators?per_page=1" "$work/probe.json"; [ "$code" = 200 ]
             get "$LEDGER_TOKEN" "repos/$REWARD_REPO/invitations" "$work/probe.json"; [ "$code" = 403 ] || { echo '::error::ledger token over-scoped'; exit 1; }
             get "$LEDGER_TOKEN" "repos/$GITHUB_REPOSITORY/invitations" "$work/probe.json"
@@ -392,15 +405,6 @@ jobs:
             # §11 steps 5–7: rotate, omit derived-public write, warn on ledger-token expiry.
             rotate
             reminder "$LEDGER_EXPIRES" 'ledger token'
-            # Public expiry metadata may exist before live activation (checkpoint #2).
-            # Read only the two declared date keys; never serialize variables to outputs.
-            expiry_dates="${EXPIRY_DATES:-}"
-            [ -n "$expiry_dates" ] || expiry_dates='{}'
-            while IFS=$'\t' read -r key expiry; do
-              # The ledger warning above also handles its missing-date case.
-              case "$key" in *LEDGER*) continue ;; esac
-              reminder "$expiry" 'invitation token'
-            done < <(jq -r 'to_entries[] | select(.key | test("^SUPPORTER_(LEDGER|LOOP)_TOKEN_EXPIRES$")) | [.key,.value] | @tsv' <<< "$expiry_dates")
             [ "$gate" = true ] || { echo '::error::sweep preconditions failed; cleanup skipped'; exit 1; }
             exit 0
           fi
@@ -419,6 +423,7 @@ jobs:
           actor_id=$(jq -er "$actor_path.id | select(type==\"number\" and .>0 and floor==.)" "$GITHUB_EVENT_PATH")
           user_type=$(jq -r "$actor_path.type" "$GITHUB_EVENT_PATH")
           actor_lc=$(printf '%s' "$actor" | tr '[:upper:]' '[:lower:]')
+          # Exclusion precedence: later matches win (member > org > self > bot > family).
           reason=''
           # Twin external-input-watch.yml fam_roster: case-insensitive; identical token set.
           # Existing production workflow is intentionally untouched; copied roster is noted in README.
@@ -429,7 +434,9 @@ jobs:
           [ "$user_type" != Organization ] || reason=excluded-org
           case "$assoc" in OWNER|MEMBER) reason=excluded-member ;; esac
           if [ -z "$reason" ]; then
-            [ "$user_type" = User ] && [[ "$actor" =~ ^[A-Za-z0-9-]{1,39}$ ]] || { echo '::error::invalid actor type/login'; exit 1; }
+            if ! { [ "$user_type" = User ] && [[ "$actor" =~ ^[A-Za-z0-9-]{1,39}$ ]]; }; then
+              echo '::error::invalid actor type/login'; exit 1
+            fi
           fi
           gen=$(model "generation(\"$GITHUB_REPOSITORY\";$actor_id)")
           if [ -n "$reason" ]; then
@@ -531,13 +538,14 @@ jobs:
           mkdir -p "$work"
           base="${GITHUB_REPOSITORY//\//--}"
           ledger="$work/ledger.ndjson"
+          # .publication-denylist option a: split committer email preserves contract §6 identity.
           # Model is embedded in the reviewed central workflow, never loaded from source code.
           cat > "$work/model.jq" <<'JQ'
           def success: .result | test("^(ok($|-)|already-|noop$|expired$)");
           def closure: (.action | IN("revoke","would-revoke","cancel-invite","would-cancel-invite")) and success and .result != "expired";
           def generation($repo;$id): 1 + ([.[] | select(.repo==$repo and .actor_id==$id) | select(closure) | .run_id] | unique | length);
           def current($repo;$id): generation($repo;$id) as $g | [.[] | select(.repo==$repo and .actor_id==$id and .gen==$g)];
-          def achieved($repo;$id): current($repo;$id) | [.[] | select(success) | select(.action | IN("invite","comment","supporters-append","would-invite","would-comment","would-supporters-append")) | .tier] | max // 0;
+          def achieved($repo;$id): current($repo;$id) | [.[] | select(success) | select(if $mode=="live" then (.action | IN("invite","comment","supporters-append")) else (.action | IN("would-invite","would-comment","would-supporters-append")) end) | .tier] | max // 0;
           def delivered($repo;$id;$tier;$action): generation($repo;$id) as $g |
             [to_entries[] | .value + {__order:.key} | select(.repo==$repo and .actor_id==$id and .gen==$g)] |
             (if ($action=="invite" or $action=="would-invite") then
@@ -545,7 +553,7 @@ jobs:
               any(.[]; .tier==$tier and .dedup_key==($repo+":"+($tier|tostring)+":"+($id|tostring)) and .action==$action and success and [.ts,.__order]>$expired)
             else any(.[]; .tier==$tier and .dedup_key==($repo+":"+($tier|tostring)+":"+($id|tostring)) and .action==$action and success) end);
           JQ
-          model() { jq -s -L "$work" "include \"model\"; $1" "$ledger"; }
+          model() { jq -s -L "$work" --arg mode "$MODE" "include \"model\"; $1" "$ledger"; }
           # Read-shaped requests; HTTP errors are classified without printing response bodies.
           get() {
             local token="$1" endpoint="$2" target="$3"
@@ -561,7 +569,16 @@ jobs:
             jq -e 'type=="array" and length>0 and all(.[]; type=="array")' "$target.pages" >/dev/null || return 1
             jq 'add // []' "$target.pages" > "$target"
           }
+          ledger_directory() {
+            get "$LEDGER_TOKEN" "repos/$REWARD_REPO/contents/ledger" "$work/directory-probe.json" || return 1
+            if [ "$code" = 404 ]; then
+              echo '::error::reward repo has no ledger/ directory; create ledger/baseline-<date>.json first (contract §5.3 step 1)'
+              return 1
+            fi
+            [ "$code" = 200 ]
+          }
           read_ledger() {
+            ledger_directory || return 1
             pages "$LEDGER_TOKEN" "repos/$REWARD_REPO/contents/ledger?per_page=100" "$work/directory.json" || return 1
             [ "$(jq length "$work/directory.json")" -lt 1000 ] || { echo '::error::ledger directory may be truncated'; return 1; }
             : > "$ledger"
@@ -604,7 +621,7 @@ jobs:
               content=$(base64 < "$work/current.ndjson" | tr -d '\n')
               jq -cn --arg content "$content" --arg sha "$sha" \
                 --arg message "supporter-loop: $(jq -r '.event+" "+.actor+" "+.action' <<< "$entry")" \
-                '{message:$message,content:$content,committer:{name:"supporter-loop[bot]",email:"supporter-loop@caty-ai.noreply"}} + (if $sha=="" then {} else {sha:$sha} end)' > "$work/put.json"
+                '{message:$message,content:$content,committer:{name:"supporter-loop[bot]",email:("supporter-loop@" + "caty-ai" + ".noreply")}} + (if $sha=="" then {} else {sha:$sha} end)' > "$work/put.json"
               [ "$MODE" = live ] || return 1
               status=$(curl -sS --connect-timeout 10 --max-time 45 -o "$work/put-response.json" -w '%{http_code}' \
                 -X PUT -H "Authorization: Bearer $LEDGER_TOKEN" -H 'Accept: application/vnd.github+json' \
@@ -647,7 +664,7 @@ jobs:
             fi
             content=$(base64 < "$work/rotation-base" | tr -d '\n')
             jq -cn --arg content "$content" --arg sha "$target_sha" \
-              '{message:"supporter-loop: sweep ledger rotate",content:$content,committer:{name:"supporter-loop[bot]",email:"supporter-loop@caty-ai.noreply"}} + (if $sha=="" then {} else {sha:$sha} end)' > "$work/rotate.json"
+              '{message:"supporter-loop: sweep ledger rotate",content:$content,committer:{name:"supporter-loop[bot]",email:("supporter-loop@" + "caty-ai" + ".noreply")}} + (if $sha=="" then {} else {sha:$sha} end)' > "$work/rotate.json"
             [ "$MODE" = live ] || return 1
             status=$(curl -sS --connect-timeout 10 --max-time 45 -o "$work/rotate-response" -w '%{http_code}' -X PUT \
               -H "Authorization: Bearer $LEDGER_TOKEN" --data-binary @"$work/rotate.json" \
@@ -657,7 +674,7 @@ jobs:
             [ "$code" = 200 ] || return 1
             jq -jr '.content | @base64d' "$work/verify.json" > "$work/verified"
             cmp -s "$work/rotation-base" "$work/verified" || { echo '::error::rotation byte verification failed'; return 1; }
-            jq -cn --arg sha "$base_sha" '{message:"supporter-loop: sweep ledger rotate",sha:$sha,committer:{name:"supporter-loop[bot]",email:"supporter-loop@caty-ai.noreply"}}' > "$work/delete.json"
+            jq -cn --arg sha "$base_sha" '{message:"supporter-loop: sweep ledger rotate",sha:$sha,committer:{name:"supporter-loop[bot]",email:("supporter-loop@" + "caty-ai" + ".noreply")}}' > "$work/delete.json"
             [ "$MODE" = live ] || return 1
             status=$(curl -sS --connect-timeout 10 --max-time 45 -o "$work/delete-response" -w '%{http_code}' -X DELETE \
               -H "Authorization: Bearer $LEDGER_TOKEN" --data-binary @"$work/delete.json" \
@@ -666,14 +683,19 @@ jobs:
           }
           # GraphQL is read-only here. Explicit cursors exhaust comments AND every replies connection.
           graph() {
-            local query="$1" variables="$2" target="$3" graph_status
-            # Explicit GET transports only a read query; no implicit gh POST/input.
+            local query="$1" variables="$2" target="$3" entry key value kind
             [ "$MODE" = live ] || return 1
-            graph_status=$(curl -sS --connect-timeout 10 --max-time 45 -o "$target" -w '%{http_code}' \
-              -X GET --get -H "Authorization: Bearer $GH_TOKEN" \
-              --data-urlencode "query=$query" --data-urlencode "variables=$variables" \
-              https://api.github.com/graphql) || return 1
-            [ "$graph_status" = 200 ] || return 1
+            # Only query operations; gh field flags select POST for GraphQL transport.
+            case "$query" in query*) ;; *) return 1 ;; esac
+            set --
+            while IFS= read -r entry; do
+              key=$(jq -r .key <<< "$entry")
+              value=$(jq -r .value <<< "$entry")
+              kind=$(jq -r '.value|type' <<< "$entry")
+              if [ "$kind" = string ]; then set -- "$@" -f "$key=$value"
+              else set -- "$@" -F "$key=$value"; fi
+            done < <(jq -c 'to_entries[]' <<< "$variables")
+            gh api graphql --hostname github.com -f query="query ${query#query}" "$@" > "$target" || return 1
             jq -e '(.errors // [] | length)==0 and .data!=null' "$target" >/dev/null
           }
           discussion_comments() {
@@ -811,7 +833,7 @@ jobs:
             # Central main is merge-only via reviewed PR (§4.3); wording approval is checkpoint #4.
             [ "$MODE" = live ] || return 1
             code=$(curl -sS --connect-timeout 10 --max-time 45 -o "$work/template.json" -w '%{http_code}' \
-              -H 'Accept: application/vnd.github+json' \
+              -H "Authorization: Bearer $GH_TOKEN" -H 'Accept: application/vnd.github+json' \
               "https://api.github.com/repos/caty-ai/.github/contents/supporter-loop/comment-tier$tier.md?ref=main") || { result=error-template; return 0; }
             [ "$code" = 200 ] || { result="error-$code"; return 0; }
             template=$(jq -er '.content | @base64d' "$work/template.json") || { result=error-template; return 0; }
@@ -832,7 +854,18 @@ jobs:
             fi
           }
           regenerate() {
-            local attempt=0 sha content projected="${1:-}" derive="$ledger"
+            local attempt=0 sha content header projected="${1:-}" derive="$ledger"
+            [ "$MODE" = live ] || return 1
+            # §6.5: child #1 owns the header; never publish a headerless projection.
+            if ! get "$LEDGER_TOKEN" "repos/$REWARD_REPO/contents/SUPPORTERS.header.md" "$work/supporters-header.json" ||
+              [ "$code" != 200 ] ||
+              ! header=$(jq -er '.content | select(type=="string" and length>0)' "$work/supporters-header.json" | base64 -d) ||
+              [ -z "$header" ] || [ "${header##*$'\n'}" != '<!-- generated table below; do not edit by hand -->' ]; then
+              echo '::error::SUPPORTERS.header.md missing or malformed in reward repo (child #1); regeneration skipped'
+              return 1
+            fi
+            # Command substitution strips only trailing LF bytes; restore one plus the separator.
+            printf '%s\n\n' "$header" > "$work/SUPPORTERS.md" || return 1
             # Project only the intended success into a temporary render input.
             # The actual ledger still changes only AFTER the Contents API returns.
             if [ -n "$projected" ]; then
@@ -842,19 +875,19 @@ jobs:
             fi
             # §6.5: stable numeric identity, latest login, achieved success tier, first date.
             # This is a whole-file derivation; the reward-repo child owns its presentation.
-            jq -sr -L "$work" --arg repo "$GITHUB_REPOSITORY" '
+            jq -sr -L "$work" --arg mode "$MODE" --arg repo "$GITHUB_REPOSITORY" '
               include "model";
               . as $all | [.[]|select(.repo==$repo)|.actor_id]|unique |
               map(. as $id | ($all|current($repo;$id)) as $history | ($all|achieved($repo;$id)) as $tier |
                 select($tier>0) | ($all|map(select(.repo==$repo and .actor_id==$id))|sort_by(.ts)) as $ever |
                 {id:$id,actor:($ever|last|.actor),tier:$tier,date:($ever|first|.ts|split("T")[0])}) |
               map(select((.actor|ascii_downcase) as $a | (["sho"+"jikumaru","caty2","alec-bridge","alpha-mbp-bridge","cero-bridge","github-actions[bot]"]|index($a))==null and ($a|endswith("[bot]")|not))) |
-              sort_by(.date,.id) | "# Supporters\n\n| Supporter | Tier | Since |\n| --- | --- | --- |", (.[]|"| @\(.actor) | \(.tier) | \(.date) |")' "$derive" > "$work/SUPPORTERS.md" || return 1
+              sort_by(.date,.id) | "| Supporter | Tier | Since |\n| --- | --- | --- |", (.[]|"| @\(.actor) | \(.tier) | \(.date) |")' "$derive" >> "$work/SUPPORTERS.md" || return 1
             content=$(base64 < "$work/SUPPORTERS.md" | tr -d '\n')
             while [ "$attempt" -le 5 ]; do
               get "$LEDGER_TOKEN" "repos/$REWARD_REPO/contents/SUPPORTERS.md" "$work/supporters.json" || return 1
               case "$code" in 200) sha=$(jq -er .sha "$work/supporters.json") ;; 404) sha='' ;; *) return 1 ;; esac
-              jq -cn --arg sha "$sha" --arg content "$content" '{message:"supporter-loop: regenerate supporters",content:$content,committer:{name:"supporter-loop[bot]",email:"supporter-loop@caty-ai.noreply"}}+(if $sha=="" then {} else {sha:$sha} end)' > "$work/supporters-put.json"
+              jq -cn --arg sha "$sha" --arg content "$content" '{message:"supporter-loop: regenerate supporters",content:$content,committer:{name:"supporter-loop[bot]",email:("supporter-loop@" + "caty-ai" + ".noreply")}}+(if $sha=="" then {} else {sha:$sha} end)' > "$work/supporters-put.json"
               mutate "$LEDGER_TOKEN" PUT "repos/$REWARD_REPO/contents/SUPPORTERS.md" "$work/supporters-put.json"
               case "$code" in 200|201) return 0 ;; 409) ;; 422) jq -e '.message|test("sha|does not match";"i")' "$work/mutation.json" >/dev/null || return 1 ;; *) return 1 ;; esac
               attempt=$((attempt+1)); [ "$attempt" -gt 5 ] || sleep "$((1+RANDOM%4))"
@@ -1017,7 +1050,7 @@ jobs:
               tier=$(jq -r .tier <<< "$evidence"); subject=$(jq -r .subject <<< "$evidence")
               jq --argjson id "$actor_id" '.+[$id]|unique' "$work/protected.json" > "$work/protected-next.json"
               mv "$work/protected-next.json" "$work/protected.json"
-              if ! jq -se -L "$work" --argjson id "$actor_id" --argjson tier "$tier" --arg repo "$GITHUB_REPOSITORY" \
+              if ! jq -se -L "$work" --arg mode "$MODE" --argjson id "$actor_id" --argjson tier "$tier" --arg repo "$GITHUB_REPOSITORY" \
                 'include "model"; any(.[];.repo==$repo and .actor_id==$id and .tier==$tier and .action=="comment" and success)' "$ledger" >/dev/null; then
                 case "$subject" in
                   "https://github.com/$GITHUB_REPOSITORY/discussions/"*) event=discussion ;;

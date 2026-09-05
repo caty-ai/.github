@@ -49,22 +49,26 @@ function replace_variable(s,k,v, p,t,nextchar,out) {
   }
   return out s
 }
-function inspect(s,n, gh,curl,explicit,implicit,get,write,path,tail) {
+function inspect(s,n, gh,curl,explicit,implicit,get,write,path,tail,methods,unresolved) {
   s=resolve(s)
   gh=(s ~ /(^|[^A-Za-z_])gh[ \t]+api([ \t]|$)/)
   curl=(s ~ /(^|[^A-Za-z_])curl([ \t]|$)/)
   if (!gh && !curl) return
-  explicit=(s ~ /(--method[= \t]+|-X[ \t]*|--request[= \t]+)["\047]?(PUT|POST|PATCH|DELETE)(["\047 \t]|$)/)
+  # Adjacent quoted shell fragments form one method token ("PU""T" -> PUT).
+  methods=s
+  gsub(/["\047]/,"",methods)
+  unresolved=(methods ~ /(--method[= \t]+|-X[ \t]*|--request[= \t]+)\$/)
+  explicit=(methods ~ /(--method[= \t]+|-X[ \t]*|--request[= \t]+)(PUT|POST|PATCH|DELETE)([ \t]|$)/)
   get=(gh && s ~ /--method[= \t]+["\047]?GET(["\047 \t]|$)/) || (curl && s ~ /(-X[ \t]*|--request[= \t]+)["\047]?GET(["\047 \t]|$)/)
   implicit=(gh && s ~ /(^|[ \t])(-[fF]([ \t=]|[^-])|--(input|raw-field|field)([= \t]|$))/) || (curl && s ~ /(^|[ \t])(-[dT]([ \t=]|[^-])|--(data|data-raw|data-binary|data-urlencode|json|upload-file)([= \t]|$))/)
-  write=explicit || (implicit && !get)
+  write=explicit || unresolved || (implicit && !get)
   # GraphQL query transport uses POST; the operation, not transport, decides.
   if (gh && s ~ /api[ \t]+graphql([ \t]|$)/ && s !~ /(^|[^A-Za-z_])mutation([^A-Za-z_]|$)/) {
-    if (s ~ /query[= \t]+["\047]*query([ \t({]|$)/ || s ~ /query[= \t]+["\047]*\{/) write=0
+    if (s ~ /query[= \t]+["\047]*query([ \t({]|$)/ || s ~ /query[= \t]+["\047]*\{/) write=unresolved
     else if (implicit) hit("b",n,"GraphQL operation cannot be proven read-only")
   }
   if (s ~ /(^|[^A-Za-z_])mutation([^A-Za-z_]|$)/) hit("b",n,"GraphQL mutation in decide")
-  if (write && s ~ /\/(collaborators|invitations|comments)([^A-Za-z_-]|$)|\/contents\/SUPPORTERS[.]md/) hit("b",n,"write to delivery endpoint")
+  if (write && (s ~ /\/(collaborators|invitations|comments|graphql)([^A-Za-z_-]|$)|\/contents\/SUPPORTERS[.]md/ || (gh && s ~ /api[ \t]+graphql([ \t]|$)/))) hit("b",n,"write to delivery endpoint")
   if (write && match(s,/\/contents\//)) {
     tail=substr(s,RSTART+RLENGTH)
     # Traversal and encoding must not turn the allowlisted prefix into escape.
@@ -77,12 +81,16 @@ function process(s,n,key,value) {
     key=s; sub(/:.*/,"",key)
     value=s; sub(/^[^:]*:[ \t]+/,"",value)
     value=unquote(value)
-    if (value !~ /\$\(|`|\$\{\{/ && key !~ /^(run|if|name|uses)$/) vars[key]=resolve(value)
+    if (key !~ /^(run|if|name|uses)$/) {
+      if (value !~ /\$\(|`|\$\{\{/) vars[key]=resolve(value)
+      else delete vars[key]
+    }
   } else if (s ~ /^[A-Za-z_][A-Za-z_0-9]*=/) {
     key=s; sub(/=.*/,"",key)
     value=s; sub(/^[^=]*=/,"",value)
     value=unquote(value)
     if (value !~ /\$\(|`/) vars[key]=resolve(value)
+    else delete vars[key]
   }
   inspect(s,n)
 }
@@ -105,6 +113,9 @@ END {
     if (line ~ /SUPPORTER_LOOP_TOKEN|TELEGRAM_[A-Za-z_0-9]*|api[.]telegram[.]org/) hit("a",numbers[i],"forbidden credential or Telegram host")
     if (line ~ /addDiscussionComment/) hit("c",numbers[i],"discussion comment mutation name")
     if (line ~ /^[ \t]*#/) continue
+    # YAML folds physical lines before the shell sees them. Refuse the whole
+    # scalar rather than pretending our shell continuation logic models YAML.
+    if (line ~ /(:[ \t]+|^[ \t]*-[ \t]+)([!&][^ \t]+[ \t]+)*>[0-9+-]*[ \t]*(#.*)?$/) hit("d",numbers[i],"folded scalar in decide is not scannable")
     if (command=="") start=numbers[i]
     t=trim(line)
     sub(/^- run:[ \t]*/,"",t)

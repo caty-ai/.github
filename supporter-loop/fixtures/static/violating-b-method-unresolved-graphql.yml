@@ -1,0 +1,4 @@
+jobs:
+  decide:
+    steps:
+      - run: gh api graphql --method "$M" -f query='query { viewer { login } }'

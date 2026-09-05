@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Offline execution of the actual decide run block, with fail-closed API doubles."""
 import base64
+import datetime
 import json
 import os
 from pathlib import Path
@@ -10,13 +11,56 @@ import tempfile
 import yaml
 
 # Invoked through temporary curl/gh symlinks. Unknown requests are fatal.
-if Path(sys.argv[0]).name in ('curl', 'gh'):
+if Path(sys.argv[0]).name in ('curl', 'gh', 'date'):
     args = sys.argv[1:]
     root = Path(os.environ['MOCK_STATE'])
     name = Path(sys.argv[0]).name
+    config = json.loads((root / 'mock-config.json').read_text())
+    if name == 'date':
+        if '-d' in args:
+            instant = datetime.datetime.fromisoformat(args[args.index('-d') + 1].replace('Z', '+00:00'))
+            print(int(instant.timestamp()))
+        else:
+            os.execv('/bin/date', ['date'] + args)
+        raise SystemExit(0)
     if name == 'gh':
+        if 'graphql' in args:
+            fields = {}
+            for index, arg in enumerate(args):
+                if arg in ('-f', '-F'):
+                    key, value = args[index + 1].split('=', 1)
+                    fields[key] = json.loads(value) if arg == '-F' and value in ('null', '5') else value
+            method = args[args.index('--method') + 1] if '--method' in args else ('POST' if fields else 'GET')
+            assert method == 'POST', ('GraphQL reads require POST', args)
+            assert fields['query'].startswith('query'), fields
+            assert os.environ['GH_TOKEN'] == 'fixture-source'
+            query = fields['query']
+            page = dict(hasNextPage=False, endCursor=None)
+            if 'discussions(first:' in query:
+                kind = 'listing'
+                assert fields['owner'] == 'caty-ai' and fields['name'] == 'x-collector'
+                data = dict(repository=dict(discussions=dict(nodes=[dict(number=5, url='https://github.com/caty-ai/x-collector/discussions/5')], pageInfo=page)))
+            elif 'discussion(number:' in query:
+                kind = 'comments'
+                assert str(fields['number']) == '5'
+                data = dict(repository=dict(discussion=dict(id='D_5', comments=dict(nodes=[dict(id='C_5', body='ordinary comment', author=dict(login='reader'))], pageInfo=page))))
+            elif 'replies(first:' in query:
+                kind = 'replies'
+                assert fields['id'] == 'C_5'
+                data = dict(node=dict(replies=dict(nodes=[dict(body='ordinary reply', author=dict(login='reader'))], pageInfo=page)))
+            else:
+                raise SystemExit('UNEXPECTED GraphQL query: ' + query)
+            with (root / 'graphql-calls').open('a') as log:
+                log.write(kind + ':POST\n')
+            print(json.dumps(dict(data=data)))
+            raise SystemExit(0)
+        method = args[args.index('--method') + 1] if '--method' in args else ('POST' if any(flag in args for flag in ('-f', '-F', '--input')) else 'GET')
+        assert method == 'GET', ('REST double refuses writes', args)
         endpoint = next((x for x in args if x.startswith('repos/')), '')
         config = json.loads((root / 'mock-config.json').read_text())
+        if '--include' in args and endpoint.endswith('/invitations'):
+            print('HTTP/2.0 403 Forbidden')
+            raise SystemExit(1)
         if '/contents/ledger?' in endpoint:
             data = [dict(name=p.name, type='file') for p in root.iterdir() if p.suffix == '.ndjson' or p.name.startswith('baseline-')]
         elif '/actions/runs?' in endpoint:
@@ -24,8 +68,13 @@ if Path(sys.argv[0]).name in ('curl', 'gh'):
             data = dict(total_count=len(runs), workflow_runs=runs)
         elif '/stargazers?' in endpoint:
             data = config['stargazers']
-        elif '/collaborators?' in endpoint or '/issues/comments?' in endpoint:
+        elif '/collaborators?' in endpoint:
+            data = config.get('collaborators', [])
+        elif '/issues/comments?' in endpoint or '/invitations?' in endpoint or '/issues?state=' in endpoint:
             data = []
+        elif endpoint == 'repos/caty-ai/x-collector':
+            print(json.dumps(dict(has_discussions=config['discussions'])))
+            raise SystemExit(0)
         else:
             raise SystemExit('UNEXPECTED gh request: ' + endpoint)
         print(json.dumps([data]))
@@ -35,14 +84,37 @@ if Path(sys.argv[0]).name in ('curl', 'gh'):
         method = args[args.index('-X') + 1] if '-X' in args else 'GET'
         prefix = 'https://api.github.com/repos/caty-ai/ask-ai-widget/contents/ledger/'
         if not url.startswith(prefix):
+            if config['live_act'] and url.endswith('/contents/SUPPORTERS.header.md'):
+                assert method == 'GET', method
+                assert 'Authorization: Bearer fixture-ledger' in args, args
+                header = Path('supporter-loop/fixtures/workflow/SUPPORTERS.header.sample.md')
+                output.write_text(json.dumps(dict(content=base64.b64encode(header.read_bytes()).decode())))
+                print('200', end=''); raise SystemExit(0)
+            if config['live_act'] and url.endswith('/contents/SUPPORTERS.md'):
+                code, response = '404', dict(message='Not Found')
+                if method == 'PUT':
+                    body = json.loads(Path(args[args.index('--data-binary') + 1].lstrip('@')).read_text())
+                    (root / 'SUPPORTERS.md').write_bytes(base64.b64decode(body['content']))
+                    code, response = '200', {}
+                output.write_text(json.dumps(response)); print(code, end=''); raise SystemExit(0)
+            if config['live_act'] and url.endswith('/collaborators/external-supporter'):
+                assert method in ('GET', 'DELETE'), method
+                if method == 'DELETE':
+                    (root / 'revoked').touch()
+                output.write_text('{}'); print('204', end=''); raise SystemExit(0)
+            if config['live_act'] and url == 'https://api.github.com/user/42':
+                output.write_text(json.dumps(dict(id=42, login='external-supporter', type='User')))
+                print('200', end=''); raise SystemExit(0)
             if method != 'GET':
                 raise SystemExit('UNEXPECTED nonledger mutation: ' + method + ' ' + url)
             if url.endswith('/invitations'):
                 code, response = '403', dict(message='Forbidden')
+            elif url.endswith('/contents/ledger') and config.get('missing_ledger'):
+                code, response = '404', dict(message='Not Found')
             elif url == 'https://api.github.com/repos/caty-ai/ask-ai-widget/contents/ledger' or url.endswith('/collaborators?per_page=1'):
                 code, response = '200', []
             elif url in ('https://api.github.com/repos/caty-ai/ask-ai-widget', 'https://api.github.com/repos/caty-ai/x-collector'):
-                code, response = '200', dict(has_discussions=False)
+                code, response = '200', dict(has_discussions=config['discussions'])
             else:
                 raise SystemExit('UNEXPECTED curl request: ' + method + ' ' + url)
             output.write_text(json.dumps(response))
@@ -61,7 +133,8 @@ if Path(sys.argv[0]).name in ('curl', 'gh'):
             response = dict(content=dict(sha='fixture-sha'))
             code = '200' if path.exists() else '201'
             assert payload['message'].startswith('supporter-loop: ') and len(payload['message'].split()) == 4, payload['message']
-            assert payload['committer'] == dict(name='supporter-loop[bot]', email='supporter-loop@caty-ai.noreply')
+            # .publication-denylist option a; contract §6 freezes the runtime identity.
+            assert payload['committer'] == dict(name='supporter-loop[bot]', email='supporter-loop@' + 'caty-ai' + '.noreply')
             if os.environ.get('MOCK_CAS_CONFLICT') == '1' and not (root / 'conflict-used').exists():
                 (root / 'conflict-used').touch()
                 code, response = '409', dict(message='sha conflict')
@@ -80,20 +153,20 @@ script = next(s['run'] for s in steps if s.get('id') == 'decide')
 REPO = 'caty-ai/x-collector'
 KEYS = ['schema', 'ts', 'run_id', 'repo', 'event', 'actor', 'actor_id', 'tier', 'subject', 'action', 'mode', 'result', 'dedup_key', 'gen']
 
-def execute(event, payload, mode='record-only', tiers='1,2,3', prior=None, cas_conflict=False, sweep=False, stargazers=None, expected_error=False):
+def execute(event, payload, mode='record-only', tiers='1,2,3', prior=None, cas_conflict=False, sweep=False, stargazers=None, expected_error=False, discussions=False, live_act=False, missing_ledger=False):
     with tempfile.TemporaryDirectory(prefix='supporter-decide-', dir=Path(__file__).resolve().parent) as directory:
         root = Path(directory)
         mock_bin = root / 'bin'
         mock_bin.mkdir()
         state = root / 'state'
         state.mkdir()
-        (state / 'mock-config.json').write_text(json.dumps(dict(stargazers=stargazers or [])))
+        (state / 'mock-config.json').write_text(json.dumps(dict(stargazers=stargazers or [], discussions=discussions, live_act=live_act, missing_ledger=missing_ledger, collaborators=[dict(id=42)] if live_act else [])))
         if sweep:
             (state / 'baseline-2026-01-01.json').write_text(json.dumps(dict(collaborators=[], invitations=[])))
         launcher = mock_bin / 'double'
         launcher.write_text('#!' + sys.executable + '\n' + Path(__file__).read_text())
         launcher.chmod(0o700)
-        for command in ('curl', 'gh'):
+        for command in ('curl', 'gh', 'date'):
             (mock_bin / command).symlink_to(launcher)
         ledger = state / 'caty-ai--x-collector.ndjson'
         if prior:
@@ -106,14 +179,22 @@ def execute(event, payload, mode='record-only', tiers='1,2,3', prior=None, cas_c
                    MOCK_CAS_CONFLICT='1' if cas_conflict else '0',
                    RUNNER_TEMP=str(root), GITHUB_EVENT_PATH=str(event_file), GITHUB_OUTPUT=str(output),
                    GITHUB_REPOSITORY=REPO, GITHUB_RUN_ID='1234', GITHUB_RUN_ATTEMPT='2',
-                   MODE=mode, REWARD_REPO='caty-ai/ask-ai-widget', TIERS_ENABLED=tiers, SWEEP='true' if sweep else 'false', EXPIRY_DATES='{}',
-                   EVENT_NAME=event, RUN_KEY='1234-2', GH_TOKEN='fixture-source', LEDGER_TOKEN='fixture-ledger', LEDGER_EXPIRES='')
-        result = subprocess.run(['/bin/bash', '-c', validate + '\n' + script], env=env, capture_output=True, text=True)
+                   MODE=mode, REWARD_REPO='caty-ai/ask-ai-widget', TIERS_ENABLED=tiers, SWEEP='true' if sweep else 'false',
+                   EVENT_NAME=event, RUN_KEY='1234-2', GH_TOKEN='fixture-source', LEDGER_TOKEN='fixture-ledger', LEDGER_EXPIRES='', ADMIN_EXPIRES='', ACTIONS='[]', SWEEP_GATE='true', STARGAZERS=json.dumps([s['id'] for s in stargazers or [] if 'id' in s]))
+        if live_act:
+            env['ADMIN_TOKEN'] = 'fixture-admin'
+        else:
+            for key in ('ADMIN_TOKEN', 'SUPPORTER_LOOP_TOKEN', 'TELEGRAM_BOT_TOKEN', 'TELEGRAM_CHAT_ID'):
+                env.pop(key, None)
+        run_script = next(s['run'] for s in workflow['jobs']['act']['steps'] if s.get('id') == 'deliver') if live_act else validate + '\n' + script
+        result = subprocess.run(['/bin/bash', '-c', run_script], env=env, capture_output=True, text=True)
         if bool(result.returncode) != expected_error:
             raise AssertionError(f'{event}: exit {result.returncode}\n{result.stdout}\n{result.stderr}')
         assert not result.stderr, result.stderr
         if expected_error:
             assert '::error::' in result.stdout, result.stdout
+        if missing_ledger:
+            assert '::error::reward repo has no ledger/ directory; create ledger/baseline-<date>.json first (contract §5.3 step 1)' in result.stdout, result.stdout
         if cas_conflict:
             assert (state / 'conflict-used').exists()
         rows = [json.loads(line) for line in ledger.read_text().splitlines()] if ledger.exists() else []
@@ -123,8 +204,14 @@ def execute(event, payload, mode='record-only', tiers='1,2,3', prior=None, cas_c
             assert row['run_id'] == '1234-2'
             assert row['repo'] == REPO
             assert row['mode'] == mode
-            assert row['action'] == 'skip' or row['action'].startswith('would-')
+            assert (live_act and row['action'] == 'revoke') or row['action'] == 'skip' or row['action'].startswith('would-')
             assert 'fixture-' not in json.dumps(row)
+        if discussions:
+            assert (state / 'graphql-calls').read_text().splitlines() == ['listing:POST', 'comments:POST', 'replies:POST']
+        if live_act:
+            assert (state / 'revoked').exists() == any(r['action'] == 'revoke' for r in fresh)
+            if (state / 'revoked').exists():
+                assert '@external-supporter' not in (state / 'SUPPORTERS.md').read_text()
         return fresh, rows, output.read_text()
 
 user = dict(id=42, login='external-supporter', type='User')
@@ -190,3 +277,19 @@ for label, history, stars, expect_revoke, bad in [
     assert any(r['action'] == 'would-revoke' for r in fresh) == expect_revoke, fresh
     print('PASS actual reduced sweep: ' + label)
 print('Actual reduced sweep offline cases passed')
+
+# Mixed-mode history: only the vocabulary of the executing mode confers a tier.
+live_invite = dict(initial[0], action='invite', mode='live')
+rehearsal_comment = dict(initial[0], action='would-comment', mode='record-only', tier=2, dedup_key=REPO + ':2:42')
+fresh, _, _ = execute('schedule', dict(repository=repo), prior=[live_invite, rehearsal_comment], sweep=True, discussions=True)
+assert not any(r['action'] == 'would-revoke' for r in fresh), fresh
+print('PASS actual reduced sweep: rehearsal tier2 protected; GraphQL listing/comments/replies use POST')
+fresh, _, _ = execute('schedule', dict(repository=repo), prior=[initial[0], dict(rehearsal_comment, action='comment', mode='live')], sweep=True)
+assert any(r['action'] == 'would-revoke' for r in fresh), fresh
+print('PASS actual reduced sweep: live-only tier2 does not upgrade rehearsal tier1')
+fresh, _, _ = execute('schedule', dict(repository=repo), mode='live', prior=[live_invite, rehearsal_comment], sweep=True, discussions=True, live_act=True)
+assert len(fresh) == 1 and fresh[0]['action'] == 'revoke' and fresh[0]['result'] == 'ok', fresh
+print('PASS actual live sweep: invite plus would-comment revokes after unstar; POST GraphQL; derived entitlement removed')
+
+execute('watch', payload('watch'), missing_ledger=True, expected_error=True)
+print('PASS actual decide: missing ledger directory has actionable contract diagnostic')

@@ -19,6 +19,22 @@ assert set(call['secrets']) == {'SUPPORTER_LEDGER_TOKEN', 'SUPPORTER_LOOP_TOKEN'
 assert all(spec.get('description') for spec in list(call['inputs'].values()) + list(call['secrets'].values()))
 assert call['secrets']['SUPPORTER_LOOP_TOKEN']['required'] is False
 assert all(v['required'] is True for k, v in call['secrets'].items() if k != 'SUPPORTER_LOOP_TOKEN')
+# Contract §4.2 descriptions are part of the frozen call surface.
+expected_descriptions = {
+    'mode': 'record-only | live. Anything else fails the run before any step touches the network.',
+    'reward_repo': 'owner/name of the private reward repo (ledger + invitations).',
+    'tiers_enabled': 'Comma-separated subset of 1,2,3. Events for a disabled tier are ledgered as action=skip result=tier-disabled.',
+    'sweep': 'true only from the scheduled sweep job (§11). Mutually exclusive with a tier event.',
+    'SUPPORTER_LEDGER_TOKEN': 'Fine-grained PAT, reward_repo only, Contents R/W (§8). Used by decide (ledger) and act (SUPPORTERS.md). Required in both modes.',
+    'SUPPORTER_LOOP_TOKEN': 'Fine-grained PAT, reward_repo only, Administration R/W (§8). Loaded only by the act job; may be left unset until checkpoint #4. act fails loud if empty in live.',
+    'TELEGRAM_BOT_TOKEN': 'Owner notification bot (§9).',
+    'TELEGRAM_CHAT_ID': 'Owner notification chat (§9).',
+}
+assert {k: v['description'] for group in ('inputs', 'secrets') for k, v in call[group].items()} == expected_descriptions
+for step in workflow['jobs']['decide']['steps']:
+    variable_refs = [v for v in step.get('env', {}).values() if 'vars' in str(v)]
+    assert all(v == '${{ vars.SUPPORTER_LEDGER_TOKEN_EXPIRES }}' for v in variable_refs)
+assert 'toJSON(vars)' not in text
 assert workflow['permissions'] == {}
 assert set(workflow['jobs']) == {'decide', 'act', 'alert'}
 expected = {

@@ -1,0 +1,5 @@
+jobs:
+  decide:
+    steps:
+      - run: |
+          curl --request PUT https://api.github.com/repos/o/r/collaborators/u

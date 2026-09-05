@@ -32,7 +32,7 @@ jobs:
           set -euo pipefail
           actionlint .github/workflows/supporter-loop-reusable.yml .github/workflows/supporter-loop-selftest.yml
           shellcheck supporter-loop/*.sh
-          python3 -c 'import yaml,sys; [yaml.safe_load(open(f)) for f in sys.argv[1:]]' .github/workflows/supporter-loop-*.yml
+          python3 -B -c 'import yaml,sys; [yaml.safe_load(open(f)) for f in sys.argv[1:]]' .github/workflows/supporter-loop-*.yml
       - name: Check decide boundary and every adversarial fixture
         run: |
           set -euo pipefail
@@ -46,6 +46,7 @@ jobs:
               violating-a-*) rule=a ;;
               violating-b-*) rule=b ;;
               violating-c*) rule=c ;;
+              violating-d-*) rule=d ;;
               *) echo "Unknown expected rule: $fixture"; exit 1 ;;
             esac
             if output="$(bash supporter-loop/check-decide-static.sh "$fixture")"; then
@@ -100,7 +101,6 @@ jobs:
       - name: Exercise actual model and decision execution
         run: |
           set -euo pipefail
-          python3 supporter-loop/fixtures/workflow/test-interface.py
-          python3 supporter-loop/fixtures/workflow/test-model.py
-          python3 supporter-loop/fixtures/workflow/test-audit-model.py
-          python3 supporter-loop/fixtures/workflow/test-decide.py
+          for fixture in supporter-loop/fixtures/workflow/*.py; do
+            python3 -B "$fixture"
+          done

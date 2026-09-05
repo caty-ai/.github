@@ -1,0 +1,8 @@
+jobs:
+  decide:
+    env:
+      COMMAND: &write >-
+        gh api --method
+        PUT repos/o/r/invitations/123
+    steps:
+      - run: echo ok

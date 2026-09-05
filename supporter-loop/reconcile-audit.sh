@@ -67,7 +67,7 @@ if [ "$live_gh" = true ]; then
   owner=${SOURCE_REPO%/*}; repo_name=${SOURCE_REPO#*/}
   graphql() {
     local response
-    response=$(gh api --hostname github.com graphql --method GET -f query="$1" -f owner="$owner" -f name="$repo_name" "${@:2}") || return 1
+    response=$(gh api --hostname github.com graphql -f query="$1" -f owner="$owner" -f name="$repo_name" "${@:2}") || return 1
     jq -e '(.errors // [] | length)==0 and .data != null' <<< "$response" >/dev/null || return 1
     printf '%s\n' "$response"
   }
