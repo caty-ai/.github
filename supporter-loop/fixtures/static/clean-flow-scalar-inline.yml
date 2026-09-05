@@ -1,0 +1,9 @@
+jobs:
+  decide:
+    steps:
+      - if: ${{ inputs.mode == 'live' }}
+        run: echo ok
+  act:
+    steps:
+      - uses: example/action@v1
+        with: {mode: record-only}

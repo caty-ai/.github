@@ -1,0 +1,6 @@
+jobs:
+  decide:
+    steps:
+      - "env":
+          METHOD: PUT
+        run: echo ok

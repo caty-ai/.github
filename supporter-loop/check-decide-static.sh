@@ -125,15 +125,34 @@ END {
         key_depth+=RLENGTH
         mapping=substr(mapping,RLENGTH+1)
       }
-      if (mapping ~ /^[A-Za-z_][A-Za-z_0-9-]*:[ \t]+/) {
-        value=mapping; sub(/^[^:]*:[ \t]+/,"",value)
-        # Strip YAML tags/anchors before recognizing scalar styles.
-        sub(/^([!&][^ \t]+[ \t]+)+/,"",value)
+      # Outside literal bodies, only plain mapping keys are scannable.
+      if (mapping!="" && mapping !~ /^[A-Za-z_][A-Za-z_0-9-]*:( |$)/) {
+        hit("d",numbers[i],"non-plain key or flow mapping in decide is not scannable")
+      }
+      if (mapping ~ /^[A-Za-z_][A-Za-z_0-9-]*:( |$)/) {
+        key=mapping; sub(/:.*/,"",key)
+        value=mapping; sub(/^[^:]*:[ \t]*/,"",value)
+        if (value ~ /^[*&]/) hit("d",numbers[i],"alias or anchor in decide is not scannable")
+        if (value ~ /^[{\[]/) hit("d",numbers[i],"non-plain key or flow mapping in decide is not scannable")
+        # Strip YAML tags before recognizing scalar styles.
+        sub(/^(![^ \t]+[ \t]+)+/,"",value)
+        if (value ~ /^[*&]/) hit("d",numbers[i],"alias or anchor in decide is not scannable")
+        next_line=i+1
+        while (next_line<=count && lines[next_line] ~ /^[ \t]*$/) next_line++
+        deeper=(next_line<=count && match(lines[next_line],/[^ \t]/)-1>key_depth)
+        if ((value=="" || value ~ /^#/) && deeper) {
+          following=trim(lines[next_line])
+          if (following ~ /^\|[0-9+-]*[ \t]*(#.*)?$/) {
+            literal=1; literal_depth=key_depth
+          } else if (key ~ /^(run|if)$/ || following !~ /^(-[ ]+)?[A-Za-z_][A-Za-z_0-9-]*:( |$)/) {
+            hit("d",numbers[i],"multi-line non-literal scalar in decide is not scannable")
+          }
+        }
         if (value ~ /^\|[0-9+-]*[ \t]*(#.*)?$/) {
           literal=1; literal_depth=key_depth
         } else if (value!="" && value !~ /^#/) {
           multiline=0
-          if (i<count && lines[i+1] !~ /^[ \t]*$/ && match(lines[i+1],/[^ \t]/)-1>key_depth) multiline=1
+          if (deeper) multiline=1
           first=substr(value,1,1)
           if (first=="\"" || first=="\047") {
             closed=0

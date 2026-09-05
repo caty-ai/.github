@@ -1,0 +1,8 @@
+name: t
+on: workflow_dispatch
+jobs:
+  decide:
+    runs-on: ubuntu-latest
+    steps:
+      - "run": gh api --method
+          PUT /repos/o/r/collaborators/u
