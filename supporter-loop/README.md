@@ -2,6 +2,7 @@
 
 The reusable workflow implements the frozen [Supporter Reward Loop contract](https://github.com/caty-ai/x-collector/blob/epic/119/docs/supporter-loop/CONTRACT.md) (moves to `main` when the epic merges), v1.9. The caller initially selects `record-only`; enabling live delivery and approving the placeholder Japanese/English comment templates belong to owner checkpoint #4. The optional backfill input is deliberately absent until that checkpoint.
 
+- `check-contents-decode.sh <workflow.yml> <fixtures-dir>` requires CR/LF stripping at every base64 decode, byte-compares wrapped Contents API fixtures, and verifies that plain decoding fails.
 - `check-ledger.sh <ndjson files...>` prints the number of mode/action violations and succeeds only at zero.
 - `check-decide-static.sh <workflow.yml>` checks the entire `decide` job for forbidden credentials, Telegram, and delivery writes, including implicit HTTP methods and Contents paths assembled from literals. Unresolved methods fail closed; folded YAML scalars in `decide` are rejected with rule `d` (use literal `|` blocks).
 - Rule `b` also rejects unresolved positional/array argument bundles and curl multipart (`-F`/`--form`/`--form-string`) or configuration (`-K`/`--config`) options, even with an explicit GET or ledger target. A narrowly proven function-local empty argument vector followed only by quoted `-f`/`-F` field-pair appends is treated as gh field input; other builders fail closed. HTTP method matching is case-insensitive for the existing write and ledger rules.

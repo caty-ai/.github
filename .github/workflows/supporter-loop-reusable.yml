@@ -154,7 +154,7 @@ jobs:
             while IFS= read -r name; do
               get "$LEDGER_TOKEN" "repos/$REWARD_REPO/contents/ledger/$name" "$work/blob.json" || return 1
               [ "$code" = 200 ] || return 1
-              jq -er '.content | @base64d' "$work/blob.json" >> "$ledger" || return 1
+              jq -er '.content | gsub("[\\n\\r]"; "") | @base64d' "$work/blob.json" >> "$ledger" || return 1
             done < "$work/names"
             # Unknown fields and schema versions are retained verbatim; nothing rewrites history.
             jq -s -e 'all(.[]; type=="object")' "$ledger" >/dev/null || return 1
@@ -177,7 +177,7 @@ jobs:
             while [ "$attempt" -le 5 ]; do
               get "$LEDGER_TOKEN" "repos/$REWARD_REPO/contents/ledger/$base.ndjson" "$work/current.json" || return 1
               case "$code" in
-                200) sha=$(jq -er .sha "$work/current.json"); jq -jr '.content | @base64d' "$work/current.json" > "$work/current.ndjson" ;;
+                200) sha=$(jq -er .sha "$work/current.json"); jq -jr '.content | gsub("[\\n\\r]"; "") | @base64d' "$work/current.json" > "$work/current.ndjson" ;;
                 404) sha=''; : > "$work/current.ndjson" ;;
                 *) echo '::error::ledger read failed'; return 1 ;;
               esac
@@ -210,7 +210,7 @@ jobs:
             get "$LEDGER_TOKEN" "repos/$REWARD_REPO/contents/ledger/$base.ndjson" "$work/rotation-base.json" || return 1
             [ "$code" != 404 ] || return 0
             [ "$code" = 200 ] || return 1
-            jq -jr '.content | @base64d' "$work/rotation-base.json" > "$work/rotation-base"
+            jq -jr '.content | gsub("[\\n\\r]"; "") | @base64d' "$work/rotation-base.json" > "$work/rotation-base"
             base_sha=$(jq -er .sha "$work/rotation-base.json")
             archive="$base.$(date -u +%F).ndjson"
             # A previous interrupted copy may be from an earlier date. Resume that copy.
@@ -218,7 +218,7 @@ jobs:
               [ "$name" != "$base.ndjson" ] || continue
               get "$LEDGER_TOKEN" "repos/$REWARD_REPO/contents/ledger/$name" "$work/copy.json" || return 1
               [ "$code" = 200 ] || return 1
-              jq -jr '.content | @base64d' "$work/copy.json" > "$work/copy"
+              jq -jr '.content | gsub("[\\n\\r]"; "") | @base64d' "$work/copy.json" > "$work/copy"
               if [ -s "$work/copy" ] && cmp -s "$work/copy" <(head -c "$(wc -c < "$work/copy")" "$work/rotation-base"); then
                 archive="$name"; target_sha=$(jq -er .sha "$work/copy.json"); break
               fi
@@ -238,7 +238,7 @@ jobs:
             case "$status" in 200|201) ;; *) return 1 ;; esac
             get "$LEDGER_TOKEN" "repos/$REWARD_REPO/contents/ledger/$archive" "$work/verify.json" || return 1
             [ "$code" = 200 ] || return 1
-            jq -jr '.content | @base64d' "$work/verify.json" > "$work/verified"
+            jq -jr '.content | gsub("[\\n\\r]"; "") | @base64d' "$work/verify.json" > "$work/verified"
             cmp -s "$work/rotation-base" "$work/verified" || { echo '::error::rotation byte verification failed'; return 1; }
             jq -cn --arg sha "$base_sha" '{message:"supporter-loop: sweep ledger rotate",sha:$sha,committer:{name:"supporter-loop[bot]",email:("supporter-loop@" + "caty-ai" + ".noreply")}}' > "$work/delete.json"
             status=$(curl -sS --connect-timeout 10 --max-time 45 -o "$work/delete-response" -w '%{http_code}' -X DELETE \
@@ -326,7 +326,7 @@ jobs:
             [ -n "$name" ] || { echo '::error::owner baseline is missing'; return 1; }
             get "$LEDGER_TOKEN" "repos/$REWARD_REPO/contents/ledger/$name" "$work/baseline-blob.json" || return 1
             [ "$code" = 200 ] || return 1
-            jq -er '.content | @base64d | fromjson | select((.collaborators|type=="array") and (.invitations|type=="array"))' "$work/baseline-blob.json" > "$work/baseline.json"
+            jq -er '.content | gsub("[\\n\\r]"; "") | @base64d | fromjson | select((.collaborators|type=="array") and (.invitations|type=="array"))' "$work/baseline-blob.json" > "$work/baseline.json"
           }
           reminder() {
             local expiry="$1" label="$2" days
@@ -586,7 +586,7 @@ jobs:
             while IFS= read -r name; do
               get "$LEDGER_TOKEN" "repos/$REWARD_REPO/contents/ledger/$name" "$work/blob.json" || return 1
               [ "$code" = 200 ] || return 1
-              jq -er '.content | @base64d' "$work/blob.json" >> "$ledger" || return 1
+              jq -er '.content | gsub("[\\n\\r]"; "") | @base64d' "$work/blob.json" >> "$ledger" || return 1
             done < "$work/names"
             # Unknown fields and schema versions are retained verbatim; nothing rewrites history.
             jq -s -e 'all(.[]; type=="object")' "$ledger" >/dev/null || return 1
@@ -609,7 +609,7 @@ jobs:
             while [ "$attempt" -le 5 ]; do
               get "$LEDGER_TOKEN" "repos/$REWARD_REPO/contents/ledger/$base.ndjson" "$work/current.json" || return 1
               case "$code" in
-                200) sha=$(jq -er .sha "$work/current.json"); jq -jr '.content | @base64d' "$work/current.json" > "$work/current.ndjson" ;;
+                200) sha=$(jq -er .sha "$work/current.json"); jq -jr '.content | gsub("[\\n\\r]"; "") | @base64d' "$work/current.json" > "$work/current.ndjson" ;;
                 404) sha=''; : > "$work/current.ndjson" ;;
                 *) echo '::error::ledger read failed'; return 1 ;;
               esac
@@ -643,7 +643,7 @@ jobs:
             get "$LEDGER_TOKEN" "repos/$REWARD_REPO/contents/ledger/$base.ndjson" "$work/rotation-base.json" || return 1
             [ "$code" != 404 ] || return 0
             [ "$code" = 200 ] || return 1
-            jq -jr '.content | @base64d' "$work/rotation-base.json" > "$work/rotation-base"
+            jq -jr '.content | gsub("[\\n\\r]"; "") | @base64d' "$work/rotation-base.json" > "$work/rotation-base"
             base_sha=$(jq -er .sha "$work/rotation-base.json")
             archive="$base.$(date -u +%F).ndjson"
             # A previous interrupted copy may be from an earlier date. Resume that copy.
@@ -651,7 +651,7 @@ jobs:
               [ "$name" != "$base.ndjson" ] || continue
               get "$LEDGER_TOKEN" "repos/$REWARD_REPO/contents/ledger/$name" "$work/copy.json" || return 1
               [ "$code" = 200 ] || return 1
-              jq -jr '.content | @base64d' "$work/copy.json" > "$work/copy"
+              jq -jr '.content | gsub("[\\n\\r]"; "") | @base64d' "$work/copy.json" > "$work/copy"
               if [ -s "$work/copy" ] && cmp -s "$work/copy" <(head -c "$(wc -c < "$work/copy")" "$work/rotation-base"); then
                 archive="$name"; target_sha=$(jq -er .sha "$work/copy.json"); break
               fi
@@ -672,7 +672,7 @@ jobs:
             case "$status" in 200|201) ;; *) return 1 ;; esac
             get "$LEDGER_TOKEN" "repos/$REWARD_REPO/contents/ledger/$archive" "$work/verify.json" || return 1
             [ "$code" = 200 ] || return 1
-            jq -jr '.content | @base64d' "$work/verify.json" > "$work/verified"
+            jq -jr '.content | gsub("[\\n\\r]"; "") | @base64d' "$work/verify.json" > "$work/verified"
             cmp -s "$work/rotation-base" "$work/verified" || { echo '::error::rotation byte verification failed'; return 1; }
             jq -cn --arg sha "$base_sha" '{message:"supporter-loop: sweep ledger rotate",sha:$sha,committer:{name:"supporter-loop[bot]",email:("supporter-loop@" + "caty-ai" + ".noreply")}}' > "$work/delete.json"
             [ "$MODE" = live ] || return 1
@@ -762,7 +762,7 @@ jobs:
             [ -n "$name" ] || { echo '::error::owner baseline is missing'; return 1; }
             get "$LEDGER_TOKEN" "repos/$REWARD_REPO/contents/ledger/$name" "$work/baseline-blob.json" || return 1
             [ "$code" = 200 ] || return 1
-            jq -er '.content | @base64d | fromjson | select((.collaborators|type=="array") and (.invitations|type=="array"))' "$work/baseline-blob.json" > "$work/baseline.json"
+            jq -er '.content | gsub("[\\n\\r]"; "") | @base64d | fromjson | select((.collaborators|type=="array") and (.invitations|type=="array"))' "$work/baseline-blob.json" > "$work/baseline.json"
           }
           reminder() {
             local expiry="$1" label="$2" days
@@ -836,7 +836,7 @@ jobs:
               -H "Authorization: Bearer $GH_TOKEN" -H 'Accept: application/vnd.github+json' \
               "https://api.github.com/repos/caty-ai/.github/contents/supporter-loop/comment-tier$tier.md?ref=main") || { result=error-template; return 0; }
             [ "$code" = 200 ] || { result="error-$code"; return 0; }
-            template=$(jq -er '.content | @base64d' "$work/template.json") || { result=error-template; return 0; }
+            template=$(jq -er '.content | gsub("[\\n\\r]"; "") | @base64d' "$work/template.json") || { result=error-template; return 0; }
             body=$(jq -nr --arg template "$template" --arg login "$actor" --arg id "$actor_id" --arg url "https://github.com/$REWARD_REPO" \
               '$template | split("{{login}}")|join($login)|split("{{actor_id}}")|join($id)|split("{{reward_repo_url}}")|join($url)')
             [ "${body%%$'\n'*}" = "$marker" ] || { result=error-template-marker; return 0; }
@@ -963,7 +963,7 @@ jobs:
           for allow in manual-allowlist manual-markers-allowlist; do
             get "$LEDGER_TOKEN" "repos/$REWARD_REPO/contents/ledger/$allow.json" "$work/allow-blob.json"
             case "$code" in
-              200) jq -er '.content|@base64d|fromjson|select(type=="array")' "$work/allow-blob.json" > "$work/$allow.json" ;;
+              200) jq -er '.content|gsub("[\\n\\r]"; "") | @base64d|fromjson|select(type=="array")' "$work/allow-blob.json" > "$work/$allow.json" ;;
               404) printf '[]\n' > "$work/$allow.json" ;;
               *) echo '::error::manual allowlist unreadable'; exit 1 ;;
             esac
