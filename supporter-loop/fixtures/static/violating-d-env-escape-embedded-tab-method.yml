@@ -1,0 +1,7 @@
+jobs:
+  decide:
+    env:
+      M: "PU\tT"
+    steps:
+      - run: |
+          curl -X$M https://api.github.com/repos/example/project/collaborators/reader

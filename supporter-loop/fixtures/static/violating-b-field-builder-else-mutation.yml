@@ -1,0 +1,11 @@
+jobs:
+  decide:
+    steps:
+      - run: |
+          fetch_api() {
+            local key=value
+            set --
+            if [ "$key" = query ]; then set -- "$@" -f "query=query { viewer { id } }"
+            else set -- "$@" -f "query=mutation { closeIssue }"; fi
+            gh api graphql -f query='query { viewer { id } }' "$@"
+          }

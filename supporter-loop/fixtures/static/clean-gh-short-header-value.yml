@@ -1,0 +1,5 @@
+jobs:
+  decide:
+    steps:
+      - run: |
+          gh api -H"X-Flags: F K X" /repos/e/p/issues

@@ -1,0 +1,5 @@
+jobs:
+  decide:
+    steps:
+      - run: |
+          gh api -XPUT /repos/e/p/collaborators/u

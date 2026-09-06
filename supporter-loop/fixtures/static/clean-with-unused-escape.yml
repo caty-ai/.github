@@ -1,0 +1,8 @@
+jobs:
+  decide:
+    steps:
+      - uses: example/action@v1
+        with:
+          UNUSED: "\tPUT"
+      - run: |
+          curl -sSL4 https://api.github.com/repos/example/project/collaborators/reader

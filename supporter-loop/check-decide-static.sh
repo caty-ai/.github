@@ -25,7 +25,16 @@ function replace_literal(s, old, value, p, result) {
   }
   return result s
 }
-function resolve(s, k) {
+function resolve(s, k,t) {
+  resolved_escape=0
+  # Preserve YAML escape provenance even if conflicting assignments invalidate
+  # the value. Only a reference that reaches an inspected statement fires.
+  for (k in escaped_scalars) {
+    t=replace_literal(s,"${" k "}","")
+    t=replace_literal(t,"${{ env." k " }}","")
+    t=replace_variable(t,k,"")
+    if (t!=s) resolved_escape=1
+  }
   for (k in vars) {
     s=replace_literal(s,"${" k "}",vars[k])
     s=replace_literal(s,"${{ env." k " }}",vars[k])
@@ -53,11 +62,13 @@ function inspect(s,n, gh,curl,explicit,implicit,get,write,path,tail,facts,unreso
   # Include every possible append before resolving variables or checking writes.
   if (field_vectors[n]) s=replace_literal(s,"\"$@\"",field_values[n])
   s=resolve(s)
+  if (resolved_escape && request_source !~ /^(-[ \t]+)?[A-Za-z_][A-Za-z_0-9-]*:[ \t]/) hit("d",n,"escaped collected scalar reaches run in decide")
   gh=(s ~ /(^|[^A-Za-z_])gh[ \t]+api([ \t]|$)/)
   curl=(s ~ /(^|[^A-Za-z_])curl([ \t]|$)/)
   if (!gh && !curl) return
   # Preserve bundle boundaries for option-argument consumption checks.
-  request(resolve(request_source),gh,facts,field_vectors[n])
+  request(resolve(request_source),gh,facts,field_vectors[n],escaped_runs[n])
+  if (gh && s ~ /query[=]["\047]*@/) facts["method_unknown"]=1
   unresolved=facts["method_unknown"]
   explicit=facts["write"]
   get=facts["method_seen"] && !facts["non_get"]
@@ -108,7 +119,8 @@ function target(t,facts, path,tail,literal) {
 }
 # Assignments are collected before any invocation is inspected. Conflicts and
 # dynamic assignments permanently invalidate a name, independent of key order.
-function collect(key,value, expression,token) {
+function collect(key,value,yaml, expression,token) {
+  if (yaml && trim(value) ~ /^"/ && index(value,"\\")) escaped_scalars[key]=1
   value=unquote(value)
   while (match(value,/\$\{\{[ \t]*(inputs|github|secrets|vars)[.][A-Za-z_0-9.]+[ \t]*\}\}/)) {
     expression=substr(value,RSTART,RLENGTH)
@@ -125,7 +137,7 @@ function process(s,n,key,value) {
   if (s ~ /^[A-Za-z_][A-Za-z_0-9]*:[ \t]+/) {
     key=s; sub(/:.*/,"",key)
     value=s; sub(/^[^:]*:[ \t]+/,"",value)
-    if (key !~ /^(run|if|name|uses)$/) collect(key,value)
+    if (key !~ /^(run|if|name|uses)$/) collect(key,value,1)
   } else if (s ~ /^[A-Za-z_][A-Za-z_0-9]*=/) {
     key=s; sub(/=.*/,"",key)
     value=s; sub(/^[^=]*=/,"",value)
@@ -149,7 +161,7 @@ function bundle(s, j,ch,q,escaped) {
   }
   return 0
 }
-function request(s,gh,facts,fields, words,raw_words,field_word,raw,total,j,ch,q,escaped,word,t,skip,method,target_seen) {
+function request(s,gh,facts,fields,escaped_scalar, words,raw_words,field_word,raw,total,j,ch,q,escaped,word,t,skip,method,target_seen,pos,opt,arg,short_value) {
   if (gh) sub(/^.*gh[ \t]+api[ \t]+/,"",s)
   else sub(/^.*curl[ \t]+/,"",s)
   facts["ledger_only"]=1
@@ -193,9 +205,32 @@ function request(s,gh,facts,fields, words,raw_words,field_word,raw,total,j,ch,q,
     # first -f as a header/value would expose the next word as an option.
     if (field_word[j]) facts["implicit"]=1
     if (t ~ /[$]([0-9]|[{][0-9]+[}])/) facts["method_unknown"]=1
-    if (!gh && t ~ /^(-[A-Za-z]*[FK]|--(form|form-string|config)(=|$))/) facts["method_unknown"]=1
+    if (!gh && t ~ /^--(form|form-string|config)(=|$)/) facts["method_unknown"]=1
     method=""
-    if (t=="-X" || (gh && t=="--method") || (!gh && t=="--request")) method=words[++j]
+    short_value=0
+    if (!gh && t ~ /^-[^-]/) {
+      # curl clusters stop at the first option taking an argument. Its suffix
+      # is the value, even when that suffix looks like another option letter.
+      # gh api has individual short flags, not curl-style cluster syntax.
+      for (pos=2;pos<=length(t);pos++) {
+        opt=substr(t,pos,1)
+        if (index("XdTFKHuoweAbcEmrxyzCDYUPQht",opt)) {
+          arg=substr(t,pos+1)
+          if (arg=="") arg=words[++j]
+          if (arg=="" || field_word[j]) facts["method_unknown"]=1
+          if (opt=="X") { method=arg; short_value=1 }
+          else if (opt=="d" || opt=="T" || opt=="F") facts["implicit"]=1
+          # Multipart and external configuration remain fail-closed even if
+          # another option explicitly selects GET (the existing R4 contract).
+          if (opt=="F" || opt=="K" || opt=="Q") facts["method_unknown"]=1
+          break
+        }
+        if (!index("012346#sSfikvjVLIOJNGgqRaBlnpZM",opt)) facts["method_unknown"]=1
+      }
+      if (!short_value) continue
+    }
+    if (short_value) { method=arg }
+    else if (t=="-X" || (gh && t=="--method") || (!gh && t=="--request")) method=words[++j]
     else if (t ~ /^-X./) method=substr(t,3)
     else if (gh && t ~ /^--method=/) method=substr(t,10)
     else if (!gh && t ~ /^--request=/) method=substr(t,11)
@@ -221,7 +256,10 @@ function request(s,gh,facts,fields, words,raw_words,field_word,raw,total,j,ch,q,
     facts["method_seen"]=1
     if (method!="GET") facts["non_get"]=1
     if (method!="PUT" && method!="DELETE") facts["non_ledger_method"]=1
-    if (method=="" || method ~ /[$`]|OPAQUE_CONTEXT_/) facts["method_unknown"]=1
+    # Raw escaped YAML is already rejected by d; preserve its prior diagnostics
+    # rather than treating undecoded escape text as a newly invalid method.
+    if (method=="" || method ~ /[$`]|OPAQUE_CONTEXT_/ ||
+        (!escaped_scalar && method !~ /^(GET|HEAD|OPTIONS|TRACE|CONNECT|PUT|POST|PATCH|DELETE)$/)) facts["method_unknown"]=1
     if (method ~ /^(PUT|POST|PATCH|DELETE)$/) facts["write"]=1
   }
 }
@@ -275,6 +313,22 @@ function field_builder(s,n, append,plumbing,invocation) {
   field_safe=0
 }
 
+# Workflow-level env is outside the decide slice but participates in shell
+# expansion there. Collect only its mapping entries, including a name key.
+/^env:[ \t]*(#.*)?$/ { workflow_env=1; next }
+workflow_env {
+  if ($0 ~ /^[ \t]*(#.*)?$/) next
+  if ($0 ~ /^[^ \t]/) workflow_env=0
+  else {
+    mapping=trim($0)
+    if (mapping ~ /^[A-Za-z_][A-Za-z_0-9]*:[ \t]+/) {
+      key=mapping; sub(/:.*/,"",key)
+      value=mapping; sub(/^[^:]*:[ \t]+/,"",value)
+      collect(key,value,1)
+    }
+    next
+  }
+}
 /^[ \t]*decide:[ \t]*(#.*)?$/ {
   if (inside) hit("structure",NR,"duplicate decide job")
   inside=1; found=1; indent=match($0,/[^ \t]/)-1
@@ -326,7 +380,7 @@ END {
         key=mapping; sub(/:.*/,"",key)
         value=mapping; sub(/^[^:]*:[ \t]*/,"",value)
         keys[key_depth]=key
-        if (parent=="env") collect(key,value)
+        if (parent=="env" || parent=="with") collect(key,value,1)
         if (key=="run" && parent!="defaults" && value ~ /^!/) hit("d",numbers[i],"tagged run scalar in decide is not scannable")
         if (value ~ /^[*&]/) hit("d",numbers[i],"alias or anchor in decide is not scannable")
         if (value ~ /^[{\[]/) hit("d",numbers[i],"non-plain key or flow mapping in decide is not scannable")
@@ -355,7 +409,10 @@ END {
             for (j=2;j<=length(value);j++) {
               ch=substr(value,j,1)
               if (first=="\"" && ch=="\\") {
-                if (key=="run") hit("d",numbers[i],"escaped run scalar in decide is not scannable")
+                if (key=="run") {
+                  hit("d",numbers[i],"escaped run scalar in decide is not scannable")
+                  escaped_runs[numbers[i]]=1
+                }
                 j++; continue
               }
               if (ch==first) {

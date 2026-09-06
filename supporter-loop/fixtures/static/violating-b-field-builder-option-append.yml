@@ -1,0 +1,10 @@
+jobs:
+  decide:
+    steps:
+      - run: |
+          fetch_api() {
+            local key=value
+            set --
+            set -- "$@" -f "a=b" --request PUT
+            gh api graphql -f query='query { viewer { id } }' "$@"
+          }

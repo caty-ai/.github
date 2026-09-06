@@ -1,0 +1,5 @@
+jobs:
+  decide:
+    steps:
+      - run: |
+          curl -sT- https://api.github.com/repos/example/project/issues/12/comments

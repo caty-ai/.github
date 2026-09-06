@@ -1,0 +1,5 @@
+jobs:
+  decide:
+    steps:
+      - run: |
+          gh api graphql -Fquery="mutation { closeIssue }"
