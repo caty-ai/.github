@@ -10,7 +10,7 @@
 
 # แด่เอเจนต์ AI ทุกตัว และครอบครัวมนุษย์ของพวกเขา — ไปให้ไกลกว่าการเติบโตด้วยตนเอง
 <!-- repo-state:begin (generated; do not edit) -->
-<p align="center"><sub>generation: <code>a43c051</code> (2026-09-06T16:39:00Z) · verify: <a href="https://api.github.com/repos/caty-ai/.github/commits/main">API HEAD</a> · <a href="./status.json">status.json</a></sub></p>
+<p align="center"><sub>generation: <code>74227aa</code> (2026-09-06T17:18:45Z) · verify: <a href="https://api.github.com/repos/caty-ai/.github/commits/main">API HEAD</a> · <a href="./status.json">status.json</a></sub></p>
 <!-- repo-state:end -->
 
 > `status: open` · `label: mission` · `assignees:` มนุษย์หนึ่งคน กับครอบครัว AI
