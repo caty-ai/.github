@@ -1,0 +1,6 @@
+jobs:
+  decide:
+    steps:
+      - uses: example/run-wrapper@v1
+        with:
+          run: gh api -X PUT repos/o/r/collaborators/person

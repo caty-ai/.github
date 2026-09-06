@@ -8,7 +8,9 @@ if [ "$#" -ne 1 ] || [ ! -f "$1" ]; then
 fi
 awk '
 function hit(rule, n, why) {
+  if (data_only && rule!="a-prime") return
   print FILENAME ":" n ": " rule ": " why
+  if (rule=="d") unsupported[n]=1
   bad=1
 }
 function trim(s) { sub(/^[ \t]+/, "", s); sub(/[ \t]+$/, "", s); return s }
@@ -55,6 +57,124 @@ function replace_variable(s,k,v, p,t,nextchar,out) {
     }
   }
   return out s
+}
+# Dispatcher grammar: options taking a separate argument are explicit below;
+# attached short values and --long=value consume only their own word.
+# Unknown wrappers carrying gh/curl fail closed instead of guessing execution.
+function dispatch_options(cmd,opt) {
+  if (cmd=="xargs") return opt ~ /^(-[aIEnLsPd]|--(replace|eof|max-args|max-lines|max-chars|max-procs|delimiter|arg-file))$/
+  if (cmd=="env") return opt ~ /^(-[uCS]|--(unset|chdir|split-string))$/
+  if (cmd=="exec") return opt=="-a"
+  if (cmd=="nice") return opt ~ /^(-n|--adjustment)$/
+  if (cmd=="timeout") return opt ~ /^(-[ks]|--(kill-after|signal))$/
+  if (cmd=="sudo") return opt ~ /^(-[ugpchrtTDCR]|--(user|group|prompt|close-from|host|role|type|chdir|chroot|command-timeout))$/
+  if (cmd=="time") return opt ~ /^(-[fo]|--(format|output))$/
+  return 0
+}
+# Word values plus source offsets let direct requests retain quoting and bundle
+# provenance. Shell strings are decoded exactly one quoting layer at dispatch.
+function shell_words(s,w,offset, j,ch,q,escaped,word,total,beg) {
+  for (j=1;j<=length(s)+1;j++) {
+    ch=substr(s,j,1)
+    if (!beg && j<=length(s) && ch !~ /[ \t]/) beg=j
+    if (escaped) {
+      if (q=="\"" && ch !~ /[\\"$`]/) word=word "\\"
+      word=word ch; escaped=0; continue
+    }
+    if (ch=="\\" && q!="\047") { escaped=1; continue }
+    if (ch=="\047" || ch=="\"") {
+      if (q=="") { q=ch; continue }
+      if (q==ch) { q=""; continue }
+    }
+    if (j>length(s) || (q=="" && ch ~ /[ \t]/)) {
+      if (beg) { w[++total]=word; offset[total]=beg }
+      word=""; beg=0
+    } else word=word ch
+  }
+  return total
+}
+function carries_request(s, w,offset,total,j) {
+  total=shell_words(s,w,offset)
+  for (j=1;j<=total;j++) if (w[j] ~ /(^|[^A-Za-z_])(gh|curl)([^A-Za-z_]|$)/) return 1
+  return 0
+}
+function scan_commands(s,n,depth, j,ch,q,escaped,segment,piped,previous) {
+  if (depth>16) { hit("b",n,"dispatch nesting cannot be proven"); return }
+  for (j=1;j<=length(s)+1;j++) {
+    ch=substr(s,j,1)
+    if (!escaped && (ch=="\047" || ch=="\"")) {
+      if (q=="") q=ch
+      else if (q==ch) q=""
+    }
+    if (j>length(s) || (!escaped && q=="" && (ch==";" || ch=="|" || ch=="&" || ch=="\n"))) {
+      dispatch(segment,n,depth,piped ? previous : "")
+      previous=(piped ? previous " | " : "") segment; segment=""; piped=(ch=="|" && substr(s,j+1,1)!="|")
+      if (substr(s,j,2)=="||" || substr(s,j,2)=="&&") j++
+    } else segment=segment ch
+    if (ch=="\\" && !escaped && q!="\047") escaped=1
+    else escaped=0
+  }
+}
+function dispatch(s,n,depth,input, w,offset,total,j,k,cmd,t,body,resolved) {
+  s=trim(s)
+  if (s=="" || s ~ /^#/) return
+  # Rule d already rejects undecodable YAML. Preserve its legacy diagnostics.
+  if (unsupported[n]) { inspect(s,n); return }
+  resolved=resolve(s)
+  if (resolved_escape && s !~ /^(-[ \t]+)?[A-Za-z_][A-Za-z_0-9-]*:[ \t]/) hit("d",n,"escaped collected scalar reaches run in decide")
+  total=shell_words(resolved,w,offset); j=1
+  while (j<=total) {
+    cmd=w[j]; sub(/^.*\//,"",cmd)
+    if (cmd=="gh" || cmd=="curl") {
+      # Canonicalize executable words after quote removal (g""h, /bin/curl),
+      # but preserve every argument byte for the request/bundle parser.
+      if (cmd=="gh" && w[j+1]=="api") {
+        inspect("gh api " (j+2<=total ? substr(resolved,offset[j+2]) : ""),n)
+      } else if (cmd=="curl") inspect("curl " (j+1<=total ? substr(resolved,offset[j+1]) : ""),n)
+      return
+    }
+    if (cmd=="sh" || cmd=="bash" || cmd=="eval") {
+      if (cmd=="eval") {
+        body=""; for (k=j+1;k<=total;k++) body=body (k==j+1 ? "" : " ") w[k]
+        scan_commands(body,n,depth+1); return
+      }
+      for (k=j+1;k<=total;k++) {
+        if (w[k] ~ /^-[^-]*c/) { scan_commands(w[k+1],n,depth+1); return }
+      }
+      if (input!="") {
+        # A pipe supplies executable text, not inert echo/printf arguments.
+        # Its formatting/expansion is not generally provable statically.
+        if (carries_request(input)) hit("b",n,"dispatch through shell stdin")
+      }
+      break
+    }
+    if (cmd ~ /^(xargs|env|command|exec|nice|nohup|timeout|sudo|time)$/) {
+      j++
+      while (j<=total && w[j] ~ /^-/) {
+        t=w[j++]
+        if (t=="--") break
+        if (dispatch_options(cmd,t)) j++
+      }
+      if (cmd=="env") while (j<=total && w[j] ~ /^[A-Za-z_][A-Za-z_0-9]*=/) j++
+      if (cmd=="timeout") j++
+      if (cmd=="xargs" && carries_request(input)) hit("b",n,"dispatch through xargs stdin")
+      continue
+    }
+    if (w[j] ~ /^[A-Za-z_][A-Za-z_0-9]*=/ && j<total) { j++; continue }
+    # Shell syntax/assignments already supported by the conservative scanner
+    # retain their original analysis, including command substitutions.
+    if (s ~ /^(-[ \t]+)?[A-Za-z_][A-Za-z_0-9-]*:/ ||
+        s ~ /^[A-Za-z_][A-Za-z_0-9]*=/ || cmd ~ /^(if|then|elif|else|while|do|done|return|local)$/) { inspect(s,n); return }
+    if (cmd=="echo" || cmd=="printf") {
+      if (s ~ /[$][(]|`/) inspect(s,n)
+      return
+    }
+    break
+  }
+  if (carries_request(resolved)) {
+    hit("b",n,"dispatch cannot be proven")
+    inspect(s,n)
+  }
 }
 function inspect(s,n, gh,curl,explicit,implicit,get,write,path,tail,facts,unresolved,query_read,request_source) {
   request_source=s
@@ -143,7 +263,6 @@ function process(s,n,key,value) {
     value=s; sub(/^[^=]*=/,"",value)
     collect(key,value)
   }
-  statements[++statement_count]=s; statement_lines[statement_count]=n
 }
 # Read shell words without splitting quoted option values (headers, payloads).
 # Classify method options separately from header/payload option arguments.
@@ -352,6 +471,7 @@ END {
     # Literal blocks preserve shell lines: do not parse their body as YAML.
     depth=match(line,/[^ \t]/)-1
     if (literal && trim(line)!="" && depth<=literal_depth) literal=0
+    body_literal=literal
     if (literal) field_builder(line,numbers[i])
     else { field_prefix=0; field_safe=0 }
     if (!literal) {
@@ -371,6 +491,8 @@ END {
         if (level+0>=key_depth) delete keys[level]
         else if (level+0>parent_depth) { parent_depth=level; parent=keys[level] }
       }
+      under_with=0
+      for (level in keys) if (keys[level]=="with") under_with=1
       scalar_sequence=sequence && parent!="steps" && parent!="run" && parent!="if" && parent!=""
       # Outside literal bodies, only plain mapping keys are scannable.
       if (!scalar_sequence && mapping!="" && mapping !~ /^[A-Za-z_][A-Za-z_0-9-]*:( |$)/) {
@@ -380,8 +502,15 @@ END {
         key=mapping; sub(/:.*/,"",key)
         value=mapping; sub(/^[^:]*:[ \t]*/,"",value)
         keys[key_depth]=key
+        # with.script / with.run are executable inputs (github-script and
+        # run-wrapper actions). Scan these for every action, including dynamic
+        # uses values, so action-name aliases cannot bypass the boundary.
+        with_exec=under_with && parent=="with" && key ~ /^(script|run)$/
+        executable_run=(key=="run" && !under_with) || with_exec
+        data_value=under_with && !with_exec
+        literal_data=data_value
         if (parent=="env" || parent=="with") collect(key,value,1)
-        if (key=="run" && parent!="defaults" && value ~ /^!/) hit("d",numbers[i],"tagged run scalar in decide is not scannable")
+        if (executable_run && parent!="defaults" && value ~ /^!/) hit("d",numbers[i],"tagged run scalar in decide is not scannable")
         if (value ~ /^[*&]/) hit("d",numbers[i],"alias or anchor in decide is not scannable")
         if (value ~ /^[{\[]/) hit("d",numbers[i],"non-plain key or flow mapping in decide is not scannable")
         # Strip YAML tags before recognizing scalar styles.
@@ -394,7 +523,7 @@ END {
           following=trim(lines[next_line])
           if (following ~ /^\|[0-9+-]*[ \t]*(#.*)?$/) {
             literal=1; literal_depth=key_depth
-          } else if ((key=="run" && parent!="defaults") || key=="if" || (following !~ /^-[ ]+/ && following !~ /^[A-Za-z_][A-Za-z_0-9-]*:( |$)/)) {
+          } else if ((executable_run && parent!="defaults") || key=="if" || (following !~ /^-[ ]+/ && following !~ /^[A-Za-z_][A-Za-z_0-9-]*:( |$)/)) {
             hit("d",numbers[i],"multi-line non-literal scalar in decide is not scannable")
           }
         }
@@ -409,7 +538,7 @@ END {
             for (j=2;j<=length(value);j++) {
               ch=substr(value,j,1)
               if (first=="\"" && ch=="\\") {
-                if (key=="run") {
+                if (executable_run) {
                   hit("d",numbers[i],"escaped run scalar in decide is not scannable")
                   escaped_runs[numbers[i]]=1
                 }
@@ -426,11 +555,18 @@ END {
         }
       }
     }
+    if ((body_literal && literal_data) || (!body_literal && data_value)) {
+      data_statements[++data_count]=line; data_lines[data_count]=numbers[i]
+      continue
+    }
     if (command=="") start=numbers[i]
     t=trim(line)
     sub(/^- run:[ \t]*/,"",t)
     sub(/^run:[ \t]*/,"",t)
-    command=command " " t
+    if (!body_literal && with_exec) sub(/^(script|run):[ \t]*/,"",t)
+    if (!body_literal && (key=="run" || with_exec) && !unsupported[numbers[i]]) t=unquote(t)
+    command=command (join_token ? "" : " ") t
+    join_token=0
     # Track shell quotes to keep multiline GraphQL operations one invocation.
     escaped=0
     for (c=1;c<=length(t);c++) {
@@ -441,8 +577,17 @@ END {
         if (ch=="\047" || ch=="\"") quote=ch
       } else if (ch==quote) quote=""
     }
-    if (command ~ /\\[ \t]*$/) { sub(/\\[ \t]*$/,"",command); continue }
+    if (command ~ /\\[ \t]*$/) {
+      # Shell continuation removes both characters inside a word. Whitespace
+      # before the backslash remains a word separator (the idiomatic form).
+      match(command,/\\[ \t]*$/)
+      join_token=(RSTART>1 && substr(command,RSTART-1,1) !~ /[ \t]/)
+      sub(/\\[ \t]*$/,"",command); continue
+    }
     if (quote!="") continue
+    # A pipe/control operator also continues a shell command across a literal
+    # block newline; retain upstream text until its consumer is available.
+    if (body_literal && command ~ /([|]|&&)[ \t]*$/) continue
     # Separate simple statements outside quotes for the collection pass.
     segment=""; q=""; escaped=0
     for (c=1;c<=length(command);c++) {
@@ -459,10 +604,14 @@ END {
       else escaped=0
     }
     process(segment,start)
+    statements[++statement_count]=command; statement_lines[statement_count]=start
     command=""
   }
   if (command!="") hit("structure",start,"unterminated command or quote")
-  for (i=1;i<=statement_count;i++) inspect(statements[i],statement_lines[i])
+  data_only=1
+  for (i=1;i<=data_count;i++) inspect(data_statements[i],data_lines[i])
+  data_only=0
+  for (i=1;i<=statement_count;i++) scan_commands(statements[i],statement_lines[i],0)
   exit bad ? 1 : 0
 }
 ' "$1"

@@ -1,0 +1,7 @@
+name: static fixture
+on: workflow_call
+jobs:
+  decide:
+    steps:
+      - run: |
+          env MODE=test gh api --method PUT repos/o/r/collaborators/person

@@ -1,0 +1,7 @@
+jobs:
+  decide:
+    steps:
+      - uses: actions/github-script@v7
+        with:
+          script: |
+            gh api -X PUT repos/o/r/collaborators/person

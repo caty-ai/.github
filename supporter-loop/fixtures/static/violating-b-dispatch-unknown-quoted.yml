@@ -1,0 +1,5 @@
+jobs:
+  decide:
+    steps:
+      - run: |
+          unclassified g""h api --method GET repos/o/r/collaborators/person
