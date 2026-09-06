@@ -74,6 +74,10 @@ jobs:
             [ "$output" -gt 0 ]
             printf '%s: %s violation(s)\n' "$fixture" "$output"
           done
+      - name: Check Contents API decode fixtures
+        run: |
+          set -euo pipefail
+          bash supporter-loop/check-contents-decode.sh .github/workflows/supporter-loop-reusable.yml supporter-loop/fixtures/contents-api
       - name: Check reconciliation fixtures
         run: |
           set -euo pipefail

@@ -1,0 +1,17 @@
+{
+  "collaborators": [
+    {
+      "id": 101,
+      "login": "fixture-user"
+    }
+  ],
+  "invitations": [
+    {
+      "id": 201,
+      "invitee": {
+        "id": 102,
+        "login": "fixture-invitee"
+      }
+    }
+  ]
+}

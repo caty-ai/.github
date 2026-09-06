@@ -1,0 +1,9 @@
+{
+  "name": "baseline-2026-09-01.json",
+  "path": "ledger/baseline-2026-09-01.json",
+  "sha": "e90ad7a28ba9af8a76c3e6fcff83e9930c61d773",
+  "size": 222,
+  "type": "file",
+  "encoding": "base64",
+  "content": "ewogICJjb2xsYWJvcmF0b3JzIjogWwogICAgewogICAgICAiaWQiOiAxMDEs\nCiAgICAgICJsb2dpbiI6ICJmaXh0dXJlLXVzZXIiCiAgICB9CiAgXSwKICAi\naW52aXRhdGlvbnMiOiBbCiAgICB7CiAgICAgICJpZCI6IDIwMSwKICAgICAg\nImludml0ZWUiOiB7CiAgICAgICAgImlkIjogMTAyLAogICAgICAgICJsb2dp\nbiI6ICJmaXh0dXJlLWludml0ZWUiCiAgICAgIH0KICAgIH0KICBdCn0K\n"
+}
