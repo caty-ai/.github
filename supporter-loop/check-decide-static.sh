@@ -47,12 +47,17 @@ function replace_variable(s,k,v, p,t,nextchar,out) {
   }
   return out s
 }
-function inspect(s,n, gh,curl,explicit,implicit,get,write,path,tail,facts,unresolved,query_read) {
+function inspect(s,n, gh,curl,explicit,implicit,get,write,path,tail,facts,unresolved,query_read,request_source) {
+  request_source=s
+  # Field-only provenance constrains option shape, not GraphQL operation values.
+  # Include every possible append before resolving variables or checking writes.
+  if (field_vectors[n]) s=replace_literal(s,"\"$@\"",field_values[n])
   s=resolve(s)
   gh=(s ~ /(^|[^A-Za-z_])gh[ \t]+api([ \t]|$)/)
   curl=(s ~ /(^|[^A-Za-z_])curl([ \t]|$)/)
   if (!gh && !curl) return
-  request(s,gh,facts,field_vectors[n])
+  # Preserve bundle boundaries for option-argument consumption checks.
+  request(resolve(request_source),gh,facts,field_vectors[n])
   unresolved=facts["method_unknown"]
   explicit=facts["write"]
   get=facts["method_seen"] && !facts["non_get"]
@@ -188,7 +193,7 @@ function request(s,gh,facts,fields, words,raw_words,field_word,raw,total,j,ch,q,
     # first -f as a header/value would expose the next word as an option.
     if (field_word[j]) facts["implicit"]=1
     if (t ~ /[$]([0-9]|[{][0-9]+[}])/) facts["method_unknown"]=1
-    if (!gh && t ~ /^(-[FK]|--(form|form-string|config)(=|$))/) facts["method_unknown"]=1
+    if (!gh && t ~ /^(-[A-Za-z]*[FK]|--(form|form-string|config)(=|$))/) facts["method_unknown"]=1
     method=""
     if (t=="-X" || (gh && t=="--method") || (!gh && t=="--request")) method=words[++j]
     else if (t ~ /^-X./) method=substr(t,3)
@@ -231,7 +236,7 @@ function field_builder(s,n, append,plumbing,invocation) {
   s=trim(s)
   if (s=="" || s ~ /^#/) return
   if (s ~ /^[A-Za-z_][A-Za-z_0-9]*[ \t]*\(\)[ \t]*\{[ \t]*$/) {
-    field_prefix=1; field_safe=0; return
+    field_prefix=1; field_safe=0; field_appends=""; return
   }
   if (field_prefix) {
     if (s=="set --") { field_prefix=0; field_safe=1; return }
@@ -243,7 +248,10 @@ function field_builder(s,n, append,plumbing,invocation) {
   if (s ~ /^gh[ \t]+api[ \t]/) {
     invocation=s
     sub(/[ \t]+\|\|[ \t]+return[ \t]+[0-9]+[ \t]*$/,"",invocation)
-    if (invocation !~ /[;|&`]|[$][(]/) field_vectors[n]=1
+    if (invocation !~ /[;|&`]|[$][(]/) {
+      field_vectors[n]=1
+      field_values[n]=field_appends
+    }
     field_safe=0; return
   }
   append="set -- \"\\$@\" -[fF] \"[^\"`]*=[^\"`]*\""
@@ -252,7 +260,11 @@ function field_builder(s,n, append,plumbing,invocation) {
       s ~ ("^else " append "; fi$")) {
     plumbing=s
     sub(/^.*set -- "[$]@" /,"",plumbing)
-    if (s !~ /[$][(]/ && !bundle(plumbing)) return
+    sub(/; fi$/,"",plumbing)
+    if (s !~ /[$][(]/ && !bundle(plumbing)) {
+      field_appends=field_appends " " plumbing
+      return
+    }
   }
   if (s ~ /^while IFS= read -r [A-Za-z_][A-Za-z_0-9]*; do$/) return
   if (s ~ /^[A-Za-z_][A-Za-z_0-9]*=\$\(jq [^;`]*\)$/ || s ~ /^done < <\(jq [^;`]*\)$/) {
@@ -343,7 +355,7 @@ END {
             for (j=2;j<=length(value);j++) {
               ch=substr(value,j,1)
               if (first=="\"" && ch=="\\") {
-                if (key=="run" && substr(value,j+1,1) ~ /[xuUN"]/) hit("d",numbers[i],"escaped run scalar in decide is not scannable")
+                if (key=="run") hit("d",numbers[i],"escaped run scalar in decide is not scannable")
                 j++; continue
               }
               if (ch==first) {

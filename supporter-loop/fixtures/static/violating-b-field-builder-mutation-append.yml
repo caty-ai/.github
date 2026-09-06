@@ -1,0 +1,11 @@
+jobs:
+  decide:
+    steps:
+      - run: |
+          fetch_graph() {
+            local document="$1" unused=ok
+            set --
+            set -- "$@" -f "query=mutation { deleteIssue(input: {id: 23}) { clientMutationId } }"
+            gh api graphql -f query='query { viewer { id } }' "$@"
+          }
+          fetch_graph input

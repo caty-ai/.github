@@ -1,0 +1,11 @@
+jobs:
+  decide:
+    steps:
+      - run: |
+          fetch_graph() {
+            local document="$1" unused=ok
+            set --
+            set -- "$@" -f "query=query { repository(owner: cat, name: project) { id } }"
+            gh api graphql "$@"
+          }
+          fetch_graph input

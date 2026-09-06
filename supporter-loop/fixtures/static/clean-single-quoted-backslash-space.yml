@@ -1,0 +1,4 @@
+jobs:
+  decide:
+    steps:
+      - run: 'printf %s hello\ world'

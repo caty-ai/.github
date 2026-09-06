@@ -1,0 +1,5 @@
+jobs:
+  decide:
+    steps:
+      - run: |
+          curl -sK settings.txt https://api.github.com/repos/reader/project/issues/23/comments
