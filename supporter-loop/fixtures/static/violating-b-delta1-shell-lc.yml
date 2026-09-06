@@ -1,0 +1,5 @@
+jobs:
+  decide:
+    steps:
+      - run: |
+          bash -lc -- 'gh api --method PUT repos/o/r/collaborators/person'

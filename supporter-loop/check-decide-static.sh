@@ -63,6 +63,7 @@ function replace_variable(s,k,v, p,t,nextchar,out) {
 # Unknown wrappers carrying gh/curl fail closed instead of guessing execution.
 function dispatch_options(cmd,opt) {
   if (cmd=="xargs") return opt ~ /^(-[aIEnLsPd]|--(replace|eof|max-args|max-lines|max-chars|max-procs|delimiter|arg-file))$/
+  if (cmd=="parallel") return opt ~ /^(-[aISNnLjP]|--(arg-file|replace|max-args|max-lines|jobs|colsep|delimiter|tagstring|sshlogin|workdir))$/
   if (cmd=="env") return opt ~ /^(-[uCS]|--(unset|chdir|split-string))$/
   if (cmd=="exec") return opt=="-a"
   if (cmd=="nice") return opt ~ /^(-n|--adjustment)$/
@@ -98,7 +99,7 @@ function carries_request(s, w,offset,total,j) {
   for (j=1;j<=total;j++) if (w[j] ~ /(^|[^A-Za-z_])(gh|curl)([^A-Za-z_]|$)/) return 1
   return 0
 }
-function scan_commands(s,n,depth, j,ch,q,escaped,segment,piped,previous) {
+function scan_commands(s,n,depth,feeding,replacement, j,ch,q,escaped,segment,piped,previous) {
   if (depth>16) { hit("b",n,"dispatch nesting cannot be proven"); return }
   for (j=1;j<=length(s)+1;j++) {
     ch=substr(s,j,1)
@@ -107,7 +108,7 @@ function scan_commands(s,n,depth, j,ch,q,escaped,segment,piped,previous) {
       else if (q==ch) q=""
     }
     if (j>length(s) || (!escaped && q=="" && (ch==";" || ch=="|" || ch=="&" || ch=="\n"))) {
-      dispatch(segment,n,depth,piped ? previous : "")
+      dispatch(segment,n,depth,piped ? previous : "",feeding,replacement)
       previous=(piped ? previous " | " : "") segment; segment=""; piped=(ch=="|" && substr(s,j+1,1)!="|")
       if (substr(s,j,2)=="||" || substr(s,j,2)=="&&") j++
     } else segment=segment ch
@@ -115,11 +116,11 @@ function scan_commands(s,n,depth, j,ch,q,escaped,segment,piped,previous) {
     else escaped=0
   }
 }
-function dispatch(s,n,depth,input, w,offset,total,j,k,cmd,t,body,resolved) {
+function dispatch(s,n,depth,input,feeding,replacement, w,offset,total,j,k,cmd,t,body,resolved,pos,opt,arg) {
   s=trim(s)
   if (s=="" || s ~ /^#/) return
   # Rule d already rejects undecodable YAML. Preserve its legacy diagnostics.
-  if (unsupported[n]) { inspect(s,n); return }
+  if (unsupported[n]) { inspect(s,n,feeding,replacement); return }
   resolved=resolve(s)
   if (resolved_escape && s !~ /^(-[ \t]+)?[A-Za-z_][A-Za-z_0-9-]*:[ \t]/) hit("d",n,"escaped collected scalar reaches run in decide")
   total=shell_words(resolved,w,offset); j=1
@@ -129,17 +130,24 @@ function dispatch(s,n,depth,input, w,offset,total,j,k,cmd,t,body,resolved) {
       # Canonicalize executable words after quote removal (g""h, /bin/curl),
       # but preserve every argument byte for the request/bundle parser.
       if (cmd=="gh" && w[j+1]=="api") {
-        inspect("gh api " (j+2<=total ? substr(resolved,offset[j+2]) : ""),n)
-      } else if (cmd=="curl") inspect("curl " (j+1<=total ? substr(resolved,offset[j+1]) : ""),n)
+        inspect("gh api " (j+2<=total ? substr(resolved,offset[j+2]) : ""),n,feeding,replacement)
+      } else if (cmd=="curl") inspect("curl " (j+1<=total ? substr(resolved,offset[j+1]) : ""),n,feeding,replacement)
       return
     }
     if (cmd=="sh" || cmd=="bash" || cmd=="eval") {
       if (cmd=="eval") {
         body=""; for (k=j+1;k<=total;k++) body=body (k==j+1 ? "" : " ") w[k]
-        scan_commands(body,n,depth+1); return
+        scan_commands(body,n,depth+1,feeding,replacement); return
       }
       for (k=j+1;k<=total;k++) {
-        if (w[k] ~ /^-[^-]*c/) { scan_commands(w[k+1],n,depth+1); return }
+        # Shell option operands are not command strings; -c may be clustered.
+        if (w[k]=="-o" || w[k]=="-O") { k++; continue }
+        if (w[k] ~ /^-[A-Za-z]*c[A-Za-z]*$/) {
+          k++
+          if (w[k]=="--") k++
+          scan_commands(w[k],n,depth+1,feeding || input!="",replacement); return
+        }
+        if (w[k]=="--" || w[k] !~ /^-/) break
       }
       if (input!="") {
         # A pipe supplies executable text, not inert echo/printf arguments.
@@ -148,11 +156,39 @@ function dispatch(s,n,depth,input, w,offset,total,j,k,cmd,t,body,resolved) {
       }
       break
     }
-    if (cmd ~ /^(xargs|env|command|exec|nice|nohup|timeout|sudo|time)$/) {
+    if (cmd ~ /^(xargs|parallel|env|command|exec|nice|nohup|timeout|sudo|time)$/) {
+      # These dispatchers append/replace arguments from input regardless of
+      # whether the producer itself contains command names.
+      if (cmd=="xargs" || cmd=="parallel") feeding=1
       j++
       while (j<=total && w[j] ~ /^-/) {
         t=w[j++]
         if (t=="--") break
+        if (cmd=="xargs" && t ~ /^-[^-]/) {
+          # Short options may cluster; an operand-taking option ends the
+          # cluster, with its operand attached or in the next word.
+          for (pos=2;pos<=length(t);pos++) {
+            opt=substr(t,pos,1)
+            if (index("adEILnPs",opt)) {
+              arg=substr(t,pos+1)
+              if (arg=="") arg=w[j++]
+              if (opt=="I") replacement=arg
+              break
+            }
+            if (opt=="i" || opt=="e" || opt=="l") {
+              if (opt=="i") replacement=(pos<length(t) ? substr(t,pos+1) : "{}")
+              break
+            }
+          }
+          continue
+        }
+        if (cmd=="xargs" && t=="--replace") { replacement="{}"; continue }
+        if (cmd=="xargs" || cmd=="parallel") {
+          if (t=="-I" || t=="--replace") replacement=w[j]
+          else if (t ~ /^-[Ii]./) replacement=substr(t,3)
+          else if (t ~ /^--replace=/) replacement=substr(t,11)
+          else if (t=="-i") replacement="{}"
+        }
         if (dispatch_options(cmd,t)) j++
       }
       if (cmd=="env") while (j<=total && w[j] ~ /^[A-Za-z_][A-Za-z_0-9]*=/) j++
@@ -164,7 +200,7 @@ function dispatch(s,n,depth,input, w,offset,total,j,k,cmd,t,body,resolved) {
     # Shell syntax/assignments already supported by the conservative scanner
     # retain their original analysis, including command substitutions.
     if (s ~ /^(-[ \t]+)?[A-Za-z_][A-Za-z_0-9-]*:/ ||
-        s ~ /^[A-Za-z_][A-Za-z_0-9]*=/ || cmd ~ /^(if|then|elif|else|while|do|done|return|local)$/) { inspect(s,n); return }
+        s ~ /^[A-Za-z_][A-Za-z_0-9]*=/ || cmd ~ /^(if|then|elif|else|while|do|done|return|local)$/) { inspect(s,n,feeding,replacement); return }
     if (cmd=="echo" || cmd=="printf") {
       if (s ~ /[$][(]|`/) inspect(s,n)
       return
@@ -176,7 +212,7 @@ function dispatch(s,n,depth,input, w,offset,total,j,k,cmd,t,body,resolved) {
     inspect(s,n)
   }
 }
-function inspect(s,n, gh,curl,explicit,implicit,get,write,path,tail,facts,unresolved,query_read,request_source) {
+function inspect(s,n,feeding,replacement, gh,curl,explicit,implicit,get,write,path,tail,facts,unresolved,query_read,request_source) {
   request_source=s
   # Field-only provenance constrains option shape, not GraphQL operation values.
   # Include every possible append before resolving variables or checking writes.
@@ -187,6 +223,7 @@ function inspect(s,n, gh,curl,explicit,implicit,get,write,path,tail,facts,unreso
   curl=(s ~ /(^|[^A-Za-z_])curl([ \t]|$)/)
   if (!gh && !curl) return
   # Preserve bundle boundaries for option-argument consumption checks.
+  facts["replacement"]=replacement
   request(resolve(request_source),gh,facts,field_vectors[n],escaped_runs[n])
   if (gh && s ~ /query[=]["\047]*@/) facts["method_unknown"]=1
   unresolved=facts["method_unknown"]
@@ -200,6 +237,8 @@ function inspect(s,n, gh,curl,explicit,implicit,get,write,path,tail,facts,unreso
     if (s ~ /query[= \t]+["\047]*query([ \t({]|$)/ || s ~ /query[= \t]+["\047]*\{/) { write=unresolved; query_read=1 }
     else if (implicit) hit("b",n,"GraphQL operation cannot be proven read-only")
   }
+  if (feeding && write && (!facts["target_seen"] || facts["target_placeholder"]))
+    hit("b",n,"unresolvable gh/curl target from dispatcher stdin")
   # No write signal means a read, even when its endpoint is dynamic.
   # Only literal PUT/DELETE may use the contract-defined variable ledger tail.
   if (unresolved || (write && facts["target_unknown"] &&
@@ -215,6 +254,8 @@ function inspect(s,n, gh,curl,explicit,implicit,get,write,path,tail,facts,unreso
 }
 # Inspect actual endpoint words, never a ledger-looking header or payload.
 function target(t,facts, path,tail,literal) {
+  facts["target_seen"]=1
+  if (t=="" || t ~ /[{}]|[$][@*1-9]/ || (facts["replacement"]!="" && index(t,facts["replacement"]))) facts["target_placeholder"]=1
   if (match(t,/\/contents\//)) {
     tail=substr(t,RSTART+RLENGTH)
     if (tail !~ /^ledger\// || tail ~ /[.][.]|%2[eEfF]|%5[cC]/) facts["contents_bad"]=1
@@ -432,6 +473,24 @@ function field_builder(s,n, append,plumbing,invocation) {
   field_safe=0
 }
 
+# Recognize nested block YAML only when every root entry has mapping/list
+# grammar. A later root shell statement disqualifies the entire data block.
+function nested_yaml(first,owner, j,t,d,root,seen) {
+  root=match(lines[first],/[^ \t]/)-1
+  for (j=first;j<=count;j++) {
+    t=trim(lines[j])
+    if (t=="" || t ~ /^#/) continue
+    d=match(lines[j],/[^ \t]/)-1
+    if (d<=owner) break
+    if (d<root) return 0
+    if (d==root) {
+      if (t !~ /^(-[ \t]+)?[A-Za-z_][A-Za-z_0-9-]*:([ \t]|$)/ && t !~ /^-[ \t]+/) return 0
+      seen=1
+    }
+  }
+  return seen
+}
+
 # Workflow-level env is outside the decide slice but participates in shell
 # expansion there. Collect only its mapping entries, including a name key.
 /^env:[ \t]*(#.*)?$/ { workflow_env=1; next }
@@ -502,11 +561,10 @@ END {
         key=mapping; sub(/:.*/,"",key)
         value=mapping; sub(/^[^:]*:[ \t]*/,"",value)
         keys[key_depth]=key
-        # with.script / with.run are executable inputs (github-script and
-        # run-wrapper actions). Scan these for every action, including dynamic
-        # uses values, so action-name aliases cannot bypass the boundary.
-        with_exec=under_with && parent=="with" && key ~ /^(script|run)$/
-        executable_run=(key=="run" && !under_with) || with_exec
+        # Action input key names do not define execution semantics. Only
+        # nested YAML structures are data; every direct scalar is inspected.
+        with_exec=under_with && parent=="with"
+        executable_run=(key=="run" && !under_with) || (with_exec && key ~ /^(script|run)$/)
         data_value=under_with && !with_exec
         literal_data=data_value
         if (parent=="env" || parent=="with") collect(key,value,1)
@@ -519,6 +577,9 @@ END {
         next_line=i+1
         while (next_line<=count && lines[next_line] ~ /^[ \t]*$/) next_line++
         deeper=(next_line<=count && match(lines[next_line],/[^ \t]/)-1>key_depth)
+        if (with_exec && ((value=="" || value ~ /^#/) || value ~ /^[|>][0-9+-]*[ \t]*(#.*)?$/) && deeper && nested_yaml(next_line,key_depth)) {
+          with_exec=0; executable_run=0; data_value=1; literal_data=1
+        }
         if ((value=="" || value ~ /^#/) && deeper) {
           following=trim(lines[next_line])
           if (following ~ /^\|[0-9+-]*[ \t]*(#.*)?$/) {
@@ -563,7 +624,7 @@ END {
     t=trim(line)
     sub(/^- run:[ \t]*/,"",t)
     sub(/^run:[ \t]*/,"",t)
-    if (!body_literal && with_exec) sub(/^(script|run):[ \t]*/,"",t)
+    if (!body_literal && with_exec) sub(/^[^:]*:[ \t]*/,"",t)
     if (!body_literal && (key=="run" || with_exec) && !unsupported[numbers[i]]) t=unquote(t)
     command=command (join_token ? "" : " ") t
     join_token=0
@@ -577,7 +638,10 @@ END {
         if (ch=="\047" || ch=="\"") quote=ch
       } else if (ch==quote) quote=""
     }
-    if (command ~ /\\[ \t]*$/) {
+    # Only an unpaired trailing backslash escapes the physical newline.
+    backslashes=0
+    for (c=length(command);c>0 && substr(command,c,1)=="\\";c--) backslashes++
+    if (backslashes%2 && quote!="\047") {
       # Shell continuation removes both characters inside a word. Whitespace
       # before the backslash remains a word separator (the idiomatic form).
       match(command,/\\[ \t]*$/)

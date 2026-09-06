@@ -1,0 +1,5 @@
+jobs:
+  decide:
+    steps:
+      - run: |
+          printf '%s\n' repos/o/r/collaborators/person | xargs -I TARGET gh api -X PUT TARGET

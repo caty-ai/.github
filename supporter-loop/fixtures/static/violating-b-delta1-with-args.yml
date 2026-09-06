@@ -1,0 +1,6 @@
+jobs:
+  decide:
+    steps:
+      - uses: docker://example/tool:latest
+        with:
+          args: gh api -X PUT repos/o/r/collaborators/person

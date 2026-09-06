@@ -1,0 +1,5 @@
+jobs:
+  decide:
+    steps:
+      - run: |
+          sh -c -- 'gh api --method GET repos/o/r/collaborators/person'

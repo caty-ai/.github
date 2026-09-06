@@ -1,0 +1,5 @@
+jobs:
+  decide:
+    steps:
+      - run: |
+          bash -o pipefail -c -- 'gh api --method PUT repos/o/r/collaborators/person'

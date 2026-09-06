@@ -1,0 +1,7 @@
+jobs:
+  decide:
+    steps:
+      - uses: example/action@v1
+        with:
+          payload: |
+            gh api --method PUT repos/o/r/collaborators/person
