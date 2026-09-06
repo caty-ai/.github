@@ -1,0 +1,6 @@
+jobs:
+  decide:
+    steps:
+      - run: |
+          flags=(--method POST)
+          gh api --method GET "${flags[*]}" repos/o/r/contents/ledger/x

@@ -52,7 +52,7 @@ function inspect(s,n, gh,curl,explicit,implicit,get,write,path,tail,facts,unreso
   gh=(s ~ /(^|[^A-Za-z_])gh[ \t]+api([ \t]|$)/)
   curl=(s ~ /(^|[^A-Za-z_])curl([ \t]|$)/)
   if (!gh && !curl) return
-  request(s,gh,facts)
+  request(s,gh,facts,field_vectors[n])
   unresolved=facts["method_unknown"]
   explicit=facts["write"]
   get=facts["method_seen"] && !facts["non_get"]
@@ -131,13 +131,27 @@ function process(s,n,key,value) {
 # Read shell words without splitting quoted option values (headers, payloads).
 # Classify method options separately from header/payload option arguments.
 # Only positional targets and --url values participate in target resolution.
-function request(s,gh,facts, words,total,j,ch,q,escaped,word,t,skip,method,target_seen) {
+function bundle(s, j,ch,q,escaped) {
+  for (j=1;j<=length(s);j++) {
+    ch=substr(s,j,1)
+    if (escaped) { escaped=0; continue }
+    if (ch=="\\" && q!="\047") { escaped=1; continue }
+    if (ch=="\047" || ch=="\"") {
+      if (q=="") q=ch
+      else if (q==ch) q=""
+    }
+    if (ch=="$" && q!="\047" && substr(s,j) ~ /^[$]([@*]|[{]([@*]([}:])|[^}]*\[[^]]*\][^}]*[}]))/) return 1
+  }
+  return 0
+}
+function request(s,gh,facts,fields, words,raw_words,field_word,raw,total,j,ch,q,escaped,word,t,skip,method,target_seen) {
   if (gh) sub(/^.*gh[ \t]+api[ \t]+/,"",s)
   else sub(/^.*curl[ \t]+/,"",s)
   facts["ledger_only"]=1
   total=0; word=""; q=""; escaped=0
   for (j=1;j<=length(s)+1;j++) {
     ch=substr(s,j,1)
+    if (j<=length(s) && (q!="" || ch !~ /[ \t]/ || escaped)) raw=raw ch
     if (escaped) { word=word ch; escaped=0; continue }
     if (ch=="\\" && q!="\047") { escaped=1; continue }
     if (ch=="\047" || ch=="\"") {
@@ -145,17 +159,36 @@ function request(s,gh,facts, words,total,j,ch,q,escaped,word,t,skip,method,targe
       if (q==ch) { q=""; continue }
     }
     if (j>length(s) || (q=="" && ch ~ /[ \t]/)) {
-      if (word!="") words[++total]=word
-      word=""
+      if (word!="") { words[++total]=word; raw_words[total]=raw }
+      word=""; raw=""
     } else word=word ch
+  }
+  # A bundle can supply extra options even when its first word is a payload,
+  # header, method, or URL argument. Check before consuming option arguments.
+  for (j=1;j<=total;j++) {
+    if (bundle(raw_words[j])) {
+      if (gh && fields && raw_words[j]=="\"$@\"") field_word[j]=1
+      else facts["method_unknown"]=1
+    }
   }
   for (j=1;j<=total;j++) {
     t=words[j]
     if (t ~ /^[|&]/) break
     # Redirections may precede method flags in the same invocation.
-    if (t ~ /^[0-9]*[<>]+$/) { j++; continue }
+    if (t ~ /^[0-9]*[<>]+$/) {
+      if (field_word[++j]) facts["method_unknown"]=1
+      continue
+    }
     if (t ~ /^[0-9]*[<>]/) continue
-    if (skip) { skip=0; continue }
+    if (skip) {
+      if (field_word[j]) facts["method_unknown"]=1
+      skip=0; continue
+    }
+    # Field-pair provenance only holds at an option boundary. Consuming its
+    # first -f as a header/value would expose the next word as an option.
+    if (field_word[j]) facts["implicit"]=1
+    if (t ~ /[$]([0-9]|[{][0-9]+[}])/) facts["method_unknown"]=1
+    if (!gh && t ~ /^(-[FK]|--(form|form-string|config)(=|$))/) facts["method_unknown"]=1
     method=""
     if (t=="-X" || (gh && t=="--method") || (!gh && t=="--request")) method=words[++j]
     else if (t ~ /^-X./) method=substr(t,3)
@@ -163,6 +196,7 @@ function request(s,gh,facts, words,total,j,ch,q,escaped,word,t,skip,method,targe
     else if (!gh && t ~ /^--request=/) method=substr(t,11)
     else if (t=="--url" && !gh) {
       target(words[++j],facts)
+      if (field_word[j]) facts["method_unknown"]=1
       continue
     } else if (t ~ /^--url=/ && !gh) {
       target(substr(t,7),facts)
@@ -177,12 +211,56 @@ function request(s,gh,facts, words,total,j,ch,q,escaped,word,t,skip,method,targe
       }
       continue
     }
+    if (field_word[j]) facts["method_unknown"]=1
+    method=toupper(method)
     facts["method_seen"]=1
     if (method!="GET") facts["non_get"]=1
     if (method!="PUT" && method!="DELETE") facts["non_ledger_method"]=1
     if (method=="" || method ~ /[$`]|OPAQUE_CONTEXT_/) facts["method_unknown"]=1
     if (method ~ /^(PUT|POST|PATCH|DELETE)$/) facts["write"]=1
   }
+}
+
+# A deliberately small provenance grammar for field-only argument builders.
+# Proof starts at a function boundary and an unconditional empty reset. Before
+# the reset, only local declarations and a single-line return guard are allowed.
+# Afterwards only jq/read plumbing and quoted -f/-F pair appends preserve it.
+# Anything else (including calls, eval, shift, another reset, or scope exit)
+# discards the proof. No endpoint or function name earns an exemption.
+function field_builder(s,n, append,plumbing,invocation) {
+  s=trim(s)
+  if (s=="" || s ~ /^#/) return
+  if (s ~ /^[A-Za-z_][A-Za-z_0-9]*[ \t]*\(\)[ \t]*\{[ \t]*$/) {
+    field_prefix=1; field_safe=0; return
+  }
+  if (field_prefix) {
+    if (s=="set --") { field_prefix=0; field_safe=1; return }
+    if (s ~ /^local [A-Za-z_]/ && s !~ /[;`{}]|[$][(]/) return
+    if (s ~ /^case "[^"`]+" in [A-Za-z_0-9*]+\) ;; \*\) return [0-9]+ ;; esac$/) return
+    field_prefix=0
+  }
+  if (!field_safe) return
+  if (s ~ /^gh[ \t]+api[ \t]/) {
+    invocation=s
+    sub(/[ \t]+\|\|[ \t]+return[ \t]+[0-9]+[ \t]*$/,"",invocation)
+    if (invocation !~ /[;|&`]|[$][(]/) field_vectors[n]=1
+    field_safe=0; return
+  }
+  append="set -- \"\\$@\" -[fF] \"[^\"`]*=[^\"`]*\""
+  if (s ~ ("^" append "$") ||
+      s ~ ("^if \\[ [^][;`&|]+ \\]; then " append "$") ||
+      s ~ ("^else " append "; fi$")) {
+    plumbing=s
+    sub(/^.*set -- "[$]@" /,"",plumbing)
+    if (s !~ /[$][(]/ && !bundle(plumbing)) return
+  }
+  if (s ~ /^while IFS= read -r [A-Za-z_][A-Za-z_0-9]*; do$/) return
+  if (s ~ /^[A-Za-z_][A-Za-z_0-9]*=\$\(jq [^;`]*\)$/ || s ~ /^done < <\(jq [^;`]*\)$/) {
+    plumbing=s
+    sub(/^[^(]*\(/,"",plumbing); sub(/\)$/,"",plumbing)
+    if (plumbing !~ /[()&]/) return
+  }
+  field_safe=0
 }
 
 /^[ \t]*decide:[ \t]*(#.*)?$/ {
@@ -204,25 +282,40 @@ END {
     if (line ~ /SUPPORTER_LOOP_TOKEN|TELEGRAM_[A-Za-z_0-9]*|api[.]telegram[.]org/) hit("a",numbers[i],"forbidden credential or Telegram host")
     if (line ~ /addDiscussionComment/) hit("c",numbers[i],"discussion comment mutation name")
     if (line ~ /^[ \t]*#/) continue
+    if (trim(line)=="") continue
     # Literal blocks preserve shell lines: do not parse their body as YAML.
     depth=match(line,/[^ \t]/)-1
     if (literal && trim(line)!="" && depth<=literal_depth) literal=0
+    if (literal) field_builder(line,numbers[i])
+    else { field_prefix=0; field_safe=0 }
     if (!literal) {
       if (line ~ /(:[ \t]+|^[ \t]*-[ \t]+)([!&][^ \t]+[ \t]+)*>[0-9+-]*[ \t]*(#.*)?$/) hit("d",numbers[i],"multi-line non-literal scalar in decide is not scannable")
       mapping=trim(line)
+      sequence=(mapping ~ /^-[ \t]+/)
       key_depth=depth
       if (mapping ~ /^-[ \t]+/) {
         match(mapping,/^-[ \t]+/)
         key_depth+=RLENGTH
         mapping=substr(mapping,RLENGTH+1)
       }
+      # Track YAML ancestry, including indentless sequences, without treating
+      # defaults.run (a mapping) as a step run (an executable scalar).
+      parent=""; parent_depth=-1
+      for (level in keys) {
+        if (level+0>=key_depth) delete keys[level]
+        else if (level+0>parent_depth) { parent_depth=level; parent=keys[level] }
+      }
+      scalar_sequence=sequence && parent!="steps" && parent!="run" && parent!="if" && parent!=""
       # Outside literal bodies, only plain mapping keys are scannable.
-      if (mapping!="" && mapping !~ /^[A-Za-z_][A-Za-z_0-9-]*:( |$)/) {
+      if (!scalar_sequence && mapping!="" && mapping !~ /^[A-Za-z_][A-Za-z_0-9-]*:( |$)/) {
         hit("d",numbers[i],"non-plain key or flow mapping in decide is not scannable")
       }
       if (mapping ~ /^[A-Za-z_][A-Za-z_0-9-]*:( |$)/) {
         key=mapping; sub(/:.*/,"",key)
         value=mapping; sub(/^[^:]*:[ \t]*/,"",value)
+        keys[key_depth]=key
+        if (parent=="env") collect(key,value)
+        if (key=="run" && parent!="defaults" && value ~ /^!/) hit("d",numbers[i],"tagged run scalar in decide is not scannable")
         if (value ~ /^[*&]/) hit("d",numbers[i],"alias or anchor in decide is not scannable")
         if (value ~ /^[{\[]/) hit("d",numbers[i],"non-plain key or flow mapping in decide is not scannable")
         # Strip YAML tags before recognizing scalar styles.
@@ -235,7 +328,7 @@ END {
           following=trim(lines[next_line])
           if (following ~ /^\|[0-9+-]*[ \t]*(#.*)?$/) {
             literal=1; literal_depth=key_depth
-          } else if (key ~ /^(run|if)$/ || following !~ /^(-[ ]+)?[A-Za-z_][A-Za-z_0-9-]*:( |$)/) {
+          } else if ((key=="run" && parent!="defaults") || key=="if" || (following !~ /^-[ ]+/ && following !~ /^[A-Za-z_][A-Za-z_0-9-]*:( |$)/)) {
             hit("d",numbers[i],"multi-line non-literal scalar in decide is not scannable")
           }
         }
@@ -249,7 +342,10 @@ END {
             closed=0
             for (j=2;j<=length(value);j++) {
               ch=substr(value,j,1)
-              if (first=="\"" && ch=="\\") { j++; continue }
+              if (first=="\"" && ch=="\\") {
+                if (key=="run" && substr(value,j+1,1) ~ /[xuUN"]/) hit("d",numbers[i],"escaped run scalar in decide is not scannable")
+                j++; continue
+              }
               if (ch==first) {
                 if (first=="\047" && substr(value,j+1,1)==first) { j++; continue }
                 closed=1; break

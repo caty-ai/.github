@@ -1,0 +1,12 @@
+jobs:
+  decide:
+    steps:
+      - run: |
+          fields() {
+            set --
+            set -- "$@" -f "key=value"
+          }
+          api() {
+            gh api "$@"
+          }
+          api --method PUT repos/o/r/collaborators/u

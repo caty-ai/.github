@@ -1,0 +1,9 @@
+jobs:
+  decide:
+    steps:
+      - run: |
+          api() {
+            set --
+            set -- "$@" --method PUT
+            gh api graphql -f query='query { viewer { login } }' "$@"
+          }

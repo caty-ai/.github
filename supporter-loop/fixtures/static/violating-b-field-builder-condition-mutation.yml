@@ -1,0 +1,11 @@
+jobs:
+  decide:
+    steps:
+      - run: |
+          graph() {
+            set --
+            if [ x = x ] && set -- --method PUT && [ x = x ]; then set -- "$@" -f "k=v"
+            else set -- "$@" -F "k=v"; fi
+            gh api graphql -f query='query { viewer { login } }' "$@"
+          }
+          graph

@@ -1,0 +1,11 @@
+jobs:
+  decide:
+    steps:
+      - run: |
+          flags=(x=y --method PUT harmless)
+          graph() {
+            set --
+            set -- "$@" -f "${flags[@]}=x"
+            gh api graphql -f query='query { viewer { login } }' "$@"
+          }
+          graph

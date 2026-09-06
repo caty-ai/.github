@@ -1,0 +1,6 @@
+jobs:
+  decide:
+    steps:
+      - run: !!str >
+          gh api
+          -X PUT repos/o/r/collaborators/u

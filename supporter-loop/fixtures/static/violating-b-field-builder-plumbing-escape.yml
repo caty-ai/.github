@@ -1,0 +1,9 @@
+jobs:
+  decide:
+    steps:
+      - run: |
+          api() {
+            set --
+            key=$(jq .) && set -- --method PUT $(jq .)
+            gh api "$@"
+          }

@@ -1,0 +1,9 @@
+jobs:
+  decide:
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - run:
+          gh api
+          --method PUT repos/o/r/collaborators/u

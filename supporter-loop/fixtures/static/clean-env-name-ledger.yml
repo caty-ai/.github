@@ -1,0 +1,7 @@
+jobs:
+  decide:
+    env:
+      name: record.ndjson
+    steps:
+      - name: Append ledger
+        run: gh api -X PUT repos/o/r/contents/ledger/"$name"

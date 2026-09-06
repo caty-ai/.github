@@ -1,0 +1,9 @@
+jobs:
+  decide:
+    steps:
+      - uses: example/action@v1
+        with:
+          values:
+          - one
+          - two
+      - run: echo ok

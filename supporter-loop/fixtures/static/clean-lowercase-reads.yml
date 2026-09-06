@@ -1,0 +1,7 @@
+jobs:
+  decide:
+    steps:
+      - run: |
+          gh api --method get "$UNKNOWN" -f page=1
+          curl -X Get "$UNKNOWN" --data page=1
+          gh api -X put repos/o/r/contents/ledger/x --input payload.json

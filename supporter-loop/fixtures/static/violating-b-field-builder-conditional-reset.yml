@@ -1,0 +1,11 @@
+jobs:
+  decide:
+    steps:
+      - run: |
+          api() {
+            if false; then
+              set --
+            fi
+            gh api "$@"
+          }
+          api --method PUT repos/o/r/collaborators/u

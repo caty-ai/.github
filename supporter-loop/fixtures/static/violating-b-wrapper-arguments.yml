@@ -1,0 +1,6 @@
+jobs:
+  decide:
+    steps:
+      - run: |
+          api() { gh api "$@"; }
+          api --method PUT repos/o/r/collaborators/u
