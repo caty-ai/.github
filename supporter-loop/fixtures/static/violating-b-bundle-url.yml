@@ -1,0 +1,6 @@
+jobs:
+  decide:
+    steps:
+      - run: |
+          set -- https://api.github.com/repos/o/r/collaborators/u -X PUT
+          curl --url "$@"

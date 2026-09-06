@@ -1,0 +1,5 @@
+jobs:
+  decide:
+    steps:
+      - run: |
+          curl -sH "X-Flags: F K X d T" https://api.github.com/repos/example/project/issues/12/comments

@@ -1,0 +1,4 @@
+jobs:
+  decide:
+    steps:
+      - run: "echo ok\Ngh api --method PUT repos/o/r/collaborators/u"

@@ -1,0 +1,5 @@
+jobs:
+  decide:
+    steps:
+      - run: |
+          curl -K config.txt https://api.github.com/repos/o/r/contents/ledger/x

@@ -1,0 +1,7 @@
+jobs:
+  decide:
+    env:
+      UNUSED: "\tPUT"
+    steps:
+      - name: $UNUSED
+        run: curl -sSL4 https://api.github.com/repos/e/p/issues

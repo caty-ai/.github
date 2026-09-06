@@ -1,0 +1,5 @@
+jobs:
+  decide:
+    steps:
+      - run: |
+          curl -sSL4 https://api.github.com/repos/example/project/issues/12/comments

@@ -1,0 +1,10 @@
+jobs:
+  decide:
+    steps:
+      - run: |
+          api() {
+            local query="$1" key=value
+            set --
+            set -- "$@" -f "$key=value"
+            gh api graphql -f query='query { viewer { login } }' "$@"
+          }

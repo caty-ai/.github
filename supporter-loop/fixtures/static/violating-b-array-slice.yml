@@ -1,0 +1,6 @@
+jobs:
+  decide:
+    steps:
+      - run: |
+          flags=(--method PUT)
+          gh api "${flags[@]:0}" repos/o/r/collaborators/u

@@ -1,0 +1,9 @@
+jobs:
+  decide:
+    steps:
+      - run: |
+          api() {
+            set --
+            set -- "$@" -f "body=hello"
+            gh api repos/o/r/issues/1/comments "$@"
+          }

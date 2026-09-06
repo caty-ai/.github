@@ -1,0 +1,8 @@
+jobs:
+  decide:
+    defaults:
+      run:
+        shell: bash
+        working-directory: .
+    steps:
+      - run: echo ok

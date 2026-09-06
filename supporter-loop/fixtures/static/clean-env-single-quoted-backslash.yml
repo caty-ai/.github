@@ -1,0 +1,7 @@
+jobs:
+  decide:
+    env:
+      LABEL: 'literal\tvalue'
+    steps:
+      - run: |
+          curl -H "$LABEL" https://api.github.com/repos/example/project/issues/12/comments

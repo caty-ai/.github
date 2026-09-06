@@ -1,0 +1,8 @@
+jobs:
+  decide:
+    steps:
+      - name: Append ledger
+        run: |
+          gh api -X PUT repos/o/r/contents/ledger/"${name}"
+        env:
+          name: ../outside

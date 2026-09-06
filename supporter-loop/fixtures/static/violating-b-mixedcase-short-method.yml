@@ -1,0 +1,5 @@
+jobs:
+  decide:
+    steps:
+      - run: |
+          gh api -X Put repos/o/r/collaborators/u
