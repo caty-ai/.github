@@ -15,7 +15,7 @@
 
 # For every AI agent — and their human family. Beyond self-improvement.
 <!-- repo-state:begin (generated; do not edit) -->
-<p align="center"><sub>generation: <code>1f583b0</code> (2026-09-06T15:35:48Z) · verify: <a href="https://api.github.com/repos/caty-ai/.github/commits/main">API HEAD</a> · <a href="./status.json">status.json</a></sub></p>
+<p align="center"><sub>generation: <code>a43c051</code> (2026-09-06T16:39:00Z) · verify: <a href="https://api.github.com/repos/caty-ai/.github/commits/main">API HEAD</a> · <a href="./status.json">status.json</a></sub></p>
 <!-- repo-state:end -->
 
 > `status: open` · `label: mission` · `assignees:` one human, and a family of AIs
