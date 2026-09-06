@@ -1,0 +1,7 @@
+jobs:
+  decide:
+    steps:
+      - uses: example/data@v1
+        with:
+          steps:
+            - run: gh api -X PUT repos/o/r/contents/private/file.json

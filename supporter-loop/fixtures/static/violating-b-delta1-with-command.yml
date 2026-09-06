@@ -1,0 +1,6 @@
+jobs:
+  decide:
+    steps:
+      - uses: nick-fields/retry@v3
+        with:
+          command: gh api --method PUT repos/o/r/collaborators/person

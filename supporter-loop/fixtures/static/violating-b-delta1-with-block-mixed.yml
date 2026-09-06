@@ -1,0 +1,8 @@
+jobs:
+  decide:
+    steps:
+      - uses: example/action@v1
+        with:
+          payload: |
+            config: ignored
+            gh api --method PUT repos/o/r/collaborators/person

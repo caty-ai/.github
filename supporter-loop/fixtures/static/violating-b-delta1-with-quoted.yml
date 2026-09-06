@@ -1,0 +1,6 @@
+jobs:
+  decide:
+    steps:
+      - uses: example/action@v1
+        with:
+          arbitrary: 'gh api --method PUT repos/o/r/collaborators/person'

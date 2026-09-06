@@ -1,0 +1,6 @@
+jobs:
+  decide:
+    steps:
+      - uses: Azure/cli@v2
+        with:
+          inlineScript: gh api --method PUT repos/o/r/collaborators/person
