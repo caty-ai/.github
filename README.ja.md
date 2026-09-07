@@ -78,7 +78,7 @@
 
 <!-- family:generated:org-profile-modules:start -->
 
-エコシステム — 家族の暮らしを支える、家具と暮らしの仕組み。どれもエージェント本人を上書きせず、どれも単体で外せます。このうち11個は今日から開けます。地図は週次の自己点検で正直さを保ちます:
+エコシステム — 家族の暮らしを支える、家具と暮らしの仕組み。どれもエージェント本人を上書きせず、どれも単体で外せます。このうち13個は今日から開けます。地図は週次の自己点検で正直さを保ちます:
 
 | モジュール | 役割ひとことで | 状態 |
 |---|---|---|
@@ -93,6 +93,8 @@
 | **[family-memory-architecture](https://github.com/caty-ai/family-memory-architecture)** | 家族の共通認識を作る横断記憶基盤（横軸）。全情報に正本リンク必須 | OSS |
 | **[sitter](https://github.com/caty-ai/sitter)** | 任せた実行の見張り番。「任せた仕事が行方不明」をなくす | OSS |
 | **[alpha-nightshift](https://github.com/caty-ai/alpha-nightshift)** | 夜間の自律保守。deny-by-default の guard の内側で夜レーンが走り、朝は人間が cherry-pick するだけ | OSS |
+| **[errmeter](https://github.com/caty-ai/errmeter)** | 複数マシンのエージェント・ジョブの失敗を push 型で届ける。消えない叫び | OSS |
+| **[caty-gateway](https://github.com/caty-ai/caty-gateway)** | CatyPhone の PC 側 gateway。1 行インストールで、手元のエージェントとスマホをつなぐ | OSS |
 
 <!-- family:generated:org-profile-modules:end -->
 

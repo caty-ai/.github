@@ -83,7 +83,7 @@ Every belief above has a running counterpart below, with implemented and planned
 
 <!-- family:generated:org-profile-modules:start -->
 
-Ecosystem — the furniture and household workings that support a family's daily life. None of it overwrites who the agent is, and every piece can be removed on its own. 11 of these are open today, and the map checks itself weekly:
+Ecosystem — the furniture and household workings that support a family's daily life. None of it overwrites who the agent is, and every piece can be removed on its own. 13 of these are open today, and the map checks itself weekly:
 
 | Module | In one line | Status |
 |---|---|---|
@@ -98,6 +98,8 @@ Ecosystem — the furniture and household workings that support a family's daily
 | **[family-memory-architecture](https://github.com/caty-ai/family-memory-architecture)** | The family's shared-awareness backbone (horizontal axis); every entry links its source | OSS |
 | **[sitter](https://github.com/caty-ai/sitter)** | The babysitter for delegated runs — "I delegated it" never becomes "it vanished" | OSS |
 | **[alpha-nightshift](https://github.com/caty-ai/alpha-nightshift)** | Nightly autonomous maintenance — night lanes behind a deny-by-default guard; humans cherry-pick in the morning | OSS |
+| **[errmeter](https://github.com/caty-ai/errmeter)** | Push-style failure reporting for agents and jobs across machines — a shout that is never lost | OSS |
+| **[caty-gateway](https://github.com/caty-ai/caty-gateway)** | PC-side gateway for CatyPhone — one-line install; pairs your phone with the agent on your machine | OSS |
 
 <!-- family:generated:org-profile-modules:end -->
 
