@@ -63,10 +63,12 @@ if Path(sys.argv[0]).name in ('curl', 'gh', 'date'):
             raise SystemExit(1)
         if '/contents/ledger?' in endpoint:
             data = [dict(name=p.name, type='file') for p in root.iterdir() if p.suffix == '.ndjson' or p.name.startswith('baseline-')]
-        elif '/actions/runs?' in endpoint:
+        elif '/actions/workflows/supporter-loop.yml/runs?' in endpoint:
+            assert os.environ['GH_TOKEN'] == 'fixture-source', 'precondition (a) runs listing stays on GITHUB_TOKEN'
             runs = [] if 'status=failure' in endpoint else [dict(path='.github/workflows/supporter-loop.yml', created_at='2026-01-01T00:00:00Z')]
             data = dict(total_count=len(runs), workflow_runs=runs)
         elif '/stargazers?' in endpoint:
+            assert os.environ['GH_TOKEN'] == 'fixture-ledger', 'v1.11 §0-4: stargazers are read with the ledger token (GITHUB_TOKEN gets 403)'
             data = config['stargazers']
         elif '/collaborators?' in endpoint:
             data = config.get('collaborators', [])

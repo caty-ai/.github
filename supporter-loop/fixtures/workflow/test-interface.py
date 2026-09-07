@@ -61,6 +61,16 @@ preflight_run = act['steps'][0]['run']
 assert '.permissions' not in preflight_run, 'over-scope must not be inferred from GET /repos permissions'
 assert re.search(r'probe "repos/\$REWARD_REPO"\n\s*\[ "\$code" = 200 \] \|\|', preflight_run), 'reward repo probe is reachability-only (200)'
 assert 'probe "repos/$REWARD_REPO/contents/ledger"' in preflight_run, 'Contents 403/404 probe is the push-impossibility proof'
+# v1.11 (caty-ai/.github#89): GITHUB_TOKEN gets 403 on GET /repos/{source}/stargazers, so decide
+# reads the star list with the ledger token (§0-4 read-only exception); precondition (a) lists the
+# per-workflow runs so the 1,000-result cap counts supporter-loop runs only (repo-wide was 1,691).
+decide_run = '\n'.join(step.get('run', '') for step in workflow['jobs']['decide']['steps'])
+stargazer_tokens = re.findall(r'pages "\$(\w+)" "repos/\$GITHUB_REPOSITORY/stargazers\?per_page=100"', decide_run)
+assert stargazer_tokens == ['LEDGER_TOKEN'], f'stargazers must be read with the ledger token, never GH_TOKEN: {stargazer_tokens}'
+assert 'repos/$GITHUB_REPOSITORY/actions/runs?' not in decide_run, 'precondition (a) must not list repository-wide runs'
+assert '"repos/$GITHUB_REPOSITORY/actions/workflows/supporter-loop.yml/runs?per_page=100&$query"' in decide_run, 'precondition (a) lists supporter-loop runs only'
+assert '.total_count<1000' in decide_run, 'the 1,000-result cap still fails closed'
+assert 'SUPPORTER_LOOP_TOKEN' not in yaml.safe_dump(workflow['jobs']['decide']), 'decide never references the Administration token'
 alert = workflow['jobs']['alert']
 assert alert['needs'] == ['decide', 'act']
 assert alert['if'] == "${{ !cancelled() && failure() && inputs.mode == 'live' }}"

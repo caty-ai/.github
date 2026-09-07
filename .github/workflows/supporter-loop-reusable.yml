@@ -1,11 +1,12 @@
 # supporter-loop — record-only first; caller activation belongs to checkpoint #4.
-# Contract: caty-ai/x-collector docs/supporter-loop/CONTRACT.md v1.10 (frozen)
+# Contract: caty-ai/x-collector docs/supporter-loop/CONTRACT.md v1.11 (frozen)
 # SECURITY INVARIANTS — §13, do not weaken:
 # 1. Never check out or execute code from the triggering ref, including in callers.
 # 2. Actor strings enter scripts only through env or GITHUB_EVENT_PATH.
 # 3. Exactly four declared secrets; PATs are step-local, Administration only in act.
-# 4. PATs go only to GitHub for the reward repo (except §8.4 read-only scope probes);
-#    notification credentials go only to their declared host. Never echo secrets.
+# 4. PATs go only to GitHub for the reward repo (except §8.4 read-only scope probes and the
+#    §0-4 v1.11 read-only stargazer listing); notification credentials go only to their
+#    declared host. Never echo secrets.
 # 5. Record-only has a Contents-only credential; act and every outbound call are
 #    guarded by live mode, and owner notifications are live-only.
 # 6. No third-party actions, including code fetched from a triggering ref.
@@ -347,10 +348,12 @@ jobs:
           if [ "$SWEEP" = true ]; then
             gate=true
             # §11(a): all pages, nonempty cutoff, and the 1,000-result API cap fail closed.
+            # v1.11: the per-workflow listing, so the cap counts supporter-loop runs only —
+            # the repository-wide listing exceeded 1,000 before any sweep had succeeded (caty-ai/.github#89).
             runs() {
               local query="$1" target="$2"
               gh api --hostname github.com --method GET --paginate --slurp \
-                "repos/$GITHUB_REPOSITORY/actions/runs?per_page=100&$query" > "$target.pages" || return 1
+                "repos/$GITHUB_REPOSITORY/actions/workflows/supporter-loop.yml/runs?per_page=100&$query" > "$target.pages" || return 1
               jq -e 'type=="array" and length>0 and all(.[]; (.total_count|type=="number") and .total_count<1000 and (.workflow_runs|type=="array") and all(.workflow_runs[]; (.path|type=="string") and (.created_at|type=="string")))' "$target.pages" >/dev/null || return 1
               jq '[.[].workflow_runs[] | select(.path==".github/workflows/supporter-loop.yml")]' "$target.pages" > "$target"
             }
@@ -365,7 +368,9 @@ jobs:
             elif ! runs "status=failure&created=%3E%3D$cutoff" "$work/failed-runs.json"; then gate=false
             elif [ "$(jq length "$work/failed-runs.json")" -ne 0 ]; then gate=false; fi
             # §11(b): pagination errors do not hide expiry/audit work in live act.
-            if ! pages "$GH_TOKEN" "repos/$GITHUB_REPOSITORY/stargazers?per_page=100" "$work/stargazers.json" || ! jq -e 'all(.[];.id|type=="number" and .>0 and floor==.)' "$work/stargazers.json" >/dev/null; then
+            # §0-4 v1.11 read-only exception: GITHUB_TOKEN gets 403 on /stargazers (caty-ai/.github#89);
+            # the ledger token reads the public source repo implicitly (§8.4) and gains no write path here.
+            if ! pages "$LEDGER_TOKEN" "repos/$GITHUB_REPOSITORY/stargazers?per_page=100" "$work/stargazers.json" || ! jq -e 'all(.[];.id|type=="number" and .>0 and floor==.)' "$work/stargazers.json" >/dev/null; then
               gate=false; printf '[]\n' > "$work/stargazers.json"
             fi
             printf 'sweep_gate=%s\n' "$gate" >> "$GITHUB_OUTPUT"
