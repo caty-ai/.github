@@ -510,8 +510,12 @@ jobs:
           # Explicit, read-shaped source-repository over-scope probe (§8.4 exception).
           probe "repos/$GITHUB_REPOSITORY/invitations"
           case "$code" in 403|404) ;; *) echo '::error::token over-scoped: source'; exit 1 ;; esac
+          # Reachability only. The `permissions` object of GET /repos reflects the token
+          # owner's repository role (an org owner always sees push=true), not the
+          # fine-grained grant; the Contents 403/404 probe above is the push-impossibility
+          # proof (§8.4, v1.10 — caty-ai/.github#85).
           probe "repos/$REWARD_REPO"
-          if [ "$code" != 200 ] || ! jq -e '.permissions.push != true' "$RUNNER_TEMP/supporter-loop/preflight.json" >/dev/null; then echo '::error::token over-scoped: push'; exit 1; fi
+          [ "$code" = 200 ] || { echo '::error::reward repo preflight failed'; exit 1; }
       - name: Execute live actions and sweep after preflight
         id: deliver
         if: ${{ steps.preflight.outcome == 'success' }}
