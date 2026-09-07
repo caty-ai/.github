@@ -68,8 +68,7 @@ if Path(sys.argv[0]).name in ('curl', 'gh', 'date'):
             runs = [] if 'status=failure' in endpoint else [dict(path='.github/workflows/supporter-loop.yml', created_at='2026-01-01T00:00:00Z')]
             data = dict(total_count=len(runs), workflow_runs=runs)
         elif '/stargazers?' in endpoint:
-            assert os.environ['GH_TOKEN'] == 'fixture-ledger', 'v1.11 §0-4: stargazers are read with the ledger token (GITHUB_TOKEN gets 403)'
-            data = config['stargazers']
+            raise SystemExit('UNEXPECTED: decide must not list stargazers itself (v1.11 stars job)')
         elif '/collaborators?' in endpoint:
             data = config.get('collaborators', [])
         elif '/issues/comments?' in endpoint or '/invitations?' in endpoint or '/issues?state=' in endpoint:
@@ -155,7 +154,7 @@ script = next(s['run'] for s in steps if s.get('id') == 'decide')
 REPO = 'caty-ai/x-collector'
 KEYS = ['schema', 'ts', 'run_id', 'repo', 'event', 'actor', 'actor_id', 'tier', 'subject', 'action', 'mode', 'result', 'dedup_key', 'gen']
 
-def execute(event, payload, mode='record-only', tiers='1,2,3', prior=None, cas_conflict=False, sweep=False, stargazers=None, expected_error=False, discussions=False, live_act=False, missing_ledger=False):
+def execute(event, payload, mode='record-only', tiers='1,2,3', prior=None, cas_conflict=False, sweep=False, stargazers=None, stars_ok='true', expected_error=False, discussions=False, live_act=False, missing_ledger=False):
     with tempfile.TemporaryDirectory(prefix='supporter-decide-', dir=Path(__file__).resolve().parent) as directory:
         root = Path(directory)
         mock_bin = root / 'bin'
@@ -182,7 +181,8 @@ def execute(event, payload, mode='record-only', tiers='1,2,3', prior=None, cas_c
                    RUNNER_TEMP=str(root), GITHUB_EVENT_PATH=str(event_file), GITHUB_OUTPUT=str(output),
                    GITHUB_REPOSITORY=REPO, GITHUB_RUN_ID='1234', GITHUB_RUN_ATTEMPT='2',
                    MODE=mode, REWARD_REPO='caty-ai/ask-ai-widget', TIERS_ENABLED=tiers, SWEEP='true' if sweep else 'false',
-                   EVENT_NAME=event, RUN_KEY='1234-2', GH_TOKEN='fixture-source', LEDGER_TOKEN='fixture-ledger', LEDGER_EXPIRES='', ADMIN_EXPIRES='', ACTIONS='[]', SWEEP_GATE='true', STARGAZERS=json.dumps([s['id'] for s in stargazers or [] if 'id' in s]))
+                   EVENT_NAME=event, RUN_KEY='1234-2', GH_TOKEN='fixture-source', LEDGER_TOKEN='fixture-ledger', LEDGER_EXPIRES='', ADMIN_EXPIRES='', ACTIONS='[]', SWEEP_GATE='true', STARGAZERS=json.dumps([s['id'] for s in stargazers or [] if 'id' in s]),
+                   STARS_OK=stars_ok, STARS=json.dumps([s['id'] if 'id' in s else 'missing-id' for s in stargazers or []]))
         if live_act:
             env['ADMIN_TOKEN'] = 'fixture-admin'
         else:
@@ -275,8 +275,9 @@ for label, history, stars, expect_revoke, bad in [
     ('tier2 never revoked on unstar', initial + [dict(initial[-1], action='would-comment', tier=2, dedup_key=REPO + ':2:42')], [], False, False),
     ('tier3 never revoked on unstar', initial + [dict(initial[-1], action='would-comment', tier=3, dedup_key=REPO + ':3:42')], [], False, False),
     ('malformed stargazer data fails closed', initial, [dict(login='missing-id')], False, True),
+    ('skipped stars handoff fails closed', initial, [], False, True),
 ]:
-    fresh, _, _ = execute('schedule', dict(repository=repo), prior=history, sweep=True, stargazers=stars, expected_error=bad)
+    fresh, _, _ = execute('schedule', dict(repository=repo), prior=history, sweep=True, stargazers=stars, stars_ok='' if label.startswith('skipped') else 'true', expected_error=bad)
     assert all(r['action'] != 'would-cancel-invite' for r in fresh), fresh
     assert any(r['action'] == 'would-revoke' for r in fresh) == expect_revoke, fresh
     print('PASS actual reduced sweep: ' + label)

@@ -3,10 +3,12 @@
 # SECURITY INVARIANTS — §13, do not weaken:
 # 1. Never check out or execute code from the triggering ref, including in callers.
 # 2. Actor strings enter scripts only through env or GITHUB_EVENT_PATH.
-# 3. Exactly four declared secrets; PATs are step-local, Administration only in act.
-# 4. PATs go only to GitHub for the reward repo (except §8.4 read-only scope probes and the
-#    §0-4 v1.11 read-only stargazer listing); notification credentials go only to their
-#    declared host. Never echo secrets.
+# 3. Exactly four declared secrets; PATs are step-local, Administration only in act; the
+#    stars job references no secret.
+# 4. PATs go only to GitHub for the reward repo (except §8.4 read-only scope probes);
+#    notification credentials go only to their declared host. Never echo secrets.
+#    contents: write on a GITHUB_TOKEN exists only in the sweep-only stars job (v1.11);
+#    decide and act are contents: none on every event.
 # 5. Record-only has a Contents-only credential; act and every outbound call are
 #    guarded by live mode, and owner notifications are live-only.
 # 6. No third-party actions, including code fetched from a triggering ref.
@@ -53,7 +55,44 @@ on:
         required: true
 permissions: {}
 jobs:
+  # §4.4 v1.11: the stargazer listing is refused to every credential except a GITHUB_TOKEN with
+  # contents: write (caty-ai/.github#89, measured). This sweep-only job is the only holder of that
+  # permission in the loop: no secret, no checkout, one paginated GET, numeric ids out. On
+  # supporter-facing events it is skipped, so no such token is minted for them.
+  stars:
+    if: ${{ inputs.sweep == true }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: write
+    outputs:
+      ok: ${{ steps.list.outputs.ok }}
+      stargazers: ${{ steps.list.outputs.stargazers }}
+    steps:
+      - name: List stargazers of the source repo (ids only)
+        id: list
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          umask 077
+          work="$RUNNER_TEMP/stars"
+          mkdir -p "$work"
+          ok=true
+          # §11(b): every page or nothing; any shape defect fails closed in decide.
+          if ! gh api --hostname github.com --method GET --paginate --slurp "repos/$GITHUB_REPOSITORY/stargazers?per_page=100" > "$work/pages" \
+             || ! jq -e 'type=="array" and length>0 and all(.[]; type=="array") and all(.[][]; .id|type=="number" and .>0 and floor==.)' "$work/pages" >/dev/null; then
+            ok=false; printf '[]\n' > "$work/pages"
+          fi
+          # IDs only, never logins or author text. Fail before GitHub's output-size truncation.
+          stars=$(jq -c '[.[][].id] | unique' "$work/pages")
+          [ "${#stars}" -lt 400000 ] || { echo '::error::stargazer handoff exceeds safe output size'; exit 1; }
+          printf 'ok=%s\n' "$ok" >> "$GITHUB_OUTPUT"
+          printf 'stargazers=%s\n' "$stars" >> "$GITHUB_OUTPUT"
   decide:
+    needs: stars
+    # A skipped stars (non-sweep event) must not skip decide; a failed one is judged by decide.
+    if: ${{ !cancelled() }}
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:
@@ -100,6 +139,8 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           LEDGER_TOKEN: ${{ secrets.SUPPORTER_LEDGER_TOKEN }}
           LEDGER_EXPIRES: ${{ vars.SUPPORTER_LEDGER_TOKEN_EXPIRES }}
+          STARS_OK: ${{ needs.stars.outputs.ok }}
+          STARS: ${{ needs.stars.outputs.stargazers }}
         run: |
           # jq/GraphQL variables below are intentionally literal.
           # shellcheck disable=SC2016
@@ -368,9 +409,12 @@ jobs:
             elif ! runs "status=failure&created=%3E%3D$cutoff" "$work/failed-runs.json"; then gate=false
             elif [ "$(jq length "$work/failed-runs.json")" -ne 0 ]; then gate=false; fi
             # §11(b): pagination errors do not hide expiry/audit work in live act.
-            # §0-4 v1.11 read-only exception: GITHUB_TOKEN gets 403 on /stargazers (caty-ai/.github#89);
-            # the ledger token reads the public source repo implicitly (§8.4) and gains no write path here.
-            if ! pages "$LEDGER_TOKEN" "repos/$GITHUB_REPOSITORY/stargazers?per_page=100" "$work/stargazers.json" || ! jq -e 'all(.[];.id|type=="number" and .>0 and floor==.)' "$work/stargazers.json" >/dev/null; then
+            # v1.11: the list comes from the sweep-only stars job (§4.4) — decide never lists
+            # stargazers itself (GITHUB_TOKEN gets 403 without contents: write; caty-ai/.github#89).
+            # A skipped/failed handoff or a non-numeric entry fails closed here.
+            if [ "$STARS_OK" = true ] && printf '%s' "$STARS" | jq -e 'type=="array" and all(.[]; type=="number" and .>0 and floor==.)' >/dev/null 2>&1; then
+              printf '%s' "$STARS" | jq '[.[] | {id: .}]' > "$work/stargazers.json"
+            else
               gate=false; printf '[]\n' > "$work/stargazers.json"
             fi
             printf 'sweep_gate=%s\n' "$gate" >> "$GITHUB_OUTPUT"

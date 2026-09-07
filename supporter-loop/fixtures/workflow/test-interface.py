@@ -36,8 +36,9 @@ for step in workflow['jobs']['decide']['steps']:
     assert all(v == '${{ vars.SUPPORTER_LEDGER_TOKEN_EXPIRES }}' for v in variable_refs)
 assert 'toJSON(vars)' not in text
 assert workflow['permissions'] == {}
-assert set(workflow['jobs']) == {'decide', 'act', 'alert'}
+assert set(workflow['jobs']) == {'stars', 'decide', 'act', 'alert'}
 expected = {
+    'stars': {'contents': 'write'},
     'decide': {'contents': 'none', 'actions': 'read', 'issues': 'read', 'pull-requests': 'read', 'discussions': 'read'},
     'act': {'contents': 'none', 'issues': 'write', 'pull-requests': 'write', 'discussions': 'write'},
     'alert': {},
@@ -61,16 +62,30 @@ preflight_run = act['steps'][0]['run']
 assert '.permissions' not in preflight_run, 'over-scope must not be inferred from GET /repos permissions'
 assert re.search(r'probe "repos/\$REWARD_REPO"\n\s*\[ "\$code" = 200 \] \|\|', preflight_run), 'reward repo probe is reachability-only (200)'
 assert 'probe "repos/$REWARD_REPO/contents/ledger"' in preflight_run, 'Contents 403/404 probe is the push-impossibility proof'
-# v1.11 (caty-ai/.github#89): GITHUB_TOKEN gets 403 on GET /repos/{source}/stargazers, so decide
-# reads the star list with the ledger token (§0-4 read-only exception); precondition (a) lists the
-# per-workflow runs so the 1,000-result cap counts supporter-loop runs only (repo-wide was 1,691).
-decide_run = '\n'.join(step.get('run', '') for step in workflow['jobs']['decide']['steps'])
-stargazer_tokens = re.findall(r'pages "\$(\w+)" "repos/\$GITHUB_REPOSITORY/stargazers\?per_page=100"', decide_run)
-assert stargazer_tokens == ['LEDGER_TOKEN'], f'stargazers must be read with the ledger token, never GH_TOKEN: {stargazer_tokens}'
+# v1.11 (caty-ai/.github#89): GET /repos/{source}/stargazers is refused to every credential except a
+# GITHUB_TOKEN with contents: write, so a sweep-only `stars` job (contents: write and nothing else, no
+# secret, one GET) lists them and hands ids to decide; precondition (a) lists the per-workflow runs so
+# the 1,000-result cap counts supporter-loop runs only (repo-wide was 1,691).
+stars = workflow['jobs']['stars']
+assert stars['if'] == '${{ inputs.sweep == true }}', 'stars runs only in sweeps'
+assert stars['permissions'] == {'contents': 'write'}
+assert len(stars['steps']) == 1 and stars['steps'][0]['id'] == 'list'
+assert set(stars['steps'][0]['env']) == {'GH_TOKEN'} and 'secrets.' not in yaml.safe_dump(stars), 'stars never sees a secret'
+stars_run = stars['steps'][0]['run']
+assert stars_run.count('gh api') == 1 and '--method GET' in stars_run and 'curl' not in stars_run, 'stars makes exactly one GET'
+assert '"repos/$GITHUB_REPOSITORY/stargazers?per_page=100"' in stars_run
+assert set(stars['outputs']) == {'ok', 'stargazers'}
+decide_job = workflow['jobs']['decide']
+assert decide_job['needs'] == 'stars' and decide_job['if'] == '${{ !cancelled() }}', 'a skipped stars must not skip decide'
+decide_env = decide_job['steps'][1]['env']
+assert decide_env['STARS_OK'] == '${{ needs.stars.outputs.ok }}' and decide_env['STARS'] == '${{ needs.stars.outputs.stargazers }}'
+decide_run = '\n'.join(step.get('run', '') for step in decide_job['steps'])
+assert 'stargazers?' not in decide_run, 'decide never lists stargazers itself'
+assert '"$STARS_OK" = true' in decide_run, 'decide fails closed on a missing stars handoff'
 assert 'repos/$GITHUB_REPOSITORY/actions/runs?' not in decide_run, 'precondition (a) must not list repository-wide runs'
 assert '"repos/$GITHUB_REPOSITORY/actions/workflows/supporter-loop.yml/runs?per_page=100&$query"' in decide_run, 'precondition (a) lists supporter-loop runs only'
-assert '.total_count<1000' in decide_run, 'the 1,000-result cap still fails closed'
-assert 'SUPPORTER_LOOP_TOKEN' not in yaml.safe_dump(workflow['jobs']['decide']), 'decide never references the Administration token'
+assert re.search(r'\.total_count\s*<\s*1000', decide_run), 'the 1,000-result cap still fails closed'
+assert 'SUPPORTER_LOOP_TOKEN' not in yaml.safe_dump(decide_job), 'decide never references the Administration token'
 alert = workflow['jobs']['alert']
 assert alert['needs'] == ['decide', 'act']
 assert alert['if'] == "${{ !cancelled() && failure() && inputs.mode == 'live' }}"
