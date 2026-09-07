@@ -123,7 +123,8 @@ jobs:
           [ "$REWARD_REPO" = caty-ai/ask-ai-widget ] || { echo '::error::reward repo outside v1 scope'; exit 1; }
           [[ "$TIERS_ENABLED" =~ ^[123](,[123])*$ ]] || { echo '::error::invalid tiers'; exit 1; }
           if [ "$SWEEP" = true ]; then
-            [ "$EVENT_NAME" = schedule ] || { echo '::error::sweep is exclusive with tier events'; exit 1; }
+            # v1.11: an owner workflow_dispatch of the caller is a sweep too (§4.3 / §11).
+            case "$EVENT_NAME" in schedule|workflow_dispatch) ;; *) echo '::error::sweep is exclusive with tier events'; exit 1 ;; esac
           else
             case "$EVENT_NAME" in watch|issues|discussion|pull_request_target) ;; *) echo '::error::unsupported tier event'; exit 1 ;; esac
           fi
@@ -1208,7 +1209,7 @@ jobs:
             while IFS= read -r reminder; do notify "supporter-loop [live] $GITHUB_REPOSITORY · $reminder"; done < "$work/reminders"
           fi
   alert:
-    needs: [decide, act]
+    needs: [stars, decide, act]
     if: ${{ !cancelled() && failure() && inputs.mode == 'live' }}
     runs-on: ubuntu-latest
     timeout-minutes: 2
@@ -1220,6 +1221,7 @@ jobs:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
           DECIDE_RESULT: ${{ needs.decide.result }}
+          STARS_JOB_RESULT: ${{ needs.stars.result }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: |
           # jq/GraphQL variables below are intentionally literal.
@@ -1228,6 +1230,7 @@ jobs:
           [ "$MODE" = live ] || exit 1
           job=act
           [ "$DECIDE_RESULT" != failure ] || job=decide
+          [ "$STARS_JOB_RESULT" != failure ] || job=stars
           text="supporter-loop FAILED $GITHUB_REPOSITORY · $job · $RUN_URL"
           [ "$MODE" = live ] || exit 1
           status=$(curl -sS --connect-timeout 10 --max-time 30 -o "$RUNNER_TEMP/supporter-loop-alert.json" -w '%{http_code}' \

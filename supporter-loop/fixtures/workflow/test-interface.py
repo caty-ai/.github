@@ -87,11 +87,11 @@ assert '"repos/$GITHUB_REPOSITORY/actions/workflows/supporter-loop.yml/runs?per_
 assert re.search(r'\.total_count\s*<\s*1000', decide_run), 'the 1,000-result cap still fails closed'
 assert 'SUPPORTER_LOOP_TOKEN' not in yaml.safe_dump(decide_job), 'decide never references the Administration token'
 alert = workflow['jobs']['alert']
-assert alert['needs'] == ['decide', 'act']
+assert alert['needs'] == ['stars', 'decide', 'act']
 assert alert['if'] == "${{ !cancelled() && failure() && inputs.mode == 'live' }}"
 assert len(alert['steps']) == 1
 assert not re.search(r'\b(gh|curl)\b', workflow['jobs']['decide']['steps'][0]['run'])
-print('PASS frozen four-input/four-secret interface; three jobs; permissions; mode/preflight gates')
+print('PASS frozen four-input/four-secret interface; four jobs; permissions; mode/preflight gates')
 for tier in (2, 3):
     template = Path(f'supporter-loop/comment-tier{tier}.md').read_text()
     assert template.splitlines()[0] == f'<!-- supporter-loop:tier{tier}:{{{{actor_id}}}} -->'
@@ -109,3 +109,12 @@ for mode in ('', 'dry-run', 'LIVE', 'record-only\nlive'):
                             env=dict(os.environ, MODE=mode), capture_output=True, text=True)
     assert result.returncode == 1 and '::error::invalid mode' in result.stdout, result
 print('PASS invalid modes fail in the first step before network access')
+
+# v1.11: a sweep may arrive from the caller's schedule or from an owner workflow_dispatch (§4.3 / §11);
+# every tier event with sweep=true is still refused before any network access.
+base = dict(os.environ, MODE='live', REWARD_REPO='caty-ai/ask-ai-widget', TIERS_ENABLED='1,2,3', SWEEP='true')
+for event, ok in (('schedule', True), ('workflow_dispatch', True), ('watch', False), ('issues', False), ('pull_request_target', False)):
+    result = subprocess.run(['/bin/bash', '-c', workflow['jobs']['decide']['steps'][0]['run']],
+                            env=dict(base, EVENT_NAME=event), capture_output=True, text=True)
+    assert (result.returncode == 0) is ok and ('sweep is exclusive with tier events' in result.stdout) is (not ok), (event, result)
+print('PASS sweep accepted from schedule and workflow_dispatch only')
