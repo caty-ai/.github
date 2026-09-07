@@ -1,6 +1,6 @@
 # Supporter loop
 
-The reusable workflow implements the frozen [Supporter Reward Loop contract](https://github.com/caty-ai/x-collector/blob/epic/119/docs/supporter-loop/CONTRACT.md) (moves to `main` when the epic merges), v1.9. The caller initially selects `record-only`; enabling live delivery and approving the placeholder Japanese/English comment templates belong to owner checkpoint #4. The optional backfill input is deliberately absent until that checkpoint.
+The reusable workflow implements the frozen [Supporter Reward Loop contract](https://github.com/caty-ai/x-collector/blob/epic/119/docs/supporter-loop/CONTRACT.md) (moves to `main` when the epic merges), v1.10. The caller initially selects `record-only`; enabling live delivery and approving the placeholder Japanese/English comment templates belong to owner checkpoint #4. The optional backfill input is deliberately absent until that checkpoint.
 
 - `check-contents-decode.sh <workflow.yml> <fixtures-dir>` requires CR/LF stripping at every base64 decode, byte-compares wrapped Contents API fixtures, and verifies that plain decoding fails.
 - `check-ledger.sh <ndjson files...>` prints the number of mode/action violations and succeeds only at zero.
