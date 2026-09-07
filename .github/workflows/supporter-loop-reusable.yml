@@ -1,5 +1,5 @@
 # supporter-loop — record-only first; caller activation belongs to checkpoint #4.
-# Contract: caty-ai/x-collector docs/supporter-loop/CONTRACT.md v1.9 (frozen)
+# Contract: caty-ai/x-collector docs/supporter-loop/CONTRACT.md v1.10 (frozen)
 # SECURITY INVARIANTS — §13, do not weaken:
 # 1. Never check out or execute code from the triggering ref, including in callers.
 # 2. Actor strings enter scripts only through env or GITHUB_EVENT_PATH.

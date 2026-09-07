@@ -55,6 +55,12 @@ assert act['needs'] == 'decide'
 assert act['if'] == "${{ inputs.mode == 'live' && (needs.decide.outputs.has_live_actions == 'true' || inputs.sweep == true) }}"
 assert act['steps'][0]['id'] == 'preflight'
 assert all("steps.preflight.outcome == 'success'" in step.get('if', '') for step in act['steps'][1:])
+# §8.4 v1.10: GET /repos/{reward_repo}.permissions reflects the token owner's role, never the
+# fine-grained grant, so the preflight must not judge over-scope from it (caty-ai/.github#85).
+preflight_run = act['steps'][0]['run']
+assert '.permissions' not in preflight_run, 'over-scope must not be inferred from GET /repos permissions'
+assert re.search(r'probe "repos/\$REWARD_REPO"\n\s*\[ "\$code" = 200 \] \|\|', preflight_run), 'reward repo probe is reachability-only (200)'
+assert 'probe "repos/$REWARD_REPO/contents/ledger"' in preflight_run, 'Contents 403/404 probe is the push-impossibility proof'
 alert = workflow['jobs']['alert']
 assert alert['needs'] == ['decide', 'act']
 assert alert['if'] == "${{ !cancelled() && failure() && inputs.mode == 'live' }}"
