@@ -78,10 +78,10 @@ assert set(stars['outputs']) == {'ok', 'stargazers'}
 decide_job = workflow['jobs']['decide']
 assert decide_job['needs'] == 'stars' and decide_job['if'] == '${{ !cancelled() }}', 'a skipped stars must not skip decide'
 decide_env = decide_job['steps'][1]['env']
-assert decide_env['STARS_OK'] == '${{ needs.stars.outputs.ok }}' and decide_env['STARS'] == '${{ needs.stars.outputs.stargazers }}'
+assert decide_env['STAR_IDS_OK'] == '${{ needs.stars.outputs.ok }}' and decide_env['STAR_IDS'] == '${{ needs.stars.outputs.stargazers }}'
 decide_run = '\n'.join(step.get('run', '') for step in decide_job['steps'])
 assert 'stargazers?' not in decide_run, 'decide never lists stargazers itself'
-assert '"$STARS_OK" = true' in decide_run, 'decide fails closed on a missing stars handoff'
+assert '"$STAR_IDS_OK" = true' in decide_run, 'decide fails closed on a missing stars handoff'
 assert 'repos/$GITHUB_REPOSITORY/actions/runs?' not in decide_run, 'precondition (a) must not list repository-wide runs'
 assert '"repos/$GITHUB_REPOSITORY/actions/workflows/supporter-loop.yml/runs?per_page=100&$query"' in decide_run, 'precondition (a) lists supporter-loop runs only'
 assert re.search(r'\.total_count\s*<\s*1000', decide_run), 'the 1,000-result cap still fails closed'

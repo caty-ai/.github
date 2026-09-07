@@ -182,7 +182,7 @@ def execute(event, payload, mode='record-only', tiers='1,2,3', prior=None, cas_c
                    GITHUB_REPOSITORY=REPO, GITHUB_RUN_ID='1234', GITHUB_RUN_ATTEMPT='2',
                    MODE=mode, REWARD_REPO='caty-ai/ask-ai-widget', TIERS_ENABLED=tiers, SWEEP='true' if sweep else 'false',
                    EVENT_NAME=event, RUN_KEY='1234-2', GH_TOKEN='fixture-source', LEDGER_TOKEN='fixture-ledger', LEDGER_EXPIRES='', ADMIN_EXPIRES='', ACTIONS='[]', SWEEP_GATE='true', STARGAZERS=json.dumps([s['id'] for s in stargazers or [] if 'id' in s]),
-                   STARS_OK=stars_ok, STARS=json.dumps([s['id'] if 'id' in s else 'missing-id' for s in stargazers or []]))
+                   STAR_IDS_OK=stars_ok, STAR_IDS=json.dumps([s['id'] if 'id' in s else 'missing-id' for s in stargazers or []]))
         if live_act:
             env['ADMIN_TOKEN'] = 'fixture-admin'
         else:
