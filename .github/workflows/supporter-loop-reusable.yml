@@ -1,13 +1,17 @@
 # supporter-loop — record-only first; caller activation belongs to checkpoint #4.
-# Contract: caty-ai/x-collector docs/supporter-loop/CONTRACT.md v1.10 (frozen)
+# Contract: caty-ai/x-collector docs/supporter-loop/CONTRACT.md v1.11 (frozen)
 # SECURITY INVARIANTS — §13, do not weaken:
 # 1. Never check out or execute code from the triggering ref, including in callers.
 # 2. Actor strings enter scripts only through env or GITHUB_EVENT_PATH.
-# 3. Exactly four declared secrets; PATs are step-local, Administration only in act.
+# 3. Exactly four declared secrets; PATs are step-local, Administration only in act; the
+#    stars job references no secret.
 # 4. PATs go only to GitHub for the reward repo (except §8.4 read-only scope probes);
 #    notification credentials go only to their declared host. Never echo secrets.
-# 5. Record-only has a Contents-only credential; act and every outbound call are
-#    guarded by live mode, and owner notifications are live-only.
+#    contents: write on a GITHUB_TOKEN exists only in the sweep-only stars job (v1.11);
+#    decide and act are contents: none on every event.
+# 5. Record-only's only long-lived credential is Contents-only (cannot invite); the
+#    sweep-only stars token is ephemeral, source-repo, one GET, and cannot invite either.
+#    act and every outbound call are guarded by live mode; owner notifications are live-only.
 # 6. No third-party actions, including code fetched from a triggering ref.
 # 7. Supporter output is only invitation, own-thread comments, and SUPPORTERS.md.
 # 8. Fixed comment templates: login/reward_repo_url substitutions plus numeric marker.
@@ -52,7 +56,44 @@ on:
         required: true
 permissions: {}
 jobs:
+  # §4.4 v1.11: the stargazer listing is refused to every credential except a GITHUB_TOKEN with
+  # contents: write (caty-ai/.github#89, measured). This sweep-only job is the only holder of that
+  # permission in the loop: no secret, no checkout, one paginated GET, numeric ids out. On
+  # supporter-facing events it is skipped, so no such token is minted for them.
+  stars:
+    if: ${{ inputs.sweep == true }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: write
+    outputs:
+      ok: ${{ steps.list.outputs.ok }}
+      stargazers: ${{ steps.list.outputs.stargazers }}
+    steps:
+      - name: List stargazers of the source repo (ids only)
+        id: list
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          umask 077
+          work="$RUNNER_TEMP/stars"
+          mkdir -p "$work"
+          ok=true
+          # §11(b): every page or nothing; any shape defect fails closed in decide.
+          if ! gh api --hostname github.com --method GET --paginate --slurp "repos/$GITHUB_REPOSITORY/stargazers?per_page=100" > "$work/pages" \
+             || ! jq -e 'type=="array" and length>0 and all(.[]; type=="array") and all(.[][]; .id|type=="number" and .>0 and floor==.)' "$work/pages" >/dev/null; then
+            ok=false; printf '[]\n' > "$work/pages"
+          fi
+          # IDs only, never logins or author text. Fail before GitHub's output-size truncation.
+          stars=$(jq -c '[.[][].id] | unique' "$work/pages")
+          [ "${#stars}" -lt 400000 ] || { echo '::error::stargazer handoff exceeds safe output size'; exit 1; }
+          printf 'ok=%s\n' "$ok" >> "$GITHUB_OUTPUT"
+          printf 'stargazers=%s\n' "$stars" >> "$GITHUB_OUTPUT"
   decide:
+    needs: stars
+    # A skipped stars (non-sweep event) must not skip decide; a failed one is judged by decide.
+    if: ${{ !cancelled() }}
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:
@@ -83,7 +124,8 @@ jobs:
           [ "$REWARD_REPO" = caty-ai/ask-ai-widget ] || { echo '::error::reward repo outside v1 scope'; exit 1; }
           [[ "$TIERS_ENABLED" =~ ^[123](,[123])*$ ]] || { echo '::error::invalid tiers'; exit 1; }
           if [ "$SWEEP" = true ]; then
-            [ "$EVENT_NAME" = schedule ] || { echo '::error::sweep is exclusive with tier events'; exit 1; }
+            # v1.11: an owner workflow_dispatch of the caller is a sweep too (§4.3 / §11).
+            case "$EVENT_NAME" in schedule|workflow_dispatch) ;; *) echo '::error::sweep is exclusive with tier events'; exit 1 ;; esac
           else
             case "$EVENT_NAME" in watch|issues|discussion|pull_request_target) ;; *) echo '::error::unsupported tier event'; exit 1 ;; esac
           fi
@@ -99,6 +141,8 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           LEDGER_TOKEN: ${{ secrets.SUPPORTER_LEDGER_TOKEN }}
           LEDGER_EXPIRES: ${{ vars.SUPPORTER_LEDGER_TOKEN_EXPIRES }}
+          STAR_IDS_OK: ${{ needs.stars.outputs.ok }}
+          STAR_IDS: ${{ needs.stars.outputs.stargazers }}
         run: |
           # jq/GraphQL variables below are intentionally literal.
           # shellcheck disable=SC2016
@@ -347,10 +391,12 @@ jobs:
           if [ "$SWEEP" = true ]; then
             gate=true
             # §11(a): all pages, nonempty cutoff, and the 1,000-result API cap fail closed.
+            # v1.11: the per-workflow listing, so the cap counts supporter-loop runs only —
+            # the repository-wide listing exceeded 1,000 before any sweep had succeeded (caty-ai/.github#89).
             runs() {
               local query="$1" target="$2"
               gh api --hostname github.com --method GET --paginate --slurp \
-                "repos/$GITHUB_REPOSITORY/actions/runs?per_page=100&$query" > "$target.pages" || return 1
+                "repos/$GITHUB_REPOSITORY/actions/workflows/supporter-loop.yml/runs?per_page=100&$query" > "$target.pages" || return 1
               jq -e 'type=="array" and length>0 and all(.[]; (.total_count|type=="number") and .total_count<1000 and (.workflow_runs|type=="array") and all(.workflow_runs[]; (.path|type=="string") and (.created_at|type=="string")))' "$target.pages" >/dev/null || return 1
               jq '[.[].workflow_runs[] | select(.path==".github/workflows/supporter-loop.yml")]' "$target.pages" > "$target"
             }
@@ -365,7 +411,12 @@ jobs:
             elif ! runs "status=failure&created=%3E%3D$cutoff" "$work/failed-runs.json"; then gate=false
             elif [ "$(jq length "$work/failed-runs.json")" -ne 0 ]; then gate=false; fi
             # §11(b): pagination errors do not hide expiry/audit work in live act.
-            if ! pages "$GH_TOKEN" "repos/$GITHUB_REPOSITORY/stargazers?per_page=100" "$work/stargazers.json" || ! jq -e 'all(.[];.id|type=="number" and .>0 and floor==.)' "$work/stargazers.json" >/dev/null; then
+            # v1.11: the list comes from the sweep-only stars job (§4.4) — decide never lists
+            # stargazers itself (GITHUB_TOKEN gets 403 without contents: write; caty-ai/.github#89).
+            # A skipped/failed handoff or a non-numeric entry fails closed here.
+            if [ "$STAR_IDS_OK" = true ] && printf '%s' "$STAR_IDS" | jq -e 'type=="array" and all(.[]; type=="number" and .>0 and floor==.)' >/dev/null 2>&1; then
+              printf '%s' "$STAR_IDS" | jq '[.[] | {id: .}]' > "$work/stargazers.json"
+            else
               gate=false; printf '[]\n' > "$work/stargazers.json"
             fi
             printf 'sweep_gate=%s\n' "$gate" >> "$GITHUB_OUTPUT"
@@ -1159,7 +1210,7 @@ jobs:
             while IFS= read -r reminder; do notify "supporter-loop [live] $GITHUB_REPOSITORY · $reminder"; done < "$work/reminders"
           fi
   alert:
-    needs: [decide, act]
+    needs: [stars, decide, act]
     if: ${{ !cancelled() && failure() && inputs.mode == 'live' }}
     runs-on: ubuntu-latest
     timeout-minutes: 2
@@ -1171,6 +1222,7 @@ jobs:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
           DECIDE_RESULT: ${{ needs.decide.result }}
+          STARS_JOB_RESULT: ${{ needs.stars.result }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: |
           # jq/GraphQL variables below are intentionally literal.
@@ -1179,6 +1231,7 @@ jobs:
           [ "$MODE" = live ] || exit 1
           job=act
           [ "$DECIDE_RESULT" != failure ] || job=decide
+          [ "$STARS_JOB_RESULT" != failure ] || job=stars
           text="supporter-loop FAILED $GITHUB_REPOSITORY · $job · $RUN_URL"
           [ "$MODE" = live ] || exit 1
           status=$(curl -sS --connect-timeout 10 --max-time 30 -o "$RUNNER_TEMP/supporter-loop-alert.json" -w '%{http_code}' \

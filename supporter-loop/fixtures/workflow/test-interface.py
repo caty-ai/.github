@@ -36,8 +36,9 @@ for step in workflow['jobs']['decide']['steps']:
     assert all(v == '${{ vars.SUPPORTER_LEDGER_TOKEN_EXPIRES }}' for v in variable_refs)
 assert 'toJSON(vars)' not in text
 assert workflow['permissions'] == {}
-assert set(workflow['jobs']) == {'decide', 'act', 'alert'}
+assert set(workflow['jobs']) == {'stars', 'decide', 'act', 'alert'}
 expected = {
+    'stars': {'contents': 'write'},
     'decide': {'contents': 'none', 'actions': 'read', 'issues': 'read', 'pull-requests': 'read', 'discussions': 'read'},
     'act': {'contents': 'none', 'issues': 'write', 'pull-requests': 'write', 'discussions': 'write'},
     'alert': {},
@@ -61,12 +62,36 @@ preflight_run = act['steps'][0]['run']
 assert '.permissions' not in preflight_run, 'over-scope must not be inferred from GET /repos permissions'
 assert re.search(r'probe "repos/\$REWARD_REPO"\n\s*\[ "\$code" = 200 \] \|\|', preflight_run), 'reward repo probe is reachability-only (200)'
 assert 'probe "repos/$REWARD_REPO/contents/ledger"' in preflight_run, 'Contents 403/404 probe is the push-impossibility proof'
+# v1.11 (caty-ai/.github#89): GET /repos/{source}/stargazers is refused to every credential except a
+# GITHUB_TOKEN with contents: write, so a sweep-only `stars` job (contents: write and nothing else, no
+# secret, one GET) lists them and hands ids to decide; precondition (a) lists the per-workflow runs so
+# the 1,000-result cap counts supporter-loop runs only (repo-wide was 1,691).
+stars = workflow['jobs']['stars']
+assert stars['if'] == '${{ inputs.sweep == true }}', 'stars runs only in sweeps'
+assert stars['permissions'] == {'contents': 'write'}
+assert len(stars['steps']) == 1 and stars['steps'][0]['id'] == 'list'
+assert set(stars['steps'][0]['env']) == {'GH_TOKEN'} and 'secrets.' not in yaml.safe_dump(stars), 'stars never sees a secret'
+stars_run = stars['steps'][0]['run']
+assert stars_run.count('gh api') == 1 and '--method GET' in stars_run and 'curl' not in stars_run, 'stars makes exactly one GET'
+assert '"repos/$GITHUB_REPOSITORY/stargazers?per_page=100"' in stars_run
+assert set(stars['outputs']) == {'ok', 'stargazers'}
+decide_job = workflow['jobs']['decide']
+assert decide_job['needs'] == 'stars' and decide_job['if'] == '${{ !cancelled() }}', 'a skipped stars must not skip decide'
+decide_env = decide_job['steps'][1]['env']
+assert decide_env['STAR_IDS_OK'] == '${{ needs.stars.outputs.ok }}' and decide_env['STAR_IDS'] == '${{ needs.stars.outputs.stargazers }}'
+decide_run = '\n'.join(step.get('run', '') for step in decide_job['steps'])
+assert 'stargazers?' not in decide_run, 'decide never lists stargazers itself'
+assert '"$STAR_IDS_OK" = true' in decide_run, 'decide fails closed on a missing stars handoff'
+assert 'repos/$GITHUB_REPOSITORY/actions/runs?' not in decide_run, 'precondition (a) must not list repository-wide runs'
+assert '"repos/$GITHUB_REPOSITORY/actions/workflows/supporter-loop.yml/runs?per_page=100&$query"' in decide_run, 'precondition (a) lists supporter-loop runs only'
+assert re.search(r'\.total_count\s*<\s*1000', decide_run), 'the 1,000-result cap still fails closed'
+assert 'SUPPORTER_LOOP_TOKEN' not in yaml.safe_dump(decide_job), 'decide never references the Administration token'
 alert = workflow['jobs']['alert']
-assert alert['needs'] == ['decide', 'act']
+assert alert['needs'] == ['stars', 'decide', 'act']
 assert alert['if'] == "${{ !cancelled() && failure() && inputs.mode == 'live' }}"
 assert len(alert['steps']) == 1
 assert not re.search(r'\b(gh|curl)\b', workflow['jobs']['decide']['steps'][0]['run'])
-print('PASS frozen four-input/four-secret interface; three jobs; permissions; mode/preflight gates')
+print('PASS frozen four-input/four-secret interface; four jobs; permissions; mode/preflight gates')
 for tier in (2, 3):
     template = Path(f'supporter-loop/comment-tier{tier}.md').read_text()
     assert template.splitlines()[0] == f'<!-- supporter-loop:tier{tier}:{{{{actor_id}}}} -->'
@@ -84,3 +109,12 @@ for mode in ('', 'dry-run', 'LIVE', 'record-only\nlive'):
                             env=dict(os.environ, MODE=mode), capture_output=True, text=True)
     assert result.returncode == 1 and '::error::invalid mode' in result.stdout, result
 print('PASS invalid modes fail in the first step before network access')
+
+# v1.11: a sweep may arrive from the caller's schedule or from an owner workflow_dispatch (§4.3 / §11);
+# every tier event with sweep=true is still refused before any network access.
+base = dict(os.environ, MODE='live', REWARD_REPO='caty-ai/ask-ai-widget', TIERS_ENABLED='1,2,3', SWEEP='true')
+for event, ok in (('schedule', True), ('workflow_dispatch', True), ('watch', False), ('issues', False), ('pull_request_target', False)):
+    result = subprocess.run(['/bin/bash', '-c', workflow['jobs']['decide']['steps'][0]['run']],
+                            env=dict(base, EVENT_NAME=event), capture_output=True, text=True)
+    assert (result.returncode == 0) is ok and ('sweep is exclusive with tier events' in result.stdout) is (not ok), (event, result)
+print('PASS sweep accepted from schedule and workflow_dispatch only')
