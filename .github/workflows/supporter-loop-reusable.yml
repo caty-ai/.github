@@ -9,8 +9,9 @@
 #    notification credentials go only to their declared host. Never echo secrets.
 #    contents: write on a GITHUB_TOKEN exists only in the sweep-only stars job (v1.11);
 #    decide and act are contents: none on every event.
-# 5. Record-only has a Contents-only credential; act and every outbound call are
-#    guarded by live mode, and owner notifications are live-only.
+# 5. Record-only's only long-lived credential is Contents-only (cannot invite); the
+#    sweep-only stars token is ephemeral, source-repo, one GET, and cannot invite either.
+#    act and every outbound call are guarded by live mode; owner notifications are live-only.
 # 6. No third-party actions, including code fetched from a triggering ref.
 # 7. Supporter output is only invitation, own-thread comments, and SUPPORTERS.md.
 # 8. Fixed comment templates: login/reward_repo_url substitutions plus numeric marker.
