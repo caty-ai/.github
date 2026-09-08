@@ -1,0 +1,1 @@
+{"schema": 1, "ts": "2026-09-08T00:00:00Z", "run_id": "91-1", "repo": "caty-ai/x-collector", "event": "sweep", "actor": "supporter", "actor_id": 42, "tier": 0, "subject": "", "action": "skip", "mode": "live", "result": "excluded-unresponsive", "dedup_key": "caty-ai/x-collector:sweep:42", "gen": 1}

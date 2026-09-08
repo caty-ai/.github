@@ -11,11 +11,15 @@ import tempfile
 import yaml
 
 # Invoked through temporary curl/gh symlinks. Unknown requests are fatal.
-if Path(sys.argv[0]).name in ('curl', 'gh', 'date'):
+if Path(sys.argv[0]).name in ('curl', 'gh', 'date', 'timeout', 'sleep'):
     args = sys.argv[1:]
     root = Path(os.environ['MOCK_STATE'])
     name = Path(sys.argv[0]).name
     config = json.loads((root / 'mock-config.json').read_text())
+    if name == 'timeout':
+        os.execvp(args[1], args[1:])
+    if name == 'sleep':
+        raise SystemExit(0)
     if name == 'date':
         if '-d' in args:
             instant = datetime.datetime.fromisoformat(args[args.index('-d') + 1].replace('Z', '+00:00'))
@@ -65,7 +69,15 @@ if Path(sys.argv[0]).name in ('curl', 'gh', 'date'):
             data = [dict(name=p.name, type='file') for p in root.iterdir() if p.suffix == '.ndjson' or p.name.startswith('baseline-')]
         elif '/actions/workflows/supporter-loop.yml/runs?' in endpoint:
             assert os.environ['GH_TOKEN'] == 'fixture-source', 'precondition (a) runs listing stays on GITHUB_TOKEN'
-            runs = [] if 'status=failure' in endpoint else [dict(path='.github/workflows/supporter-loop.yml', created_at='2026-01-01T00:00:00Z')]
+            runs = [] if 'status=failure' in endpoint or 'status=cancelled' in endpoint else [dict(path='.github/workflows/supporter-loop.yml', event='schedule', created_at='2026-01-01T00:00:00Z')]
+            if config.get('runs_case'):
+                if 'event=workflow_dispatch&status=success' in endpoint:
+                    runs = [dict(path='.github/workflows/supporter-loop.yml', event='workflow_dispatch', created_at='2026-09-07T00:00:00Z')]
+                if 'status=failure' in endpoint or 'status=cancelled' in endpoint:
+                    assert 'created=%3E%3D2026-09-07T00:00:00Z' in endpoint, endpoint
+                if 'status=cancelled' in endpoint:
+                    runs = [dict(path='.github/workflows/supporter-loop.yml',event=e,created_at='2026-09-08T00:00:00Z')
+                            for e in ('watch','issues','discussion','pull_request_target','schedule','workflow_dispatch')]
             data = dict(total_count=len(runs), workflow_runs=runs)
         elif '/stargazers?' in endpoint:
             raise SystemExit('UNEXPECTED: decide must not list stargazers itself (v1.11 stars job)')
@@ -92,7 +104,7 @@ if Path(sys.argv[0]).name in ('curl', 'gh', 'date'):
                 output.write_text(json.dumps(dict(content=base64.b64encode(header.read_bytes()).decode())))
                 print('200', end=''); raise SystemExit(0)
             if config['live_act'] and url.endswith('/contents/SUPPORTERS.md'):
-                code, response = '404', dict(message='Not Found')
+                code, response = ('200', dict(sha='fixture-sha', size=(root / 'SUPPORTERS.md').stat().st_size)) if (root / 'SUPPORTERS.md').exists() else ('404', dict(message='Not Found'))
                 if method == 'PUT':
                     body = json.loads(Path(args[args.index('--data-binary') + 1].lstrip('@')).read_text())
                     (root / 'SUPPORTERS.md').write_bytes(base64.b64decode(body['content']))
@@ -103,8 +115,13 @@ if Path(sys.argv[0]).name in ('curl', 'gh', 'date'):
                 if method == 'DELETE':
                     (root / 'revoked').touch()
                 output.write_text('{}'); print('204', end=''); raise SystemExit(0)
-            if config['live_act'] and url == 'https://api.github.com/user/42':
-                output.write_text(json.dumps(dict(id=42, login='external-supporter', type='User')))
+            if method == 'GET' and url.startswith('https://api.github.com/user/'):
+                assert 'Authorization: Bearer fixture-source' in args
+                actor_id = int(url.rsplit('/', 1)[1])
+                if actor_id in config.get('identity_missing', []):
+                    output.write_text(json.dumps(dict(message='Not Found')))
+                    print('404', end=''); raise SystemExit(0)
+                output.write_text(json.dumps(dict(id=actor_id, login='external-supporter' if actor_id == 42 else 'user-'+str(actor_id), type='User')))
                 print('200', end=''); raise SystemExit(0)
             if method != 'GET':
                 raise SystemExit('UNEXPECTED nonledger mutation: ' + method + ' ' + url)
@@ -129,11 +146,11 @@ if Path(sys.argv[0]).name in ('curl', 'gh', 'date'):
             code = '200' if path.exists() else '404'
             response = dict(sha='fixture-sha', content=base64.b64encode(path.read_bytes()).decode()) if path.exists() else dict(message='Not Found')
         elif method == 'PUT':
-            assert relative.endswith('.ndjson'), 'Only ledger writes allowed'
+            assert relative.endswith('.ndjson') or (config['live_act'] and relative.endswith('.sweep-state.json')), 'Only ledger writes allowed in decide'
             payload = json.loads(Path(args[args.index('--data-binary') + 1].lstrip('@')).read_text())
             response = dict(content=dict(sha='fixture-sha'))
             code = '200' if path.exists() else '201'
-            assert payload['message'].startswith('supporter-loop: ') and len(payload['message'].split()) == 4, payload['message']
+            assert payload['message'].startswith('supporter-loop: ') and (len(payload['message'].split()) == 4 or (config['live_act'] and relative.endswith('.sweep-state.json'))), payload['message']
             # .publication-denylist option a; contract §6 freezes the runtime identity.
             assert payload['committer'] == dict(name='supporter-loop[bot]', email='supporter-loop@' + 'caty-ai' + '.noreply')
             if os.environ.get('MOCK_CAS_CONFLICT') == '1' and not (root / 'conflict-used').exists():
@@ -154,20 +171,20 @@ script = next(s['run'] for s in steps if s.get('id') == 'decide')
 REPO = 'caty-ai/x-collector'
 KEYS = ['schema', 'ts', 'run_id', 'repo', 'event', 'actor', 'actor_id', 'tier', 'subject', 'action', 'mode', 'result', 'dedup_key', 'gen']
 
-def execute(event, payload, mode='record-only', tiers='1,2,3', prior=None, cas_conflict=False, sweep=False, stargazers=None, stars_ok='true', expected_error=False, discussions=False, live_act=False, missing_ledger=False):
-    with tempfile.TemporaryDirectory(prefix='supporter-decide-', dir=Path(__file__).resolve().parent) as directory:
+def execute(event, payload, mode='record-only', tiers='1,2,3', prior=None, cas_conflict=False, sweep=False, stargazers=None, stars_ok='true', expected_error=False, discussions=False, live_act=False, missing_ledger=False, runs_case=False, identity_missing=None):
+    with tempfile.TemporaryDirectory(prefix='supporter-decide-') as directory:
         root = Path(directory)
         mock_bin = root / 'bin'
         mock_bin.mkdir()
         state = root / 'state'
         state.mkdir()
-        (state / 'mock-config.json').write_text(json.dumps(dict(stargazers=stargazers or [], discussions=discussions, live_act=live_act, missing_ledger=missing_ledger, collaborators=[dict(id=42)] if live_act else [])))
+        (state / 'mock-config.json').write_text(json.dumps(dict(stargazers=stargazers or [], discussions=discussions, live_act=live_act, missing_ledger=missing_ledger, runs_case=runs_case, identity_missing=identity_missing or [], collaborators=[dict(id=42)] if live_act else [])))
         if sweep:
             (state / 'baseline-2026-01-01.json').write_text(json.dumps(dict(collaborators=[], invitations=[])))
         launcher = mock_bin / 'double'
         launcher.write_text('#!' + sys.executable + '\n' + Path(__file__).read_text())
         launcher.chmod(0o700)
-        for command in ('curl', 'gh', 'date'):
+        for command in ('curl', 'gh', 'date', 'timeout', 'sleep'):
             (mock_bin / command).symlink_to(launcher)
         ledger = state / 'caty-ai--x-collector.ndjson'
         if prior:
@@ -193,6 +210,8 @@ def execute(event, payload, mode='record-only', tiers='1,2,3', prior=None, cas_c
         if bool(result.returncode) != expected_error:
             raise AssertionError(f'{event}: exit {result.returncode}\n{result.stdout}\n{result.stderr}')
         assert not result.stderr, result.stderr
+        for missing_id in identity_missing or []:
+            assert f'::warning::rehearsal identity unavailable for actor_id={missing_id}' in result.stdout,result.stdout
         if expected_error:
             assert '::error::' in result.stdout, result.stdout
         if missing_ledger:
@@ -210,6 +229,8 @@ def execute(event, payload, mode='record-only', tiers='1,2,3', prior=None, cas_c
             assert 'fixture-' not in json.dumps(row)
         if discussions:
             assert (state / 'graphql-calls').read_text().splitlines() == ['listing:POST', 'comments:POST', 'replies:POST']
+        if not live_act:
+            assert not list(state.glob('*.sweep-state.json'))
         if live_act:
             assert (state / 'revoked').exists() == any(r['action'] == 'revoke' for r in fresh)
             if (state / 'revoked').exists():
@@ -298,3 +319,25 @@ print('PASS actual live sweep: invite plus would-comment revokes after unstar; P
 
 execute('watch', payload('watch'), missing_ledger=True, expected_error=True)
 print('PASS actual decide: missing ledger directory has actionable contract diagnostic')
+
+# Execute the new rehearsal path, including its read-shaped identity call.
+fresh,_,output=execute('workflow_dispatch',dict(repository=repo),sweep=True,stargazers=[dict(id=42)],runs_case=True)
+assert [(r['action'],r['tier'],r['dedup_key'],r['event']) for r in fresh]==[
+    ('would-invite',1,REPO+':1:42','sweep'),('would-supporters-append',1,REPO+':1:42','sweep')],fresh
+assert 'cancelled_event=4' in output and 'cancelled_schedule=2' in output and 'sweep_gate=true' in output
+print('PASS actual rehearsal identity/tier-key bundle; dispatch watermark; cancelled counts never gate')
+prior=[dict(live_invite,actor_id=i,actor='user-'+str(i),dedup_key=REPO+':1:'+str(i)) for i in range(100,144)]
+fresh,_,_=execute('schedule',dict(repository=repo),sweep=True,stargazers=[dict(id=42),dict(id=99)],prior=prior)
+assert [r['actor_id'] for r in fresh]==[42,42],fresh
+print('PASS actual record-only quota reserves one of 45 remaining slots, same as live')
+fresh,_,_=execute('schedule',dict(repository=repo),sweep=True,stargazers=[dict(id=42)],tiers='2,3')
+assert fresh==[],fresh
+print('PASS actual record-only tier1-disabled produces no catch-up or state')
+
+# A deleted identity must neither fabricate a delivery nor consume the next slot.
+fresh,_,_=execute('schedule',dict(repository=repo),sweep=True,
+                  stargazers=[dict(id=99),dict(id=42)],identity_missing=[99],prior=prior)
+assert [(r['actor_id'],r['action']) for r in fresh]==[
+    (42,'would-invite'),(42,'would-supporters-append')],fresh
+assert all(r['actor'] for r in fresh),fresh
+print('PASS actual rehearsal identity 404 ledgers nothing; next actor retains quota; no empty actor')

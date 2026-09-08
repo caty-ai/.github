@@ -55,7 +55,7 @@ cases = [
     ('other actor closure does not affect generation', [dict(row('revoke'), actor_id=43)], 'generation($repo;$id)', 1),
     ('other repository closure does not affect generation', [dict(row('revoke'), repo='caty-ai/other')], 'generation($repo;$id)', 1),
 ]
-with tempfile.TemporaryDirectory(prefix='supporter-model-', dir=pathlib.Path(__file__).resolve().parent) as scratch:
+with tempfile.TemporaryDirectory(prefix='supporter-model-') as scratch:
     model = pathlib.Path(scratch, 'test.jq')
     mode_cases = [(name, ledger, expression, expected, 'live') for name, ledger, expression, expected in cases]
     mode_cases += [('record-only ignores live upgrade', [row('would-invite', mode='record-only'), row('comment', 2)], 'achieved($repo;$id)', 1, 'record-only'),
@@ -104,6 +104,7 @@ assert function, 'Actual regenerate function missing'
 header_sample = pathlib.Path(__file__).with_name('SUPPORTERS.header.sample.md').read_bytes()
 error = '::error::SUPPORTERS.header.md missing or malformed in reward repo (child #1); regeneration skipped'
 double = r'''
+read_ledger() { cp "$work/api-ledger.ndjson" "$ledger"; }
 get() {
   [ "$1" = "$LEDGER_TOKEN" ] || return 1
   printf '%s\n' "$2" >> "$work/gets"
@@ -121,7 +122,7 @@ mutate() {
   code=200
 }
 '''
-with tempfile.TemporaryDirectory(prefix='supporter-render-', dir=pathlib.Path(__file__).resolve().parent) as directory:
+with tempfile.TemporaryDirectory(prefix='supporter-render-') as directory:
     root = pathlib.Path(directory)
     (root / 'model.jq').write_text(models[0])
     script = 'set -euo pipefail\n' + double + textwrap.dedent(function.group()) + '\nregenerate\n'
@@ -143,7 +144,7 @@ with tempfile.TemporaryDirectory(prefix='supporter-render-', dir=pathlib.Path(__
         for output in ('SUPPORTERS.md', 'published.json', 'gets'):
             (root / output).unlink(missing_ok=True)
         (root / 'header.json').write_text(json.dumps(dict(content=base64.b64encode(header).decode())))
-        (root / 'ledger.ndjson').write_text(json.dumps(sample_row) + '\n')
+        (root / 'api-ledger.ndjson').write_text(json.dumps(sample_row) + '\n')
         env = dict(os.environ, work=str(root), ledger=str(root / 'ledger.ndjson'), MODE='live',
                    GITHUB_REPOSITORY=REPO, REWARD_REPO='caty-ai/ask-ai-widget',
                    LEDGER_TOKEN='fixture-ledger', HEADER_STATUS=str(status))
@@ -169,7 +170,7 @@ with tempfile.TemporaryDirectory(prefix='supporter-render-', dir=pathlib.Path(__
     # All existing projection cases also pass through the complete header + table render.
     for name, ledger_rows, fragment, present in render_cases:
         (root / 'header.json').write_text(json.dumps(dict(content=base64.b64encode(header_sample).decode())))
-        (root / 'ledger.ndjson').write_text('\n'.join(json.dumps(item) for item in ledger_rows))
+        (root / 'api-ledger.ndjson').write_text('\n'.join(json.dumps(item) for item in ledger_rows))
         env['HEADER_STATUS'] = '200'
         result = subprocess.run(['/bin/bash', '-c', script], env=env, capture_output=True, text=True)
         assert result.returncode == 0, (name, result.stdout, result.stderr)

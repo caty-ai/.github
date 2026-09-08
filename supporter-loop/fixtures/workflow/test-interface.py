@@ -68,6 +68,8 @@ assert 'probe "repos/$REWARD_REPO/contents/ledger"' in preflight_run, 'Contents 
 # the 1,000-result cap counts supporter-loop runs only (repo-wide was 1,691).
 stars = workflow['jobs']['stars']
 assert stars['if'] == '${{ inputs.sweep == true }}', 'stars runs only in sweeps'
+assert stars['timeout-minutes'] == 10
+assert act['timeout-minutes'] == 10
 assert stars['permissions'] == {'contents': 'write'}
 assert len(stars['steps']) == 1 and stars['steps'][0]['id'] == 'list'
 assert set(stars['steps'][0]['env']) == {'GH_TOKEN'} and 'secrets.' not in yaml.safe_dump(stars), 'stars never sees a secret'

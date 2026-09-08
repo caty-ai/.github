@@ -1,5 +1,5 @@
 # supporter-loop — record-only first; caller activation belongs to checkpoint #4.
-# Contract: caty-ai/x-collector docs/supporter-loop/CONTRACT.md v1.11 (frozen)
+# Contract: caty-ai/x-collector docs/supporter-loop/CONTRACT.md v2.0 (frozen)
 # SECURITY INVARIANTS — §13, do not weaken:
 # 1. Never check out or execute code from the triggering ref, including in callers.
 # 2. Actor strings enter scripts only through env or GITHUB_EVENT_PATH.
@@ -17,7 +17,7 @@
 # 8. Fixed comment templates: login/reward_repo_url substitutions plus numeric marker.
 # Caller concurrency, token registration/expiry variables, baseline JSON and
 # the Contributors wall/release notes are owned by child #3 / the owner.
-# Backfill input is deliberately absent: add only at checkpoint #4 (§7 v1.9).
+# Backfill is retired in v2.0; historical ok-backfill lines retain their meaning.
 name: supporter-loop-reusable
 on:
   workflow_call:
@@ -63,7 +63,7 @@ jobs:
   stars:
     if: ${{ inputs.sweep == true }}
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 10
     permissions:
       contents: write
     outputs:
@@ -85,8 +85,9 @@ jobs:
              || ! jq -e 'type=="array" and length>0 and all(.[]; type=="array") and all(.[][]; .id|type=="number" and .>0 and floor==.)' "$work/pages" >/dev/null; then
             ok=false; printf '[]\n' > "$work/pages"
           fi
+          # jq builtin unique_by sorts: the local definition preserves first page occurrence.
           # IDs only, never logins or author text. Fail before GitHub's output-size truncation.
-          stars=$(jq -c '[.[][].id] | unique' "$work/pages")
+          stars=$(jq -c 'def stable_unique_by(f): reduce .[] as $x ({seen:{},out:[]}; ($x|f|tojson) as $k | if .seen[$k] then . else .seen[$k]=true | .out += [$x] end) | .out; [.[][].id] | stable_unique_by(.)' "$work/pages")
           [ "${#stars}" -lt 400000 ] || { echo '::error::stargazer handoff exceeds safe output size'; exit 1; }
           printf 'ok=%s\n' "$ok" >> "$GITHUB_OUTPUT"
           printf 'stargazers=%s\n' "$stars" >> "$GITHUB_OUTPUT"
@@ -107,6 +108,9 @@ jobs:
       has_live_actions: ${{ steps.decide.outputs.has_live_actions }}
       sweep_gate: ${{ steps.decide.outputs.sweep_gate }}
       stargazers: ${{ steps.decide.outputs.stargazers }}
+      cancelled_event: ${{ steps.decide.outputs.cancelled_event }}
+      cancelled_schedule: ${{ steps.decide.outputs.cancelled_schedule }}
+      red_run: ${{ steps.decide.outputs.red_run }}
     steps:
       - name: Validate mode before any network access
         env:
@@ -166,6 +170,45 @@ jobs:
               ([.[] | select(.action=="cancel-invite" and .result=="expired") | [.ts,.__order]] | max // ["",-1]) as $expired |
               any(.[]; .tier==$tier and .dedup_key==($repo+":"+($tier|tostring)+":"+($id|tostring)) and .action==$action and success and [.ts,.__order]>$expired)
             else any(.[]; .tier==$tier and .dedup_key==($repo+":"+($tier|tostring)+":"+($id|tostring)) and .action==$action and success) end);
+          # Shared key rule: a sweep delivery is a tier delivery, never a closure.
+          def key_namespace($action;$event;$tier):
+            if $event=="sweep" and ($action|IN("skip","revoke","cancel-invite","would-revoke","would-cancel-invite")) then "sweep" else ($tier|tostring) end;
+          # Rehearsal also honors live deliveries to avoid predicting actions already performed.
+          def invite_delivered($repo;$id):
+            delivered($repo;$id;1;"invite") or
+            (if $mode=="record-only" then delivered($repo;$id;1;"would-invite") else false end) or
+            (current($repo;$id) | to_entries | map(.value+{__order:.key}) |
+              ([.[]|select(.action=="cancel-invite" and .result=="expired")|[.ts,.__order]]|max // ["",-1]) as $expired |
+              any(.[]; .action=="invite" and .result=="ok-backfill" and .dedup_key==($repo+":sweep:"+($id|tostring)) and [.ts,.__order]>$expired));
+          def append_delivered($repo;$id): delivered($repo;$id;1;"supporters-append") or
+            (if $mode=="record-only" then delivered($repo;$id;1;"would-supporters-append") else false end);
+          def excluded($repo;$id): current($repo;$id) | any(.[]; .action=="skip" and (.result|startswith("excluded-")));
+          def exhausted($repo;$id):
+            # Count completed invite/expiry cycles, not concurrent PUTs before one expiry.
+            current($repo;$id) | to_entries | unique_by(.value) | sort_by(.value.ts,.key) | map(.value) |
+            reduce .[] as $r ({pending:false,expired:0};
+              if $r.action=="invite" and ($r.result|IN("ok","ok-backfill","ok-catchup")) then .pending=true
+              elif $r.action=="cancel-invite" and $r.result=="expired" and .pending then .expired+=1 | .pending=false else . end) | .expired>=2;
+          def catchup($repo;$stars;$tiers): . as $all |
+            if ($tiers|split(",")|index("1"))==null then [] else
+              [$stars[] as $id | ($all|current($repo;$id)) as $history |
+                select($all|excluded($repo;$id)|not) |
+                ($all|invite_delivered($repo;$id)) as $invited | ($all|append_delivered($repo;$id)) as $appended |
+                select(($invited and $appended)|not) |
+                {actor_id:$id,gen:($all|generation($repo;$id)),invite:$invited,append:$appended,
+                 actor:($history|sort_by(.ts)|last|.actor // ""),
+                 rearmed:($history|any(.[];.action=="invite" and success)),exhausted:($all|exhausted($repo;$id))}] |
+              map(select(.rearmed|not)) + map(select(.rearmed)) end;
+          # Rolling window is (now-86400, now]: exactly 24h old has aged out.
+          # Exact duplicate rotation rows count once; already-1 never consumed a PUT.
+          # Only current-generation successful PUTs suppress a pending invitation.
+          def quota($repo;$pending;$now): . as $all |
+            [unique[] | select(.repo==$repo and .action=="invite" and (.result|IN("ok","ok-backfill","ok-catchup"))) |
+              {id:.actor_id,gen:.gen,ts:(.ts|fromdateiso8601)} | select(.ts>$now-86400 and .ts<=$now)] as $sent |
+            ($sent + [$pending[] | {id:.invitee.id,ts:(.created_at|fromdateiso8601)} |
+              select(.ts>$now-86400 and .ts<=$now) | . as $p | select(all($sent[];.id!=$p.id or .gen!=($all|generation($repo;$p.id))))]) as $counted |
+            {B:($counted|length),Q:([0,45-($counted|length)]|max),
+             age_out:([$counted[].ts+86400-$now]|min // 0)};
           JQ
           model() { jq -s -L "$work" --arg mode "$MODE" "include \"model\"; $1" "$ledger"; }
           # Read-shaped requests; HTTP errors are classified without printing response bodies.
@@ -206,14 +249,12 @@ jobs:
           }
           line() {
             local action="$1" result="$2" tier="$3" subject="$4" event="$5"
-            local key="$GITHUB_REPOSITORY:$tier:$actor_id"
-            [ "$event" != sweep ] || key="$GITHUB_REPOSITORY:sweep:$actor_id"
-            jq -cn --arg ts "$(date -u +%Y-%m-%dT%H:%M:%SZ)" --arg run_id "$RUN_KEY" \
+            jq -cn -L "$work" --arg ts "$(date -u +%Y-%m-%dT%H:%M:%SZ)" --arg run_id "$RUN_KEY" \
               --arg repo "$GITHUB_REPOSITORY" --arg event "$event" --arg actor "$actor" \
               --arg actor_id "$actor_id" --arg tier "$tier" --arg subject "$subject" \
               --arg action "$action" --arg mode "$MODE" --arg result "$result" \
-              --arg dedup_key "$key" --arg gen "$gen" \
-              '{schema:1,ts:$ts,run_id:$run_id,repo:$repo,event:$event,actor:$actor,actor_id:($actor_id|tonumber),tier:($tier|tonumber),subject:$subject,action:$action,mode:$mode,result:$result,dedup_key:$dedup_key,gen:($gen|tonumber)}'
+              --arg gen "$gen" \
+              'include "model"; key_namespace($action;$event;$tier) as $ns | {schema:1,ts:$ts,run_id:$run_id,repo:$repo,event:$event,actor:$actor,actor_id:($actor_id|tonumber),tier:($tier|tonumber),subject:$subject,action:$action,mode:$mode,result:$result,dedup_key:($repo+":"+$ns+":"+$actor_id),gen:($gen|tonumber)}'
           }
           append() {
             local entry="$1" attempt=0 sha content status
@@ -247,6 +288,30 @@ jobs:
               [ "$attempt" -gt 5 ] || sleep "$((1 + RANDOM % 4))"
             done
             echo '::error::ledger CAS retries exhausted'; return 1
+          }
+          identity() {
+            get "$GH_TOKEN" "user/$actor_id" "$work/identity.json" || { code=transport; return 1; }
+            [ "$code" = 200 ] || return 1
+            actor=$(jq -er --argjson id "$actor_id" 'select(.id==$id) | .login | select(type=="string" and test("^[A-Za-z0-9-]{1,39}(\\[bot\\])?$"))' "$work/identity.json") || { code=identity; return 1; }
+            user_type=$(jq -er '.type|select(type=="string")' "$work/identity.json") || { code=identity; return 1; }
+          }
+          eligibility() {
+            actor_lc=$(printf '%s' "$actor" | tr '[:upper:]' '[:lower:]')
+            # Exclusion precedence: later matches win (member > org > self > bot > family).
+            reason=''
+            # Twin external-input-watch.yml fam_roster: case-insensitive; identical token set.
+            # Existing production workflow is intentionally untouched; copied roster is noted in README.
+            fam_roster="sho""jikumaru caty2 alec-bridge alpha-mbp-bridge cero-bridge"
+            for fam in $fam_roster; do [ "$actor_lc" != "$fam" ] || reason=excluded-family; done
+            if [ "$user_type" = Bot ] || [[ "$actor_lc" == *'[bot]' ]]; then reason=excluded-bot; fi
+            if [ "$actor_lc" = "$(printf '%s' "${GITHUB_REPOSITORY%/*}" | tr '[:upper:]' '[:lower:]')" ] || [ "$actor_lc" = 'github-actions[bot]' ]; then reason=excluded-self; fi
+            [ "$user_type" != Organization ] || reason=excluded-org
+            case "$assoc" in OWNER|MEMBER) reason=excluded-member ;; esac
+            if [ -z "$reason" ]; then
+              if ! { [ "$user_type" = User ] && [[ "$actor" =~ ^[A-Za-z0-9-]{1,39}$ ]]; }; then
+                echo '::error::invalid actor type/login'; return 1
+              fi
+            fi
           }
           # Crash-safe §6.3 copy, verify byte equality, then delete the exact base SHA.
           rotate() {
@@ -401,8 +466,9 @@ jobs:
               jq '[.[].workflow_runs[] | select(.path==".github/workflows/supporter-loop.yml")]' "$target.pages" > "$target"
             }
             cutoff=''
-            if runs 'event=schedule&status=success' "$work/success-runs.json"; then
-              cutoff=$(jq -r 'sort_by(.created_at) | last | .created_at // empty' "$work/success-runs.json")
+            if runs 'event=schedule&status=success' "$work/success-runs.json" &&
+               runs 'event=workflow_dispatch&status=success' "$work/dispatch-runs.json"; then
+              cutoff=$(jq -sr 'add | sort_by(.created_at) | last | .created_at // empty' "$work/success-runs.json" "$work/dispatch-runs.json")
             else gate=false; fi
             if [ -z "$cutoff" ]; then
               if runs '' "$work/all-runs.json"; then cutoff=$(jq -r 'sort_by(.created_at) | first | .created_at // empty' "$work/all-runs.json"); else gate=false; fi
@@ -410,18 +476,28 @@ jobs:
             if [ -z "$cutoff" ]; then gate=false
             elif ! runs "status=failure&created=%3E%3D$cutoff" "$work/failed-runs.json"; then gate=false
             elif [ "$(jq length "$work/failed-runs.json")" -ne 0 ]; then gate=false; fi
+            printf 'red_run=%s\n' "$([ "$gate" = true ] && echo false || echo true)" >> "$GITHUB_OUTPUT"
+            # Cancelled runs are observability only: they NEVER change any gate.
+            cancelled_event=0; cancelled_schedule=0
+            if [ -n "$cutoff" ] && runs "status=cancelled&created=%3E%3D$cutoff" "$work/cancelled-runs.json"; then
+              cancelled_event=$(jq '[.[]|select(.event|IN("watch","issues","discussion","pull_request_target"))]|length' "$work/cancelled-runs.json")
+              cancelled_schedule=$(jq '[.[]|select(.event|IN("schedule","workflow_dispatch"))]|length' "$work/cancelled-runs.json")
+            else echo '::warning::cancelled-run listing unavailable; counts default to zero'; fi
+            printf 'cancelled_event=%s\ncancelled_schedule=%s\n' "$cancelled_event" "$cancelled_schedule" >> "$GITHUB_OUTPUT"
+            stars_ok=false
             # §11(b): pagination errors do not hide expiry/audit work in live act.
             # v1.11: the list comes from the sweep-only stars job (§4.4) — decide never lists
             # stargazers itself (GITHUB_TOKEN gets 403 without contents: write; caty-ai/.github#89).
             # A skipped/failed handoff or a non-numeric entry fails closed here.
             if [ "$STAR_IDS_OK" = true ] && printf '%s' "$STAR_IDS" | jq -e 'type=="array" and all(.[]; type=="number" and .>0 and floor==.)' >/dev/null 2>&1; then
+              stars_ok=true
               printf '%s' "$STAR_IDS" | jq '[.[] | {id: .}]' > "$work/stargazers.json"
             else
               gate=false; printf '[]\n' > "$work/stargazers.json"
             fi
             printf 'sweep_gate=%s\n' "$gate" >> "$GITHUB_OUTPUT"
             # IDs only, never secrets or author text. Fail before GitHub's output-size truncation.
-            stars=$(jq -c '[.[].id] | unique' "$work/stargazers.json")
+            stars=$(jq -c 'def stable_unique_by(f): reduce .[] as $x ({seen:{},out:[]}; ($x|f|tojson) as $k | if .seen[$k] then . else .seen[$k]=true | .out += [$x] end) | .out; [.[].id] | stable_unique_by(.)' "$work/stargazers.json")
             [ "${#stars}" -lt 400000 ] || { echo '::error::stargazer handoff exceeds safe output size'; exit 1; }
             printf 'stargazers=%s\n' "$stars" >> "$GITHUB_OUTPUT"
             printf 'actions=[]\n' >> "$GITHUB_OUTPUT"
@@ -453,6 +529,33 @@ jobs:
                 append "$(line would-revoke noop 0 '' sweep)"
               done < <(jq -r '.[]' "$work/ids.json")
             fi
+            # §11(4b) rehearsal is gated ONLY by exhaustive stars. Pending quota is
+            # unavailable without Administration; B is ledger-only (intentional undercount).
+            if [ "$stars_ok" = true ]; then
+              jq -s -L "$work" --arg mode "$MODE" --arg repo "$GITHUB_REPOSITORY" --arg tiers "$TIERS_ENABLED" --argjson stars "$stars" \
+                'include "model"; catchup($repo;$stars;$tiers)' "$ledger" > "$work/catchup.json"
+              rehearsal_count=0
+              while IFS= read -r item; do
+                actor_id=$(jq -r .actor_id <<< "$item"); actor=$(jq -r .actor <<< "$item"); gen=$(jq -r .gen <<< "$item")
+                append "$(line would-supporters-append ok 1 '' sweep)"
+              done < <(jq -c '.[]|select(.invite and (.append|not))' "$work/catchup.json")
+              while IFS= read -r item; do
+                quota=$(jq -s -L "$work" --arg mode "$MODE" --arg repo "$GITHUB_REPOSITORY" --argjson now "$(date -u +%s)" 'include "model"; quota($repo;[];$now)' "$ledger")
+                [ "$(jq -r .Q <<< "$quota")" -gt "$rehearsal_count" ] || break
+                actor_id=$(jq -r .actor_id <<< "$item"); gen=$(jq -r .gen <<< "$item"); actor=$(jq -r .actor <<< "$item")
+                if [ "$(jq -r .exhausted <<< "$item")" = true ]; then append "$(line skip excluded-unresponsive 0 '' sweep)"; continue; fi
+                assoc=NONE; reason=''
+                if ! { identity && eligibility; }; then
+                  if [ -n "$reason" ]; then append "$(line skip "$reason" 0 '' sweep)"
+                  else echo "::warning::rehearsal identity unavailable for actor_id=$actor_id"; fi
+                  continue
+                fi
+                if [ -n "$reason" ]; then append "$(line skip "$reason" 0 '' sweep)"; continue; fi
+                append "$(line would-invite ok 1 '' sweep)"
+                rehearsal_count=$((rehearsal_count+1))
+                if [ "$(jq -r .append <<< "$item")" = false ]; then append "$(line would-supporters-append ok 1 '' sweep)"; fi
+              done < <(jq -c '.[]|select(.invite|not)' "$work/catchup.json")
+            fi
             # §11 steps 5–7: rotate, omit derived-public write, warn on ledger-token expiry.
             rotate
             reminder "$LEDGER_EXPIRES" 'ledger token'
@@ -473,22 +576,7 @@ jobs:
           actor=$(jq -r "$actor_path.login" "$GITHUB_EVENT_PATH")
           actor_id=$(jq -er "$actor_path.id | select(type==\"number\" and .>0 and floor==.)" "$GITHUB_EVENT_PATH")
           user_type=$(jq -r "$actor_path.type" "$GITHUB_EVENT_PATH")
-          actor_lc=$(printf '%s' "$actor" | tr '[:upper:]' '[:lower:]')
-          # Exclusion precedence: later matches win (member > org > self > bot > family).
-          reason=''
-          # Twin external-input-watch.yml fam_roster: case-insensitive; identical token set.
-          # Existing production workflow is intentionally untouched; copied roster is noted in README.
-          fam_roster="sho""jikumaru caty2 alec-bridge alpha-mbp-bridge cero-bridge"
-          for fam in $fam_roster; do [ "$actor_lc" != "$fam" ] || reason=excluded-family; done
-          if [ "$user_type" = Bot ] || [[ "$actor_lc" == *'[bot]' ]]; then reason=excluded-bot; fi
-          if [ "$actor_lc" = "$(printf '%s' "${GITHUB_REPOSITORY%/*}" | tr '[:upper:]' '[:lower:]')" ] || [ "$actor_lc" = 'github-actions[bot]' ]; then reason=excluded-self; fi
-          [ "$user_type" != Organization ] || reason=excluded-org
-          case "$assoc" in OWNER|MEMBER) reason=excluded-member ;; esac
-          if [ -z "$reason" ]; then
-            if ! { [ "$user_type" = User ] && [[ "$actor" =~ ^[A-Za-z0-9-]{1,39}$ ]]; }; then
-              echo '::error::invalid actor type/login'; exit 1
-            fi
-          fi
+          eligibility
           gen=$(model "generation(\"$GITHUB_REPOSITORY\";$actor_id)")
           if [ -n "$reason" ]; then
             append "$(line skip "$reason" 0 "$subject" "$EVENT_NAME")"
@@ -547,6 +635,7 @@ jobs:
           [ -n "$ADMIN_TOKEN" ] || { echo '::error::SUPPORTER_LOOP_TOKEN is empty'; exit 1; }
           umask 077
           mkdir -p "$RUNNER_TEMP/supporter-loop"
+          date -u +%s > "$RUNNER_TEMP/supporter-loop/job-start"
           probe() {
             [ "$MODE" = live ] || return 1
             code=$(curl -sS --connect-timeout 10 --max-time 45 -o "$RUNNER_TEMP/supporter-loop/preflight.json" -w '%{http_code}' \
@@ -582,6 +671,10 @@ jobs:
           ACTIONS: ${{ needs.decide.outputs.actions }}
           SWEEP_GATE: ${{ needs.decide.outputs.sweep_gate }}
           STARGAZERS: ${{ needs.decide.outputs.stargazers }}
+          TIERS_ENABLED: ${{ inputs.tiers_enabled }}
+          CANCELLED_EVENT: ${{ needs.decide.outputs.cancelled_event }}
+          CANCELLED_SCHEDULE: ${{ needs.decide.outputs.cancelled_schedule }}
+          RED_RUN: ${{ needs.decide.outputs.red_run }}
           LEDGER_EXPIRES: ${{ vars.SUPPORTER_LEDGER_TOKEN_EXPIRES }}
           ADMIN_EXPIRES: ${{ vars.SUPPORTER_LOOP_TOKEN_EXPIRES }}
         run: |
@@ -593,6 +686,23 @@ jobs:
           mkdir -p "$work"
           base="${GITHUB_REPOSITORY//\//--}"
           ledger="$work/ledger.ndjson"
+          # §11 work deadline includes preflight. Tests can inject an epoch clock file.
+          started=$(date -u +%s)
+          if [ -f "$work/job-start" ]; then started=$(cat "$work/job-start"); fi
+          elapsed_offset=$(( $(date -u +%s) - started )); SECONDS=0
+          writeCount=0; reservedCount=0; waitCount=0; budget_active=false
+          if [ "$SWEEP" = true ]; then reservedCount=2; fi # final projection + state
+          elapsed() {
+            if [ -n "${SWEEP_CLOCK_FILE:-}" ]; then echo "$(( $(cat "$SWEEP_CLOCK_FILE") - started ))"
+            else echo "$((elapsed_offset + SECONDS))"; fi
+          }
+          within_deadline() { [ "$(elapsed)" -le 360 ]; }
+          work_budget() { within_deadline && [ "$((writeCount + reservedCount + ${1:-0}))" -le 150 ]; }
+          pace_write() {
+            # Full second after the previous attempted write completed, even across helpers.
+            if [ "$writeCount" -gt 0 ]; then sleep 1; fi
+            writeCount=$((writeCount+1))
+          }
           # .publication-denylist option a: split committer email preserves contract §6 identity.
           # Model is embedded in the reviewed central workflow, never loaded from source code.
           cat > "$work/model.jq" <<'JQ'
@@ -607,11 +717,51 @@ jobs:
               ([.[] | select(.action=="cancel-invite" and .result=="expired") | [.ts,.__order]] | max // ["",-1]) as $expired |
               any(.[]; .tier==$tier and .dedup_key==($repo+":"+($tier|tostring)+":"+($id|tostring)) and .action==$action and success and [.ts,.__order]>$expired)
             else any(.[]; .tier==$tier and .dedup_key==($repo+":"+($tier|tostring)+":"+($id|tostring)) and .action==$action and success) end);
+          # Shared key rule: a sweep delivery is a tier delivery, never a closure.
+          def key_namespace($action;$event;$tier):
+            if $event=="sweep" and ($action|IN("skip","revoke","cancel-invite","would-revoke","would-cancel-invite")) then "sweep" else ($tier|tostring) end;
+          # Rehearsal also honors live deliveries to avoid predicting actions already performed.
+          def invite_delivered($repo;$id):
+            delivered($repo;$id;1;"invite") or
+            (if $mode=="record-only" then delivered($repo;$id;1;"would-invite") else false end) or
+            (current($repo;$id) | to_entries | map(.value+{__order:.key}) |
+              ([.[]|select(.action=="cancel-invite" and .result=="expired")|[.ts,.__order]]|max // ["",-1]) as $expired |
+              any(.[]; .action=="invite" and .result=="ok-backfill" and .dedup_key==($repo+":sweep:"+($id|tostring)) and [.ts,.__order]>$expired));
+          def append_delivered($repo;$id): delivered($repo;$id;1;"supporters-append") or
+            (if $mode=="record-only" then delivered($repo;$id;1;"would-supporters-append") else false end);
+          def excluded($repo;$id): current($repo;$id) | any(.[]; .action=="skip" and (.result|startswith("excluded-")));
+          def exhausted($repo;$id):
+            # Count completed invite/expiry cycles, not concurrent PUTs before one expiry.
+            current($repo;$id) | to_entries | unique_by(.value) | sort_by(.value.ts,.key) | map(.value) |
+            reduce .[] as $r ({pending:false,expired:0};
+              if $r.action=="invite" and ($r.result|IN("ok","ok-backfill","ok-catchup")) then .pending=true
+              elif $r.action=="cancel-invite" and $r.result=="expired" and .pending then .expired+=1 | .pending=false else . end) | .expired>=2;
+          def catchup($repo;$stars;$tiers): . as $all |
+            if ($tiers|split(",")|index("1"))==null then [] else
+              [$stars[] as $id | ($all|current($repo;$id)) as $history |
+                select($all|excluded($repo;$id)|not) |
+                ($all|invite_delivered($repo;$id)) as $invited | ($all|append_delivered($repo;$id)) as $appended |
+                select(($invited and $appended)|not) |
+                {actor_id:$id,gen:($all|generation($repo;$id)),invite:$invited,append:$appended,
+                 actor:($history|sort_by(.ts)|last|.actor // ""),
+                 rearmed:($history|any(.[];.action=="invite" and success)),exhausted:($all|exhausted($repo;$id))}] |
+              map(select(.rearmed|not)) + map(select(.rearmed)) end;
+          # Rolling window is (now-86400, now]: exactly 24h old has aged out.
+          # Exact duplicate rotation rows count once; already-1 never consumed a PUT.
+          # Only current-generation successful PUTs suppress a pending invitation.
+          def quota($repo;$pending;$now): . as $all |
+            [unique[] | select(.repo==$repo and .action=="invite" and (.result|IN("ok","ok-backfill","ok-catchup"))) |
+              {id:.actor_id,gen:.gen,ts:(.ts|fromdateiso8601)} | select(.ts>$now-86400 and .ts<=$now)] as $sent |
+            ($sent + [$pending[] | {id:.invitee.id,ts:(.created_at|fromdateiso8601)} |
+              select(.ts>$now-86400 and .ts<=$now) | . as $p | select(all($sent[];.id!=$p.id or .gen!=($all|generation($repo;$p.id))))]) as $counted |
+            {B:($counted|length),Q:([0,45-($counted|length)]|max),
+             age_out:([$counted[].ts+86400-$now]|min // 0)};
           JQ
           model() { jq -s -L "$work" --arg mode "$MODE" "include \"model\"; $1" "$ledger"; }
           # Read-shaped requests; HTTP errors are classified without printing response bodies.
           get() {
             local token="$1" endpoint="$2" target="$3"
+            if [ "${budget_active:-false}" = true ]; then within_deadline || return 1; fi
             [ "$MODE" = live ] || return 1
             code=$(curl -sS --connect-timeout 10 --max-time 45 -o "$target" -w '%{http_code}' \
               -H "Authorization: Bearer $token" -H 'Accept: application/vnd.github+json' \
@@ -619,8 +769,13 @@ jobs:
           }
           pages() {
             local token="$1" endpoint="$2" target="$3"
+            if [ "${budget_active:-false}" = true ]; then within_deadline || return 1; fi
             [ "$MODE" = live ] || return 1
-            GH_TOKEN="$token" gh api --hostname github.com --method GET --paginate --slurp "$endpoint" > "$target.pages" || return 1
+            if [ "${budget_active:-false}" = true ]; then
+              timeout "$((361 - $(elapsed)))" env GH_TOKEN="$token" gh api --hostname github.com --method GET --paginate --slurp "$endpoint" > "$target.pages" || return 1
+            else
+              GH_TOKEN="$token" gh api --hostname github.com --method GET --paginate --slurp "$endpoint" > "$target.pages" || return 1
+            fi
             jq -e 'type=="array" and length>0 and all(.[]; type=="array")' "$target.pages" >/dev/null || return 1
             jq 'add // []' "$target.pages" > "$target"
           }
@@ -649,14 +804,12 @@ jobs:
           }
           line() {
             local action="$1" result="$2" tier="$3" subject="$4" event="$5"
-            local key="$GITHUB_REPOSITORY:$tier:$actor_id"
-            [ "$event" != sweep ] || key="$GITHUB_REPOSITORY:sweep:$actor_id"
-            jq -cn --arg ts "$(date -u +%Y-%m-%dT%H:%M:%SZ)" --arg run_id "$RUN_KEY" \
+            jq -cn -L "$work" --arg ts "$(date -u +%Y-%m-%dT%H:%M:%SZ)" --arg run_id "$RUN_KEY" \
               --arg repo "$GITHUB_REPOSITORY" --arg event "$event" --arg actor "$actor" \
               --arg actor_id "$actor_id" --arg tier "$tier" --arg subject "$subject" \
               --arg action "$action" --arg mode "$MODE" --arg result "$result" \
-              --arg dedup_key "$key" --arg gen "$gen" \
-              '{schema:1,ts:$ts,run_id:$run_id,repo:$repo,event:$event,actor:$actor,actor_id:($actor_id|tonumber),tier:($tier|tonumber),subject:$subject,action:$action,mode:$mode,result:$result,dedup_key:$dedup_key,gen:($gen|tonumber)}'
+              --arg gen "$gen" \
+              'include "model"; key_namespace($action;$event;$tier) as $ns | {schema:1,ts:$ts,run_id:$run_id,repo:$repo,event:$event,actor:$actor,actor_id:($actor_id|tonumber),tier:($tier|tonumber),subject:$subject,action:$action,mode:$mode,result:$result,dedup_key:($repo+":"+$ns+":"+$actor_id),gen:($gen|tonumber)}'
           }
           append() {
             local entry="$1" attempt=0 sha content status
@@ -678,6 +831,7 @@ jobs:
                 --arg message "supporter-loop: $(jq -r '.event+" "+.actor+" "+.action' <<< "$entry")" \
                 '{message:$message,content:$content,committer:{name:"supporter-loop[bot]",email:("supporter-loop@" + "caty-ai" + ".noreply")}} + (if $sha=="" then {} else {sha:$sha} end)' > "$work/put.json"
               [ "$MODE" = live ] || return 1
+              pace_write
               status=$(curl -sS --connect-timeout 10 --max-time 45 -o "$work/put-response.json" -w '%{http_code}' \
                 -X PUT -H "Authorization: Bearer $LEDGER_TOKEN" -H 'Accept: application/vnd.github+json' \
                 --data-binary @"$work/put.json" "https://api.github.com/repos/$REWARD_REPO/contents/ledger/$base.ndjson") || return 1
@@ -721,6 +875,7 @@ jobs:
             jq -cn --arg content "$content" --arg sha "$target_sha" \
               '{message:"supporter-loop: sweep ledger rotate",content:$content,committer:{name:"supporter-loop[bot]",email:("supporter-loop@" + "caty-ai" + ".noreply")}} + (if $sha=="" then {} else {sha:$sha} end)' > "$work/rotate.json"
             [ "$MODE" = live ] || return 1
+            pace_write
             status=$(curl -sS --connect-timeout 10 --max-time 45 -o "$work/rotate-response" -w '%{http_code}' -X PUT \
               -H "Authorization: Bearer $LEDGER_TOKEN" --data-binary @"$work/rotate.json" \
               "https://api.github.com/repos/$REWARD_REPO/contents/ledger/$archive") || return 1
@@ -731,6 +886,7 @@ jobs:
             cmp -s "$work/rotation-base" "$work/verified" || { echo '::error::rotation byte verification failed'; return 1; }
             jq -cn --arg sha "$base_sha" '{message:"supporter-loop: sweep ledger rotate",sha:$sha,committer:{name:"supporter-loop[bot]",email:("supporter-loop@" + "caty-ai" + ".noreply")}}' > "$work/delete.json"
             [ "$MODE" = live ] || return 1
+            pace_write
             status=$(curl -sS --connect-timeout 10 --max-time 45 -o "$work/delete-response" -w '%{http_code}' -X DELETE \
               -H "Authorization: Bearer $LEDGER_TOKEN" --data-binary @"$work/delete.json" \
               "https://api.github.com/repos/$REWARD_REPO/contents/ledger/$base.ndjson") || return 1
@@ -739,6 +895,7 @@ jobs:
           # GraphQL is read-only here. Explicit cursors exhaust comments AND every replies connection.
           graph() {
             local query="$1" variables="$2" target="$3" entry key value kind
+            if [ "${budget_active:-false}" = true ]; then within_deadline || return 1; fi
             [ "$MODE" = live ] || return 1
             # Only query operations; gh field flags select POST for GraphQL transport.
             case "$query" in query*) ;; *) return 1 ;; esac
@@ -834,6 +991,7 @@ jobs:
           mutate() {
             local token="$1" method="$2" endpoint="$3" payload="$4"
             [ "$MODE" = live ] || return 1
+            pace_write
             code=$(curl -sS --connect-timeout 10 --max-time 45 -o "$work/mutation.json" -w '%{http_code}' \
               -X "$method" -H "Authorization: Bearer $token" -H 'Accept: application/vnd.github+json' \
               -H 'X-GitHub-Api-Version: 2022-11-28' --data-binary "@$payload" "https://api.github.com/$endpoint") || code=transport
@@ -843,17 +1001,60 @@ jobs:
             entry=$(line "$1" "$2" "$3" "$4" "$5")
             # Independent owner leg survives a failed ledger append; no tokens/text enter this file.
             printf '%s\n' "$entry" >> "$work/notify.ndjson"
-            append "$entry" || { echo '::error::action returned but ledger append failed'; return 1; }
+            append "$entry" || { echo '::error::action returned but ledger append failed'; failed=1; return 1; }
           }
           identity() {
-            get "$GH_TOKEN" "user/$actor_id" "$work/identity.json" || return 1
+            get "$GH_TOKEN" "user/$actor_id" "$work/identity.json" || { code=transport; return 1; }
             [ "$code" = 200 ] || return 1
-            actor=$(jq -er --argjson id "$actor_id" 'select(.id==$id and .type=="User") | .login | select(test("^[A-Za-z0-9-]{1,39}$"))' "$work/identity.json")
+            actor=$(jq -er --argjson id "$actor_id" 'select(.id==$id) | .login | select(type=="string" and test("^[A-Za-z0-9-]{1,39}(\\[bot\\])?$"))' "$work/identity.json") || { code=identity; return 1; }
+            user_type=$(jq -er '.type|select(type=="string")' "$work/identity.json") || { code=identity; return 1; }
+          }
+          eligibility() {
+            actor_lc=$(printf '%s' "$actor" | tr '[:upper:]' '[:lower:]')
+            # Exclusion precedence: later matches win (member > org > self > bot > family).
+            reason=''
+            # Twin external-input-watch.yml fam_roster: case-insensitive; identical token set.
+            # Existing production workflow is intentionally untouched; copied roster is noted in README.
+            fam_roster="sho""jikumaru caty2 alec-bridge alpha-mbp-bridge cero-bridge"
+            for fam in $fam_roster; do [ "$actor_lc" != "$fam" ] || reason=excluded-family; done
+            if [ "$user_type" = Bot ] || [[ "$actor_lc" == *'[bot]' ]]; then reason=excluded-bot; fi
+            if [ "$actor_lc" = "$(printf '%s' "${GITHUB_REPOSITORY%/*}" | tr '[:upper:]' '[:lower:]')" ] || [ "$actor_lc" = 'github-actions[bot]' ]; then reason=excluded-self; fi
+            [ "$user_type" != Organization ] || reason=excluded-org
+            case "$assoc" in OWNER|MEMBER) reason=excluded-member ;; esac
+            if [ -z "$reason" ]; then
+              if ! { [ "$user_type" = User ] && [[ "$actor" =~ ^[A-Za-z0-9-]{1,39}$ ]]; }; then
+                echo '::error::invalid actor type/login'; return 1
+              fi
+            fi
+          }
+          # PROVISIONAL §14 launch gate: owner must probe and pin exact GitHub text before merge.
+          INVITE_LIMIT_PATTERN='invit.*(limit|exceed|too many|24 ?h|per day)|too many invit'
+          invitation_limit() {
+            jq -e --arg pattern "$INVITE_LIMIT_PATTERN" '[.message, .errors[]? | if type=="object" then (.message,.code) else . end] | any(.[]; type=="string" and test($pattern;"i"))' "$work/mutation.json" >/dev/null
+          }
+          quota_now() {
+            jq -s -L "$work" --arg mode "$MODE" --arg repo "$GITHUB_REPOSITORY" --argjson now "$(date -u +%s)" --slurpfile pending "$work/pending.json" \
+              'include "model"; quota($repo;$pending[0];$now)' "$ledger" > "$work/quota.json"
+          }
+          quota_room() {
+            local age_out
+            while :; do
+              work_budget || return 1
+              quota_now || return 2
+              [ "$(jq -r .Q "$work/quota.json")" -eq 0 ] || return 0
+              age_out=$(jq -r .age_out "$work/quota.json")
+              [ "$age_out" -gt 0 ] && [ "$age_out" -le 300 ] && [ "$((waitCount+age_out))" -le 180 ] || return 1
+              [ "$(( $(elapsed) + age_out ))" -le 360 ] || return 1
+              sleep "$age_out"
+              waitCount=$((waitCount+age_out))
+            done
           }
           invite() {
             local pending collaborator_status
             result=ok
-            if ! identity; then result="error-$code"; return 0; fi
+            if [ "${1:-false}" != true ]; then
+              if ! identity; then result="error-$code"; return 0; fi
+            fi
             if ! get "$ADMIN_TOKEN" "repos/$REWARD_REPO/collaborators/$actor" "$work/collaborator.json"; then result=error-transport; return 0; fi
             collaborator_status="$code"
             case "$collaborator_status" in 204|404) ;; *) result="error-$code"; return 0 ;; esac
@@ -861,10 +1062,21 @@ jobs:
             if ! jq -e 'all(.[]; (.id|type=="number" and .>0 and floor==.) and (.invitee.id|type=="number" and .>0 and floor==.))' "$work/pending.json" >/dev/null; then result=error-preflight; return 0; fi
             pending=$(jq --argjson id "$actor_id" 'any(.[];.invitee.id==$id)' "$work/pending.json")
             if [ "$collaborator_status" = 204 ] || [ "$pending" = true ]; then result=already-1; return 0; fi
+            # Recompute immediately before every catch-up PUT, after fresh pending preflight.
+            if [ "$SWEEP" = true ]; then
+              if quota_room; then :; else
+                case "$?" in 1) result=budget-stop ;; *) result=error-quota ;; esac
+                return 0
+              fi
+            fi
             # §2: explicit REST enum pull; omitting this grants push by platform default.
             printf '{"permission":"pull"}\n' > "$work/invite.json"
             mutate "$ADMIN_TOKEN" PUT "repos/$REWARD_REPO/collaborators/$actor" "$work/invite.json"
-            case "$code" in 200|201|204) result=ok ;; *) result="error-$code" ;; esac
+            case "$code" in
+              200|201|204) result=ok ;;
+              422) if invitation_limit; then result=deferred-quota; else result=error-422; fi ;;
+              *) result="error-$code" ;;
+            esac
           }
           comment() {
             local tier="$1" subject="$2" event="$3" number marker body template node vars query matched
@@ -909,41 +1121,97 @@ jobs:
             fi
           }
           regenerate() {
-            local attempt=0 sha content header projected="${1:-}" derive="$ledger"
+            local code="" attempt=0 sha content header projected="${1:-}" original_ledger="$ledger"
+            local ledger="$work/fresh-ledger.ndjson" derive="$work/projected.ndjson"
+            regenerate_status=""
             [ "$MODE" = live ] || return 1
             # §6.5: child #1 owns the header; never publish a headerless projection.
             if ! get "$LEDGER_TOKEN" "repos/$REWARD_REPO/contents/SUPPORTERS.header.md" "$work/supporters-header.json" ||
               [ "$code" != 200 ] ||
               ! header=$(jq -er '.content | select(type=="string" and length>0)' "$work/supporters-header.json" | base64 -d) ||
               [ -z "$header" ] || [ "${header##*$'\n'}" != '<!-- generated table below; do not edit by hand -->' ]; then
+              case "$code" in [45][0-9][0-9]) regenerate_status="$code" ;; esac
               echo '::error::SUPPORTERS.header.md missing or malformed in reward repo (child #1); regeneration skipped'
               return 1
             fi
-            # Command substitution strips only trailing LF bytes; restore one plus the separator.
-            printf '%s\n\n' "$header" > "$work/SUPPORTERS.md" || return 1
-            # Project only the intended success into a temporary render input.
-            # The actual ledger still changes only AFTER the Contents API returns.
-            if [ -n "$projected" ]; then
-              derive="$work/projected.ndjson"
-              cat "$ledger" > "$derive"
-              printf '%s\n' "$projected" >> "$derive"
-            fi
-            # §6.5: stable numeric identity, latest login, achieved success tier, first date.
-            # This is a whole-file derivation; the reward-repo child owns its presentation.
-            jq -sr -L "$work" --arg mode "$MODE" --arg repo "$GITHUB_REPOSITORY" '
-              include "model";
-              . as $all | [.[]|select(.repo==$repo)|.actor_id]|unique |
-              map(. as $id | ($all|current($repo;$id)) as $history | ($all|achieved($repo;$id)) as $tier |
-                select($tier>0) | ($all|map(select(.repo==$repo and .actor_id==$id))|sort_by(.ts)) as $ever |
-                {id:$id,actor:($ever|last|.actor),tier:$tier,date:($ever|first|.ts|split("T")[0])}) |
-              map(select((.actor|ascii_downcase) as $a | (["sho"+"jikumaru","caty2","alec-bridge","alpha-mbp-bridge","cero-bridge","github-actions[bot]"]|index($a))==null and ($a|endswith("[bot]")|not))) |
-              sort_by(.date,.id) | "| Supporter | Tier | Since |\n| --- | --- | --- |", (.[]|"| @\(.actor) | \(.tier) | \(.date) |")' "$derive" >> "$work/SUPPORTERS.md" || return 1
-            content=$(base64 < "$work/SUPPORTERS.md" | tr -d '\n')
             while [ "$attempt" -le 5 ]; do
-              get "$LEDGER_TOKEN" "repos/$REWARD_REPO/contents/SUPPORTERS.md" "$work/supporters.json" || return 1
-              case "$code" in 200) sha=$(jq -er .sha "$work/supporters.json") ;; 404) sha='' ;; *) return 1 ;; esac
+              regenerate_status=""
+              get "$LEDGER_TOKEN" "repos/$REWARD_REPO/contents/SUPPORTERS.md" "$work/supporters.json" || { case "$code" in [1-5][0-9][0-9]) regenerate_status="$code" ;; esac; return 1; }
+              case "$code" in 200) sha=$(jq -er .sha "$work/supporters.json") ;; 404) sha='' ;; *) regenerate_status="$code"; return 1 ;; esac
+              # §6.5 CAS restart starts at GET, then reads fresh API ledger before rendering.
+              read_ledger || { code="ledger-read"; return 1; }
+              cp "$ledger" "$original_ledger" || return 1
+              # Command substitution strips only trailing LF bytes; restore one plus the separator.
+              printf '%s\n\n' "$header" > "$work/SUPPORTERS.md" || return 1
+              # Project only the intended success into a temporary render input.
+              # The actual ledger still changes only AFTER the Contents API returns.
+              cat "$ledger" > "$derive" || return 1
+              if [ -n "$projected" ]; then printf '%s\n' "$projected" >> "$derive"; fi
+              # §6.5: stable numeric identity, latest login, achieved success tier, first date.
+              # This is a whole-file derivation; the reward-repo child owns its presentation.
+              jq -sr -L "$work" --arg mode "$MODE" --arg repo "$GITHUB_REPOSITORY" '
+                include "model";
+                . as $all | [.[]|select(.repo==$repo)|.actor_id]|unique |
+                map(. as $id | ($all|current($repo;$id)) as $history | ($all|achieved($repo;$id)) as $tier |
+                  select($tier>0 and ($tier>1 or ($all|invite_delivered($repo;$id)))) | ($all|map(select(.repo==$repo and .actor_id==$id))|sort_by(.ts)) as $ever |
+                  {id:$id,actor:($ever|last|.actor),tier:$tier,date:($ever|first|.ts|split("T")[0])}) |
+                map(select((.actor|ascii_downcase) as $a | (["sho"+"jikumaru","caty2","alec-bridge","alpha-mbp-bridge","cero-bridge","github-actions[bot]"]|index($a))==null and ($a|endswith("[bot]")|not))) |
+                sort_by(.date,.id) | "| Supporter | Tier | Since |\n| --- | --- | --- |", (.[]|"| @\(.actor) | \(.tier) | \(.date) |")' "$derive" >> "$work/SUPPORTERS.md" || return 1
+              content=$(base64 < "$work/SUPPORTERS.md" | tr -d '\n')
               jq -cn --arg sha "$sha" --arg content "$content" '{message:"supporter-loop: regenerate supporters",content:$content,committer:{name:"supporter-loop[bot]",email:("supporter-loop@" + "caty-ai" + ".noreply")}}+(if $sha=="" then {} else {sha:$sha} end)' > "$work/supporters-put.json"
               mutate "$LEDGER_TOKEN" PUT "repos/$REWARD_REPO/contents/SUPPORTERS.md" "$work/supporters-put.json"
+              case "$code" in [1-5][0-9][0-9]) regenerate_status="$code" ;; esac
+              case "$code" in 200|201) regenerate_status=""; return 0 ;; 409) ;; 422) jq -e '.message|test("sha|does not match";"i")' "$work/mutation.json" >/dev/null || return 1 ;; *) return 1 ;; esac
+              attempt=$((attempt+1)); [ "$attempt" -gt 5 ] || sleep "$((1+RANDOM%4))"
+            done
+            return 1
+          }
+          sweep_state() {
+            local attempt=0 sha content previous current backlog stars_count md_bytes B state_path
+            state_path="ledger/$base.sweep-state.json"
+            while [ "$attempt" -le 5 ]; do
+              get "$LEDGER_TOKEN" "repos/$REWARD_REPO/contents/$state_path" "$work/state-blob.json" || return 1
+              case "$code" in
+                200) sha=$(jq -er .sha "$work/state-blob.json") || return 1
+                     previous=$(jq -er '.content|gsub("[\\n\\r]"; "") | @base64d|fromjson|.alarm_state|select(type=="object")' "$work/state-blob.json" 2>/dev/null) || previous='{}' ;;
+                404) sha=''; previous='{}' ;;
+                *) return 1 ;;
+              esac
+              read_ledger || return 1
+              candidates_now > "$work/backlog.json" || return 1
+              backlog=$(jq length "$work/backlog.json")
+              stars_count=$(jq length <<< "$STARGAZERS")
+              # Measure the actual published projection, not a failed render.
+              get "$LEDGER_TOKEN" "repos/$REWARD_REPO/contents/SUPPORTERS.md" "$work/published-supporters.json" || return 1
+              case "$code" in
+                200) md_bytes=$(jq -er '.size|select(type=="number")' "$work/published-supporters.json") || return 1 ;;
+                404) md_bytes=0 ;;
+                *) return 1 ;;
+              esac
+              quota_now || return 1
+              B=$(jq -r .B "$work/quota.json")
+              jq -cn --arg ts "$(date -u +%Y-%m-%dT%H:%M:%SZ)" --argjson backlog "$backlog" \
+                --argjson events "${CANCELLED_EVENT:-0}" --argjson schedules "${CANCELLED_SCHEDULE:-0}" \
+                --argjson stars "$stars_count" --argjson bytes "$md_bytes" --argjson B "$B" \
+                --argjson red "${RED_RUN:-false}" --argjson deferred "$deferred_quota" '
+                {stars:($stars/40000),supporters_md:($bytes/1048576),invitations:($B/45)} as $capacity |
+                {last_sweep_ts:$ts,backlog:$backlog,cancelled_runs:{event:$events,schedule:$schedules},capacity_pct:$capacity,
+                 alarm_state:{stars_70:($capacity.stars>=0.7),supporters_md_70:($capacity.supporters_md>=0.7),
+                   invitations_backlog:($backlog>0),red_run:$red,deferred_quota:$deferred}}' > "$work/sweep-state.json" || return 1
+              # Prepare the independent notification leg even if state PUT ultimately fails.
+              jq -r --arg repo "$GITHUB_REPOSITORY" --slurpfile entries "$work/notify.ndjson" '
+                (.capacity_pct|to_entries|max_by(.value)) as $max |
+                ([$entries[]|select(.event=="sweep" and (.action|IN("invite","supporters-append")) and (.result|IN("ok","ok-catchup","already-1")))|.actor_id]|unique|length) as $delivered |
+                ([$entries[]|select(.event=="sweep" and (.action|IN("revoke","cancel-invite")) and (.result|IN("ok","noop")))]|length) as $revoked |
+                "supporter-loop [live] \($repo) · sweep · delivered \($delivered) · backlog \(.backlog) · cancelled runs \(.cancelled_runs.event)/\(.cancelled_runs.schedule) · capacity \(($max.value*100)|ceil)% of \($max.key) · revoked \($revoked)"' "$work/sweep-state.json" > "$work/sweep-messages" || return 1
+              current=$(jq -c .alarm_state "$work/sweep-state.json")
+              jq -nr --arg repo "$GITHUB_REPOSITORY" --argjson previous "$previous" --argjson current "$current" '
+                $current|to_entries[]|select(.value!=($previous[.key] // false)) |
+                "supporter-loop [live] \($repo) · \(.key) · \(if .value then "raised" else "cleared" end)"' >> "$work/sweep-messages" || return 1
+              echo "::notice::catch-up backlog=$backlog"
+              content=$(base64 < "$work/sweep-state.json" | tr -d '\n')
+              jq -cn --arg sha "$sha" --arg content "$content" '{message:"supporter-loop: sweep state",content:$content,committer:{name:"supporter-loop[bot]",email:("supporter-loop@" + "caty-ai" + ".noreply")}}+(if $sha=="" then {} else {sha:$sha} end)' > "$work/state-put.json"
+              mutate "$LEDGER_TOKEN" PUT "repos/$REWARD_REPO/contents/$state_path" "$work/state-put.json"
               case "$code" in 200|201) return 0 ;; 409) ;; 422) jq -e '.message|test("sha|does not match";"i")' "$work/mutation.json" >/dev/null || return 1 ;; *) return 1 ;; esac
               attempt=$((attempt+1)); [ "$attempt" -gt 5 ] || sleep "$((1+RANDOM%4))"
             done
@@ -961,13 +1229,13 @@ jobs:
                 invite)
                   invite
                   emit invite "$result" "$tier" "$subject" "$event"
-                  case "$result" in error-*) invite_failure="$result"; failed=1 ;; *) changed=true ;; esac ;;
+                  case "$result" in deferred-quota) invite_failure="$result" ;; error-*) invite_failure="$result"; failed=1 ;; *) changed=true ;; esac ;;
                 comment)
                   comment "$tier" "$subject" "$event"
                   emit comment "$result" "$tier" "$subject" "$event"
                   case "$result" in error-*) failed=1 ;; *) changed=true ;; esac ;;
                 supporters-append)
-                  if regenerate "$(line supporters-append ok "$tier" "$subject" "$event")"; then result=ok; else result="error-$code"; failed=1; fi
+                  if regenerate "$(line supporters-append ok "$tier" "$subject" "$event")"; then result=ok; else result="error-${regenerate_status:-regenerate}"; failed=1; fi
                   emit supporters-append "$result" "$tier" "$subject" "$event" ;;
                 *) echo '::error::unexpected live plan action'; exit 1 ;;
               esac
@@ -978,209 +1246,296 @@ jobs:
             [ "$failed" -eq 0 ] || { echo '::error::one or more live actions failed'; exit 1; }
             exit 0
           fi
-          # §11 step 2 (ungated, ledger only): expire the invite delivery, not its generation.
-          # Preflight (c) already passed; negative (a)/(b) still permits recovery and audit.
-          gate="$SWEEP_GATE"
-          : > "$work/cancel-queue.ndjson"
-          pages "$LEDGER_TOKEN" "repos/$REWARD_REPO/collaborators?per_page=100" "$work/collaborators.json"
-          pages "$ADMIN_TOKEN" "repos/$REWARD_REPO/invitations?per_page=100" "$work/pending.json"
-          jq -e 'all(.[];.id|type=="number" and .>0 and floor==.)' "$work/collaborators.json" >/dev/null
-          jq -e 'all(.[]; (.id|type=="number" and .>0 and floor==.) and (.invitee.id|type=="number" and .>0 and floor==.))' "$work/pending.json" >/dev/null
-          model '[.[].actor_id]|unique' > "$work/ids.json"
-          while IFS= read -r actor_id; do
-            gen=$(model "generation(\"$GITHUB_REPOSITORY\";$actor_id)")
-            [ "$(model "achieved(\"$GITHUB_REPOSITORY\";$actor_id)")" -gt 0 ] || continue
-            recent=$(model "current(\"$GITHUB_REPOSITORY\";$actor_id)|[.[]|select(.action==\"invite\" and success)]|sort_by(.ts)|last")
-            [ "$recent" != null ] || continue
-            # Already re-armed invitations are not re-armed on every weekly sweep.
-            [ "$(model "delivered(\"$GITHUB_REPOSITORY\";$actor_id;1;\"invite\")")" = true ] || continue
-            invited=$(jq -r .ts <<< "$recent")
-            [ $(( $(date -u +%s) - $(date -u -d "$invited" +%s) )) -gt 604800 ] || continue
-            jq -e --argjson id "$actor_id" 'any(.[];.id==$id)' "$work/collaborators.json" >/dev/null && continue
-            actor=$(jq -r .actor <<< "$recent")
-            pending=$(jq -c --argjson id "$actor_id" '[.[]|select(.invitee.id==$id)]' "$work/pending.json")
-            if [ "$(jq length <<< "$pending")" = 0 ]; then
-              emit cancel-invite expired 0 '' sweep; changed=true
-            else
-              # Only genuinely old pending entries are defensive candidates; a new invite
-              # created manually or by a recovered run is never cancelled on an old timestamp.
-              while IFS= read -r invitation; do
-                created=$(jq -r .created_at <<< "$invitation")
-                if [ $(( $(date -u +%s) - $(date -u -d "$created" +%s) )) -gt 604800 ]; then
-                  jq -cn --arg actor "$actor" --argjson id "$actor_id" --argjson gen "$gen" --argjson invitation "$invitation" '{actor:$actor,actor_id:$id,gen:$gen,invitation_id:$invitation.id}' >> "$work/cancel-queue.ndjson"
-                fi
-              done < <(jq -c '.[]' <<< "$pending")
-            fi
-          done < <(jq -r '.[]' "$work/ids.json")
-          # §11 step 3: exact set-based audit after re-arm; baseline and manual allowlists.
-          baseline
-          all_markers
-          for allow in manual-allowlist manual-markers-allowlist; do
-            get "$LEDGER_TOKEN" "repos/$REWARD_REPO/contents/ledger/$allow.json" "$work/allow-blob.json"
-            case "$code" in
-              200) jq -er '.content|gsub("[\\n\\r]"; "") | @base64d|fromjson|select(type=="array")' "$work/allow-blob.json" > "$work/$allow.json" ;;
-              404) printf '[]\n' > "$work/$allow.json" ;;
-              *) echo '::error::manual allowlist unreadable'; exit 1 ;;
-            esac
-          done
-          : > "$work/threads.ndjson"
-          jq -sr '[.[]|select(.action=="comment")|.subject]|unique|.[]' "$ledger" > "$work/subjects"
-          while IFS= read -r subject; do
-            number="${subject##*/}"
-            [[ "$number" =~ ^[0-9]+$ ]] || { echo '::error::invalid ledger subject'; exit 1; }
-            exists=true
-            case "$subject" in
-              "https://github.com/$GITHUB_REPOSITORY/issues/$number"|"https://github.com/$GITHUB_REPOSITORY/pull/$number")
-                get "$GH_TOKEN" "repos/$GITHUB_REPOSITORY/issues/$number" "$work/thread.json"
-                case "$code" in 200) ;; 404|410) exists=false ;; *) echo '::error::thread audit read failed'; exit 1 ;; esac ;;
-              "https://github.com/$GITHUB_REPOSITORY/discussions/$number")
-                vars=$(jq -cn --arg owner "${GITHUB_REPOSITORY%/*}" --arg name "${GITHUB_REPOSITORY#*/}" --argjson number "$number" '{owner:$owner,name:$name,number:$number}')
-                # shellcheck disable=SC2016
-                if ! graph 'query($owner:String!,$name:String!,$number:Int!){repository(owner:$owner,name:$name){discussion(number:$number){id}}}' "$vars" "$work/thread.json"; then
-                  jq -e '(.errors|length)>0 and all(.errors[];.type=="NOT_FOUND")' "$work/thread.json" >/dev/null || { echo '::error::thread audit read failed'; exit 1; }
-                  exists=false
-                fi ;;
-              *) echo '::error::ledger subject outside source'; exit 1 ;;
-            esac
-            # The ledger has no comment ID: never guess that a missing marker was deleted.
-            # Owner-accepted residuals are explicit in manual-markers-allowlist (§5.3).
-            jq -cn --arg subject "$subject" --argjson exists "$exists" '{subject:$subject,exists:$exists,readable:$exists,marker_deleted:false}' >> "$work/threads.ndjson"
-          done < "$work/subjects"
-          jq -sn --arg source "$GITHUB_REPOSITORY" --slurpfile ledger "$ledger" \
-            --slurpfile baseline "$work/baseline.json" --slurpfile collaborators "$work/collaborators.json" \
-            --slurpfile invitations "$work/pending.json" --slurpfile markers "$work/markers.json" \
-            --slurpfile threads "$work/threads.ndjson" --slurpfile manual "$work/manual-allowlist.json" \
-            --slurpfile manual_markers "$work/manual-markers-allowlist.json" \
-            '{source_repo:$source,ledger:$ledger,baseline:$baseline[0],collaborators:$collaborators[0],invitations:$invitations[0],invitations_status:200,markers:$markers[0],threads:$threads,manual_allowlist:$manual[0],manual_markers_allowlist:$manual_markers[0],complete:true}' > "$work/audit.json"
-          divergences=$(jq -r --arg mode live '
-          
-            def success: .result|(.=="ok" or startswith("ok-") or startswith("already-") or .=="noop" or .=="expired");
-            def closes: (.action|IN("revoke","would-revoke","cancel-invite","would-cancel-invite")) and success and .result!="expired";
-            def ids: map(if type=="number" then . else .id end)|unique;
-            def markkey: [.actor_id,.tier,.subject];
-            . as $s | [.markers[]|select(.author=="github-actions[bot]")] as $markers |
-            if $mode=="record-only" then
-              (if (.collaborators|ids)!=(.baseline.collaborators|ids) then "reduced-collaborators: baseline differs" else empty end),
-              (if .invitations_status!=403 then "reduced-probe: expected 403" else empty end),
-              (if ($markers|length)>0 then "reduced-markers: workflow markers exist" else empty end)
-            else
-              # File-order duplicates cannot increase the closure count. Latest means ts,
-              # with input order as the tie breaker for same-second action attempts.
-              [.ledger|to_entries[]|.value+{_order:.key}|select(.repo==$s.source_repo)] as $ledger |
-              ([$ledger|group_by(.actor_id)[]|
-                . as $history | (1+([$history[]|select(closes)|.run_id]|unique|length)) as $gen |
-                [$history[]|select(.gen==$gen)] as $current |
-                [$current[]|select(.action=="invite" and success)]|sort_by(.ts,._order)|last as $invite |
-                select($invite!=null) |
-                select(all($current[]; (.action!="cancel-invite" or .result!="expired") or ([.ts,._order] <= [$invite.ts,$invite._order]))) |
-                $invite.actor_id] | unique) as $predicted |
-              ([.collaborators[].id,.invitations[].invitee.id]|unique) as $actual |
-              ([.baseline.collaborators[].id,.baseline.invitations[].invitee.id]+(.manual_allowlist|ids)|unique) as $allowed |
-              (($predicted-$actual)[]|"access: missing actor_id=\(.)"),
-              (($actual-$predicted-$allowed)[]|"strangers: unexpected actor_id=\(.)"),
-              [$ledger[]|select(.action=="comment" and success)] as $comments |
-              ($markers[] as $m|select(all($comments[];.actor_id!=$m.actor_id or .tier!=$m.tier))|"markers-A: unledgered actor_id=\($m.actor_id) tier=\($m.tier) subject=\($m.subject)"),
-              ($comments|unique_by(markkey)[] as $c|
-                [$s.threads[]|select(.subject==$c.subject)] as $thread |
-                if ($thread|length)==0 then "markers-B-state: absent thread evidence subject=\($c.subject)"
-                elif any($thread[];.exists and .readable and (.marker_deleted!=true)) and
-                  all($markers[];markkey!=($c|markkey)) and
-                  all($s.manual_markers_allowlist[];markkey!=($c|markkey))
-                then "markers-B: missing actor_id=\($c.actor_id) tier=\($c.tier) subject=\($c.subject)" else empty end)
-            end
-          ' "$work/audit.json")
-          if [ -n "$divergences" ]; then
-            while IFS= read -r divergence; do printf '::error::%s\n' "$divergence"; done <<< "$divergences"
-            gate=false
-          fi
-          # §11(e), before any destructive call: recover own markers missing from the ledger.
-          # This runs even if (a)/(d) is false, so a red run can be reconciled safely.
-          printf '[]\n' > "$work/protected.json"
-          while IFS= read -r actor_id; do
-            [ "$(model "achieved(\"$GITHUB_REPOSITORY\";$actor_id)")" = 1 ] || continue
-            jq -e --argjson id "$actor_id" 'index($id)!=null' <<< "$STARGAZERS" >/dev/null && continue
-            gen=$(model "generation(\"$GITHUB_REPOSITORY\";$actor_id)")
-            actor=$(model "[.[]|select(.repo==\"$GITHUB_REPOSITORY\" and .actor_id==$actor_id)]|sort_by(.ts)|last|.actor" | jq -r .)
-            while IFS= read -r evidence; do
-              tier=$(jq -r .tier <<< "$evidence"); subject=$(jq -r .subject <<< "$evidence")
-              jq --argjson id "$actor_id" '.+[$id]|unique' "$work/protected.json" > "$work/protected-next.json"
-              mv "$work/protected-next.json" "$work/protected.json"
-              if ! jq -se -L "$work" --arg mode "$MODE" --argjson id "$actor_id" --argjson tier "$tier" --arg repo "$GITHUB_REPOSITORY" \
-                'include "model"; any(.[];.repo==$repo and .actor_id==$id and .tier==$tier and .action=="comment" and success)' "$ledger" >/dev/null; then
-                case "$subject" in
-                  "https://github.com/$GITHUB_REPOSITORY/discussions/"*) event=discussion ;;
-                  "https://github.com/$GITHUB_REPOSITORY/pull/"*) event=pull_request_target ;;
-                  "https://github.com/$GITHUB_REPOSITORY/issues/"*) event=issues ;;
-                  *) echo '::error::marker subject outside source'; gate=false; continue ;;
-                esac
-                # A recovered comment uses its original tier key, not a sweep closure key.
-                emit comment "already-$tier" "$tier" "$subject" "$event"; changed=true
-              fi
-            done < <(jq -c --argjson id "$actor_id" '.[]|select(.actor_id==$id)' "$work/markers.json")
-          done < <(jq -r '.[]' "$work/ids.json")
-          # §11 step 4: ALL destructive effects are behind the combined (a)–(e) gate.
-          if [ "$gate" = true ]; then
-            # Defensive pending cancels queued at step 2 execute before unstar cleanup.
-            while IFS= read -r queued; do
-              actor_id=$(jq -r .actor_id <<< "$queued"); actor=$(jq -r .actor <<< "$queued"); gen=$(jq -r .gen <<< "$queued")
-              invitation_id=$(jq -r .invitation_id <<< "$queued")
-              jq -e --argjson id "$actor_id" 'index($id)!=null' "$work/protected.json" >/dev/null && continue
-              printf '{}\n' > "$work/empty.json"
-              mutate "$ADMIN_TOKEN" DELETE "repos/$REWARD_REPO/invitations/$invitation_id" "$work/empty.json"
-              case "$code" in 200|204) result=ok; changed=true ;; *) result="error-$code"; failed=1 ;; esac
-              emit cancel-invite "$result" 0 '' sweep
-            done < "$work/cancel-queue.ndjson"
+          sweep_cleanup() {
+            # §11 step 2 (ungated, ledger only): expire the invite delivery, not its generation.
+            # Preflight (c) already passed; negative (a)/(b) still permits recovery and audit.
+            gate="$SWEEP_GATE"
+            audit_complete=false
+            : > "$work/cancel-queue.ndjson"
+            pages "$LEDGER_TOKEN" "repos/$REWARD_REPO/collaborators?per_page=100" "$work/collaborators.json" || return 1
+            pages "$ADMIN_TOKEN" "repos/$REWARD_REPO/invitations?per_page=100" "$work/pending.json" || return 1
+            jq -e 'all(.[];.id|type=="number" and .>0 and floor==.)' "$work/collaborators.json" >/dev/null || return 1
+            jq -e 'all(.[]; (.id|type=="number" and .>0 and floor==.) and (.invitee.id|type=="number" and .>0 and floor==.))' "$work/pending.json" >/dev/null || return 1
+            # order-insensitive by design (builtin sort is fine here)
+            model '[.[].actor_id]|unique' > "$work/ids.json"
             while IFS= read -r actor_id; do
+              if ! within_deadline; then [ "$audit_complete" = true ] && return 0; echo '::error::audit deadline exceeded'; return 1; fi
+              gen=$(model "generation(\"$GITHUB_REPOSITORY\";$actor_id)")
+              [ "$(model "achieved(\"$GITHUB_REPOSITORY\";$actor_id)")" -gt 0 ] || continue
+              recent=$(model "current(\"$GITHUB_REPOSITORY\";$actor_id)|[.[]|select(.action==\"invite\" and success)]|sort_by(.ts)|last")
+              [ "$recent" != null ] || continue
+              # Already re-armed invitations are not re-armed on every weekly sweep.
+              [ "$(model "delivered(\"$GITHUB_REPOSITORY\";$actor_id;1;\"invite\")")" = true ] || continue
+              invited=$(jq -r .ts <<< "$recent")
+              [ $(( $(date -u +%s) - $(date -u -d "$invited" +%s) )) -gt 604800 ] || continue
+              jq -e --argjson id "$actor_id" 'any(.[];.id==$id)' "$work/collaborators.json" >/dev/null && continue
+              actor=$(jq -r .actor <<< "$recent")
+              pending=$(jq -c --argjson id "$actor_id" '[.[]|select(.invitee.id==$id)]' "$work/pending.json")
+              if [ "$(jq length <<< "$pending")" = 0 ]; then
+                emit cancel-invite expired 0 '' sweep; changed=true
+              else
+                # Only genuinely old pending entries are defensive candidates; a new invite
+                # created manually or by a recovered run is never cancelled on an old timestamp.
+                while IFS= read -r invitation; do
+                  if ! within_deadline; then [ "$audit_complete" = true ] && return 0; echo '::error::audit deadline exceeded'; return 1; fi
+                  created=$(jq -r .created_at <<< "$invitation")
+                  if [ $(( $(date -u +%s) - $(date -u -d "$created" +%s) )) -gt 604800 ]; then
+                    jq -cn --arg actor "$actor" --argjson id "$actor_id" --argjson gen "$gen" --argjson invitation "$invitation" '{actor:$actor,actor_id:$id,gen:$gen,invitation_id:$invitation.id}' >> "$work/cancel-queue.ndjson"
+                  fi
+                done < <(jq -c '.[]' <<< "$pending")
+              fi
+            done < <(jq -r '.[]' "$work/ids.json")
+            # §11 step 3: exact set-based audit after re-arm; baseline and manual allowlists.
+            baseline || return 1
+            all_markers || return 1
+            for allow in manual-allowlist manual-markers-allowlist; do
+              get "$LEDGER_TOKEN" "repos/$REWARD_REPO/contents/ledger/$allow.json" "$work/allow-blob.json" || return 1
+              case "$code" in
+                200) jq -er '.content|gsub("[\\n\\r]"; "") | @base64d|fromjson|select(type=="array")' "$work/allow-blob.json" > "$work/$allow.json" ;;
+                404) printf '[]\n' > "$work/$allow.json" ;;
+                *) echo '::error::manual allowlist unreadable'; return 1 ;;
+              esac
+            done
+            : > "$work/threads.ndjson"
+            jq -sr '[.[]|select(.action=="comment")|.subject]|unique|.[]' "$ledger" > "$work/subjects"
+            while IFS= read -r subject; do
+              if ! within_deadline; then [ "$audit_complete" = true ] && return 0; echo '::error::audit deadline exceeded'; return 1; fi
+              number="${subject##*/}"
+              [[ "$number" =~ ^[0-9]+$ ]] || { echo '::error::invalid ledger subject'; return 1; }
+              exists=true
+              case "$subject" in
+                "https://github.com/$GITHUB_REPOSITORY/issues/$number"|"https://github.com/$GITHUB_REPOSITORY/pull/$number")
+                  get "$GH_TOKEN" "repos/$GITHUB_REPOSITORY/issues/$number" "$work/thread.json" || return 1
+                  case "$code" in 200) ;; 404|410) exists=false ;; *) echo '::error::thread audit read failed'; return 1 ;; esac ;;
+                "https://github.com/$GITHUB_REPOSITORY/discussions/$number")
+                  vars=$(jq -cn --arg owner "${GITHUB_REPOSITORY%/*}" --arg name "${GITHUB_REPOSITORY#*/}" --argjson number "$number" '{owner:$owner,name:$name,number:$number}')
+                  # shellcheck disable=SC2016
+                  if ! graph 'query($owner:String!,$name:String!,$number:Int!){repository(owner:$owner,name:$name){discussion(number:$number){id}}}' "$vars" "$work/thread.json"; then
+                    jq -e '(.errors|length)>0 and all(.errors[];.type=="NOT_FOUND")' "$work/thread.json" >/dev/null || { echo '::error::thread audit read failed'; return 1; }
+                    exists=false
+                  fi ;;
+                *) echo '::error::ledger subject outside source'; return 1 ;;
+              esac
+              # The ledger has no comment ID: never guess that a missing marker was deleted.
+              # Owner-accepted residuals are explicit in manual-markers-allowlist (§5.3).
+              jq -cn --arg subject "$subject" --argjson exists "$exists" '{subject:$subject,exists:$exists,readable:$exists,marker_deleted:false}' >> "$work/threads.ndjson"
+            done < "$work/subjects"
+            jq -sn --arg source "$GITHUB_REPOSITORY" --slurpfile ledger "$ledger" \
+              --slurpfile baseline "$work/baseline.json" --slurpfile collaborators "$work/collaborators.json" \
+              --slurpfile invitations "$work/pending.json" --slurpfile markers "$work/markers.json" \
+              --slurpfile threads "$work/threads.ndjson" --slurpfile manual "$work/manual-allowlist.json" \
+              --slurpfile manual_markers "$work/manual-markers-allowlist.json" \
+              '{source_repo:$source,ledger:$ledger,baseline:$baseline[0],collaborators:$collaborators[0],invitations:$invitations[0],invitations_status:200,markers:$markers[0],threads:$threads,manual_allowlist:$manual[0],manual_markers_allowlist:$manual_markers[0],complete:true}' > "$work/audit.json"
+            divergences=$(jq -r --arg mode live '
+
+              def success: .result|(.=="ok" or startswith("ok-") or startswith("already-") or .=="noop" or .=="expired");
+              def closes: (.action|IN("revoke","would-revoke","cancel-invite","would-cancel-invite")) and success and .result!="expired";
+              def ids: map(if type=="number" then . else .id end)|unique;
+              def markkey: [.actor_id,.tier,.subject];
+              . as $s | [.markers[]|select(.author=="github-actions[bot]")] as $markers |
+              if $mode=="record-only" then
+                (if (.collaborators|ids)!=(.baseline.collaborators|ids) then "reduced-collaborators: baseline differs" else empty end),
+                (if .invitations_status!=403 then "reduced-probe: expected 403" else empty end),
+                (if ($markers|length)>0 then "reduced-markers: workflow markers exist" else empty end)
+              else
+                # File-order duplicates cannot increase the closure count. Latest means ts,
+                # with input order as the tie breaker for same-second action attempts.
+                [.ledger|to_entries[]|.value+{_order:.key}|select(.repo==$s.source_repo)] as $ledger |
+                # order-insensitive by design (builtin sort is fine here)
+                ([$ledger|group_by(.actor_id)[]|
+                  . as $history | (1+([$history[]|select(closes)|.run_id]|unique|length)) as $gen |
+                  [$history[]|select(.gen==$gen)] as $current |
+                  [$current[]|select(.action=="invite" and success)]|sort_by(.ts,._order)|last as $invite |
+                  select($invite!=null) |
+                  select(all($current[]; (.action!="cancel-invite" or .result!="expired") or ([.ts,._order] <= [$invite.ts,$invite._order]))) |
+                  $invite.actor_id] | unique) as $predicted |
+                ([.collaborators[].id,.invitations[].invitee.id]|unique) as $actual |
+                ([.baseline.collaborators[].id,.baseline.invitations[].invitee.id]+(.manual_allowlist|ids)|unique) as $allowed |
+                (($predicted-$actual)[]|"access: missing actor_id=\(.)"),
+                (($actual-$predicted-$allowed)[]|"strangers: unexpected actor_id=\(.)"),
+                [$ledger[]|select(.action=="comment" and success)] as $comments |
+                ($markers[] as $m|select(all($comments[];.actor_id!=$m.actor_id or .tier!=$m.tier))|"markers-A: unledgered actor_id=\($m.actor_id) tier=\($m.tier) subject=\($m.subject)"),
+                # order-insensitive by design (builtin sort is fine here)
+                ($comments|unique_by(markkey)[] as $c|
+                  [$s.threads[]|select(.subject==$c.subject)] as $thread |
+                  if ($thread|length)==0 then "markers-B-state: absent thread evidence subject=\($c.subject)"
+                  elif any($thread[];.exists and .readable and (.marker_deleted!=true)) and
+                    all($markers[];markkey!=($c|markkey)) and
+                    all($s.manual_markers_allowlist[];markkey!=($c|markkey))
+                  then "markers-B: missing actor_id=\($c.actor_id) tier=\($c.tier) subject=\($c.subject)" else empty end)
+              end
+            ' "$work/audit.json")
+            if [ -n "$divergences" ]; then
+              while IFS= read -r divergence; do printf '::error::%s\n' "$divergence"; done <<< "$divergences"
+              if ! within_deadline; then [ "$audit_complete" = true ] && return 0; echo '::error::audit deadline exceeded'; return 1; fi
+              gate=false
+            fi
+            # §11(e), before any destructive call: recover own markers missing from the ledger.
+            # This runs even if (a)/(d) is false, so a red run can be reconciled safely.
+            printf '[]\n' > "$work/protected.json"
+            while IFS= read -r actor_id; do
+              if ! within_deadline; then [ "$audit_complete" = true ] && return 0; echo '::error::audit deadline exceeded'; return 1; fi
               [ "$(model "achieved(\"$GITHUB_REPOSITORY\";$actor_id)")" = 1 ] || continue
               jq -e --argjson id "$actor_id" 'index($id)!=null' <<< "$STARGAZERS" >/dev/null && continue
-              jq -e --argjson id "$actor_id" 'index($id)!=null' "$work/protected.json" >/dev/null && continue
               gen=$(model "generation(\"$GITHUB_REPOSITORY\";$actor_id)")
               actor=$(model "[.[]|select(.repo==\"$GITHUB_REPOSITORY\" and .actor_id==$actor_id)]|sort_by(.ts)|last|.actor" | jq -r .)
-              if ! identity; then emit revoke "error-$code" 0 '' sweep; failed=1; continue; fi
-              # Match numeric IDs; resolving the current login prevents rename confusion (§11).
-              if ! pages "$ADMIN_TOKEN" "repos/$REWARD_REPO/invitations?per_page=100" "$work/current-pending.json"; then
-                emit revoke error-preflight 0 '' sweep; failed=1; continue
-              fi
-              get "$ADMIN_TOKEN" "repos/$REWARD_REPO/collaborators/$actor" "$work/current-collaborator.json"
-              pending=$(jq -c --argjson id "$actor_id" '[.[]|select(.invitee.id==$id)]' "$work/current-pending.json")
-              case "$code" in
-                404)
-                  if [ "$(jq length <<< "$pending")" = 0 ]; then result=noop
-                  else
-                    printf '{}\n' > "$work/empty.json"
-                    mutate "$ADMIN_TOKEN" DELETE "repos/$REWARD_REPO/collaborators/$actor" "$work/empty.json"
-                    case "$code" in 200|204|404) result=noop ;; *) result="error-$code"; failed=1 ;; esac
-                  fi ;;
-                204)
-                  printf '{}\n' > "$work/empty.json"
-                  mutate "$ADMIN_TOKEN" DELETE "repos/$REWARD_REPO/collaborators/$actor" "$work/empty.json"
-                  case "$code" in 200|204) result=ok ;; *) result="error-$code"; failed=1 ;; esac ;;
-                *) result="error-$code"; failed=1 ;;
-              esac
-              emit revoke "$result" 0 '' sweep
-              case "$result" in error-*) continue ;; *) changed=true ;; esac
-              # The pair deliberately shares the pre-closure gen and run_id: one closure (§7).
-              while IFS= read -r invitation_id; do
+              while IFS= read -r evidence; do
+                if ! within_deadline; then [ "$audit_complete" = true ] && return 0; echo '::error::audit deadline exceeded'; return 1; fi
+                tier=$(jq -r .tier <<< "$evidence"); subject=$(jq -r .subject <<< "$evidence")
+                jq --argjson id "$actor_id" '.+[$id]|unique' "$work/protected.json" > "$work/protected-next.json"
+                mv "$work/protected-next.json" "$work/protected.json"
+                if ! jq -se -L "$work" --arg mode "$MODE" --argjson id "$actor_id" --argjson tier "$tier" --arg repo "$GITHUB_REPOSITORY" \
+                  'include "model"; any(.[];.repo==$repo and .actor_id==$id and .tier==$tier and .action=="comment" and success)' "$ledger" >/dev/null; then
+                  case "$subject" in
+                    "https://github.com/$GITHUB_REPOSITORY/discussions/"*) event=discussion ;;
+                    "https://github.com/$GITHUB_REPOSITORY/pull/"*) event=pull_request_target ;;
+                    "https://github.com/$GITHUB_REPOSITORY/issues/"*) event=issues ;;
+                    *) echo '::error::marker subject outside source'; gate=false; continue ;;
+                  esac
+                  # A recovered comment uses its original tier key, not a sweep closure key.
+                  emit comment "already-$tier" "$tier" "$subject" "$event"; changed=true
+                fi
+              done < <(jq -c --argjson id "$actor_id" '.[]|select(.actor_id==$id)' "$work/markers.json")
+            done < <(jq -r '.[]' "$work/ids.json")
+            audit_complete=true
+            # §11 step 4: ALL destructive effects are behind the combined (a)–(e) gate.
+            if [ "$gate" = true ]; then
+              # Defensive pending cancels queued at step 2 execute before unstar cleanup.
+              while IFS= read -r queued; do
+                if ! within_deadline; then [ "$audit_complete" = true ] && return 0; echo '::error::audit deadline exceeded'; return 1; fi
+                actor_id=$(jq -r .actor_id <<< "$queued"); actor=$(jq -r .actor <<< "$queued"); gen=$(jq -r .gen <<< "$queued")
+                invitation_id=$(jq -r .invitation_id <<< "$queued")
+                jq -e --argjson id "$actor_id" 'index($id)!=null' "$work/protected.json" >/dev/null && continue
                 printf '{}\n' > "$work/empty.json"
                 mutate "$ADMIN_TOKEN" DELETE "repos/$REWARD_REPO/invitations/$invitation_id" "$work/empty.json"
-                case "$code" in 200|204) result=ok ;; 404) result=noop ;; *) result="error-$code"; failed=1 ;; esac
-                emit cancel-invite "$result" 0 '' sweep
-              done < <(jq -r '.[].id' <<< "$pending")
-            done < <(jq -r '.[]' "$work/ids.json")
+                case "$code" in 200|204) result=ok; changed=true ;; *) result="error-$code"; failed=1 ;; esac
+                emit cancel-invite "$result" 0 '' sweep || return 1
+              done < "$work/cancel-queue.ndjson"
+              while IFS= read -r actor_id; do
+                if ! within_deadline; then [ "$audit_complete" = true ] && return 0; echo '::error::audit deadline exceeded'; return 1; fi
+                [ "$(model "achieved(\"$GITHUB_REPOSITORY\";$actor_id)")" = 1 ] || continue
+                jq -e --argjson id "$actor_id" 'index($id)!=null' <<< "$STARGAZERS" >/dev/null && continue
+                jq -e --argjson id "$actor_id" 'index($id)!=null' "$work/protected.json" >/dev/null && continue
+                gen=$(model "generation(\"$GITHUB_REPOSITORY\";$actor_id)")
+                actor=$(model "[.[]|select(.repo==\"$GITHUB_REPOSITORY\" and .actor_id==$actor_id)]|sort_by(.ts)|last|.actor" | jq -r .)
+                if ! identity; then emit revoke "error-$code" 0 '' sweep; failed=1; continue; fi
+                # Match numeric IDs; resolving the current login prevents rename confusion (§11).
+                if ! pages "$ADMIN_TOKEN" "repos/$REWARD_REPO/invitations?per_page=100" "$work/current-pending.json"; then
+                  emit revoke error-preflight 0 '' sweep; failed=1; continue
+                fi
+                get "$ADMIN_TOKEN" "repos/$REWARD_REPO/collaborators/$actor" "$work/current-collaborator.json" || return 1
+                pending=$(jq -c --argjson id "$actor_id" '[.[]|select(.invitee.id==$id)]' "$work/current-pending.json")
+                case "$code" in
+                  404)
+                    if [ "$(jq length <<< "$pending")" = 0 ]; then result=noop
+                    else
+                      printf '{}\n' > "$work/empty.json"
+                      mutate "$ADMIN_TOKEN" DELETE "repos/$REWARD_REPO/collaborators/$actor" "$work/empty.json"
+                      case "$code" in 200|204|404) result=noop ;; *) result="error-$code"; failed=1 ;; esac
+                    fi ;;
+                  204)
+                    printf '{}\n' > "$work/empty.json"
+                    mutate "$ADMIN_TOKEN" DELETE "repos/$REWARD_REPO/collaborators/$actor" "$work/empty.json"
+                    case "$code" in 200|204) result=ok ;; *) result="error-$code"; failed=1 ;; esac ;;
+                  *) result="error-$code"; failed=1 ;;
+                esac
+                emit revoke "$result" 0 '' sweep || return 1
+                case "$result" in error-*) continue ;; *) changed=true ;; esac
+                # The pair deliberately shares the pre-closure gen and run_id: one closure (§7).
+                while IFS= read -r invitation_id; do
+                  if ! within_deadline; then [ "$audit_complete" = true ] && return 0; echo '::error::audit deadline exceeded'; return 1; fi
+                  printf '{}\n' > "$work/empty.json"
+                  mutate "$ADMIN_TOKEN" DELETE "repos/$REWARD_REPO/invitations/$invitation_id" "$work/empty.json"
+                  case "$code" in 200|204) result=ok ;; 404) result=noop ;; *) result="error-$code"; failed=1 ;; esac
+                  emit cancel-invite "$result" 0 '' sweep || return 1
+                done < <(jq -r '.[].id' <<< "$pending")
+              done < <(jq -r '.[]' "$work/ids.json")
+            else
+              echo '::error::sweep preconditions (a)-(e) failed; all API cleanup skipped'
+              failed=1
+            fi
+          }
+          gate="$SWEEP_GATE"
+          budget_active=true
+          if ! sweep_cleanup; then
+            echo '::error::sweep recovery/audit incomplete; destructive work stopped'
+            gate=false; failed=1
+          fi
+          budget_active=false
+          # §11 step 4b: only (a)(b)(c), independently of cleanup/audit (d)(e).
+          budget_active=true
+          : > "$work/supporters-queue.ndjson"
+          deferred_quota=false
+          catchup_gate="$SWEEP_GATE"
+          if ! jq -e 'type=="array" and all(.[]; type=="number" and .>0 and floor==.)' <<< "$STARGAZERS" >/dev/null; then
+            echo '::error::stargazer handoff invalid in act'
+            catchup_gate=false; STARGAZERS='[]'; failed=1
+          fi
+          candidates_now() {
+            jq -s -L "$work" --arg mode "$MODE" --arg repo "$GITHUB_REPOSITORY" --arg tiers "$TIERS_ENABLED" --argjson stars "$STARGAZERS" \
+              'include "model"; catchup($repo;$stars;$tiers)' "$ledger"
+          }
+          queue_supporters() {
+            reservedCount=$((reservedCount+1))
+            line supporters-append ok 1 '' sweep >> "$work/supporters-queue.ndjson"
+          }
+          candidates_now > "$work/catchup.json"
+          if [ "$catchup_gate" = true ]; then
+            while IFS= read -r item; do
+              work_budget 1 || break
+              actor_id=$(jq -r .actor_id <<< "$item"); actor=$(jq -r .actor <<< "$item"); gen=$(jq -r .gen <<< "$item")
+              queue_supporters
+            done < <(jq -c '.[]|select(.invite and (.append|not))' "$work/catchup.json")
+            while IFS= read -r item; do
+              # PUT + invite line + optional append reservation; repairs already counted.
+              needed=$(jq 'if .append then 2 else 3 end' <<< "$item")
+              work_budget "$needed" || break
+              if quota_room; then :; else
+                [ "$?" -eq 1 ] || failed=1
+                break
+              fi
+              actor_id=$(jq -r .actor_id <<< "$item"); actor=$(jq -r .actor <<< "$item"); gen=$(jq -r .gen <<< "$item")
+              if [ "$(jq -r .exhausted <<< "$item")" = true ]; then emit skip excluded-unresponsive 0 '' sweep || failed=1; continue; fi
+              if ! identity; then emit invite "error-$code" 1 '' sweep || failed=1; failed=1; continue; fi
+              assoc=NONE
+              if ! eligibility; then emit invite error-identity 1 '' sweep || failed=1; failed=1; continue; fi
+              if [ -n "$reason" ]; then emit skip "$reason" 0 '' sweep || failed=1; continue; fi
+              work_budget "$needed" || break
+              invite true
+              case "$result" in
+                budget-stop) break ;;
+                deferred-quota) deferred_quota=true; emit skip deferred-quota 0 '' sweep || failed=1; break ;;
+                error-*) emit invite "$result" 1 '' sweep || failed=1; failed=1; continue ;;
+                ok) result=ok-catchup ;;
+              esac
+              if ! emit invite "$result" 1 '' sweep; then failed=1; break; fi
+              if [ "$(jq -r .append <<< "$item")" = false ]; then queue_supporters; fi
+            done < <(jq -c '.[]|select(.invite|not)' "$work/catchup.json")
           else
-            echo '::error::sweep preconditions (a)-(e) failed; all API cleanup skipped'
+            echo '::error::catch-up preconditions (a)(b)(c) failed; catch-up skipped'
             failed=1
           fi
-          # §11 steps 5, 6, 7 must still run after a red-run/audit gate failure.
+          # §11 steps 5–8 always run, including after a red-run/audit gate failure.
+          budget_active=false
           rotate || failed=1
-          if [ "$changed" = true ]; then regenerate || failed=1; fi
+          reservedCount=$((reservedCount-1))
+          if regenerate "$(cat "$work/supporters-queue.ndjson")"; then projection_result=ok
+          else projection_result="error-${regenerate_status:-regenerate}"; failed=1; fi
+          while IFS= read -r queued; do
+            actor=$(jq -r .actor <<< "$queued"); actor_id=$(jq -r .actor_id <<< "$queued"); gen=$(jq -r .gen <<< "$queued")
+            reservedCount=$((reservedCount-1))
+            emit supporters-append "$projection_result" 1 '' sweep || failed=1
+          done < "$work/supporters-queue.ndjson"
           reminder "$LEDGER_EXPIRES" 'ledger token'
           reminder "$ADMIN_EXPIRES" 'invitation token'
+          reservedCount=$((reservedCount-1))
+          sweep_state || { echo '::error::sweep state/summary failed'; failed=1; }
           [ "$failed" -eq 0 ] || { echo '::error::live sweep failed closed'; exit 1; }
       - name: Notify owner independently of ledger and delivery outcome
         if: ${{ !cancelled() && steps.preflight.outcome == 'success' }}
         env:
           MODE: ${{ inputs.mode }}
+          SWEEP: ${{ inputs.sweep }}
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
         run: |
@@ -1199,7 +1554,13 @@ jobs:
             fi
             if [ "$status" != 200 ] || ! jq -e '.ok==true' "$work/telegram.json" >/dev/null; then echo '::warning::Telegram rejected owner notification'; fi
           }
-          if [ -f "$work/notify.ndjson" ]; then
+          if [ "$SWEEP" = true ]; then
+            if [ -f "$work/sweep-messages" ]; then
+              while IFS= read -r text; do notify "$text"; done < "$work/sweep-messages"
+            else
+              notify "supporter-loop [live] $GITHUB_REPOSITORY · sweep · summary unavailable (failed)"
+            fi
+          elif [ -f "$work/notify.ndjson" ]; then
             while IFS= read -r entry; do
               case "$(jq -r .result <<< "$entry")" in already-*) continue ;; esac
               text=$(jq -r '"supporter-loop [\(.mode)] \(.repo) · \(.event) · @\(.actor) · tier \(.tier) · \(.action) · \(.result)" + (if .subject=="" then "" else "\n"+.subject end)' <<< "$entry")

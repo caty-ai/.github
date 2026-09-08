@@ -1,0 +1,34 @@
+jobs:
+  stars:
+    if: ${{ inputs.sweep == true }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    outputs:
+      ok: ${{ steps.list.outputs.ok }}
+      stargazers: ${{ steps.list.outputs.stargazers }}
+    steps:
+    - name: List stargazers of the source repo (ids only)
+      id: list
+      env:
+        GH_TOKEN: ${{ github.token }}
+      run: "set -euo pipefail\numask 077\nwork=\"$RUNNER_TEMP/stars\"\nmkdir -p \"\
+        $work\"\nok=true\n# \xA711(b): every page or nothing; any shape defect fails\
+        \ closed in decide.\nif ! gh api --hostname github.com --method GET --paginate\
+        \ --slurp \"repos/$GITHUB_REPOSITORY/stargazers?per_page=100\" > \"$work/pages\"\
+        \ \\\n   || ! jq -e 'type==\"array\" and length>0 and all(.[]; type==\"array\"\
+        ) and all(.[][]; .id|type==\"number\" and .>0 and floor==.)' \"$work/pages\"\
+        \ >/dev/null; then\n  ok=false; printf '[]\\n' > \"$work/pages\"\nfi\n# jq\
+        \ builtin unique_by sorts: the local definition preserves first page occurrence.\n\
+        # IDs only, never logins or author text. Fail before GitHub's output-size\
+        \ truncation.\nstars=$(jq -c 'def unique_by(f): reduce .[] as $x ({seen:{},out:[]};\
+        \ ($x|f|tojson) as $k | if .seen[$k] then . else .seen[$k]=true | .out +=\
+        \ [$x] end) | .out; [.[][].id] | unique_by(.)' \"$work/pages\")\n[ \"${#stars}\"\
+        \ -lt 400000 ] || { echo '::error::stargazer handoff exceeds safe output size';\
+        \ exit 1; }\nprintf 'ok=%s\\n' \"$ok\" >> \"$GITHUB_OUTPUT\"\nprintf 'stargazers=%s\\\
+        n' \"$stars\" >> \"$GITHUB_OUTPUT\"\n"
+    - run: echo extra
+  decide:
+    steps:
+    - run: echo safe

@@ -1,0 +1,8 @@
+{
+  "message": "Invitation limit exceeded: too many invitations in 24 hours.",
+  "errors": [
+    {
+      "code": "invitation_limit_exceeded"
+    }
+  ]
+}

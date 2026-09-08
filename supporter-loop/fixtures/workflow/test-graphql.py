@@ -7,7 +7,7 @@ import subprocess
 import sys
 import tempfile
 
-with tempfile.TemporaryDirectory(prefix='supporter-graphql-', dir=Path(__file__).resolve().parent) as directory:
+with tempfile.TemporaryDirectory(prefix='supporter-graphql-') as directory:
     root = Path(directory)
     binary = root / 'bin'
     binary.mkdir()
