@@ -58,7 +58,7 @@ recognition stays.
 `ledger/<source_owner>--<source_repo>.sweep-state.json` is a derived owner latch:
 
 ```json
-{"schema":1,"last_sweep_ts":"2026-09-08T00:00:00Z","backlog":0,
+{"last_sweep_ts":"2026-09-08T00:00:00Z","backlog":0,
  "cancelled_runs":{"event":0,"schedule":0},
  "capacity_pct":{"stars":0,"supporters_md":0,"invitations":0},
  "alarm_state":{"stars_70":false,"supporters_md_70":false,

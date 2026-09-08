@@ -244,7 +244,8 @@ function inspect(s,n,feeding,replacement, gh,curl,explicit,implicit,get,write,pa
   if (unresolved || (write && facts["target_unknown"] &&
       (!facts["method_seen"] || !facts["ledger_only"] || facts["non_ledger_method"]))) hit("b",n,"unresolvable gh/curl target in decide")
   if (s ~ /(^|[^A-Za-z_])mutation([^A-Za-z_]|$)/) hit("b",n,"GraphQL mutation in decide")
-  if (write && (s ~ /\/(collaborators|invitations|comments|graphql)([^A-Za-z_-]|$)|\/contents\/SUPPORTERS[.]md/ || (gh && s ~ /api[ \t]+graphql([ \t]|$)/))) hit("b",n,"write to delivery endpoint")
+  if (facts["forbidden_host"]) hit("a",n,"forbidden Telegram host in resolved target")
+  if (write && (facts["delivery_endpoint"] || s ~ /\/(collaborators|invitations|comments|graphql)([^A-Za-z_-]|$)|\/contents\/SUPPORTERS[.]md/ || (gh && s ~ /api[ \t]+graphql([ \t]|$)/))) hit("b",n,"write to delivery endpoint")
   if (write && facts["contents_bad"]) hit("a-prime",n,"Contents write outside provable ledger/ prefix")
   if (write && match(s,/\/contents\//)) {
     tail=substr(s,RSTART+RLENGTH)
@@ -255,6 +256,9 @@ function inspect(s,n,feeding,replacement, gh,curl,explicit,implicit,get,write,pa
 # Inspect actual endpoint words, never a ledger-looking header or payload.
 function target(t,facts, path,tail,literal) {
   facts["target_seen"]=1
+  # request() joins adjacent quoted/unquoted shell fragments before this match.
+  if (t ~ /api[.]telegram[.]org/) facts["forbidden_host"]=1
+  if (t ~ /\/(collaborators|invitations|comments|graphql)([^A-Za-z_-]|$)|\/contents\/SUPPORTERS[.]md/ || t=="graphql") facts["delivery_endpoint"]=1
   if (t=="" || t ~ /[{}]|[$][@*1-9]/ || (facts["replacement"]!="" && index(t,facts["replacement"]))) facts["target_placeholder"]=1
   if (match(t,/\/contents\//)) {
     tail=substr(t,RSTART+RLENGTH)
@@ -278,11 +282,27 @@ function target(t,facts, path,tail,literal) {
   }
   facts["ledger_only"]=0
 }
+# Decode one shell assignment word before inserting it into a quoted reference.
+# Shell separators end the value only outside quotes; quoted spaces stay data.
+function assignment_value(s, j,ch,q,escaped,w,offset) {
+  s=trim(s)
+  for (j=1;j<=length(s);j++) {
+    ch=substr(s,j,1)
+    if (escaped) { escaped=0; continue }
+    if (ch=="\\" && q!="\047") { escaped=1; continue }
+    if (ch=="\047" || ch=="\"") {
+      if (q=="") q=ch
+      else if (q==ch) q=""
+    } else if (q=="" && ch ~ /[ \t;|&]/) break
+  }
+  shell_words(substr(s,1,j-1),w,offset)
+  return w[1]
+}
 # Assignments are collected before any invocation is inspected. Conflicts and
 # dynamic assignments permanently invalidate a name, independent of key order.
 function collect(key,value,yaml, expression,token) {
   if (yaml && trim(value) ~ /^"/ && index(value,"\\")) escaped_scalars[key]=1
-  value=unquote(value)
+  value=(yaml ? unquote(value) : assignment_value(value))
   while (match(value,/\$\{\{[ \t]*(inputs|github|secrets|vars)[.][A-Za-z_0-9.]+[ \t]*\}\}/)) {
     expression=substr(value,RSTART,RLENGTH)
     if (!(expression in opaque)) opaque[expression]="OPAQUE_CONTEXT_" ++opaque_count

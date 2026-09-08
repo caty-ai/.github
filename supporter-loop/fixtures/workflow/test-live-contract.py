@@ -94,7 +94,7 @@ mutate() {
         cat "$RUNNER_TEMP/concurrent-row" >> "$RUNNER_TEMP/api-ledger"
         echo '{"message":"sha does not match"}' > "$work/mutation.json"
         code="$CONFLICT_STATUS"
-      elif [ "$RENDER_FAIL" = true ]; then code=500
+      elif [ "$RENDER_FAIL" = true ]; then code="$RENDER_STATUS"
       else jq -jr '.content|@base64d' "$4" > "$RUNNER_TEMP/published"; fi ;;
     "repos/$REWARD_REPO/contents/ledger/$base.sweep-state.json")
       [ "$1" = "$LEDGER_TOKEN" ] && [ "$2" = PUT ] || return 1
@@ -108,7 +108,7 @@ comment() { echo COMMENT_SENT >> "$RUNNER_TEMP/trace"; result=ok; }
 '''
 
 def execute(rows=(), stars=(42,), identities=None, pending=(), sweep=True, invite_status=201, body=None,
-            conflict=False, render_fail=False, gate=True, setup='', previous=None, block=None, conflict_status=409, tiers='1,2,3'):
+            conflict=False, render_fail=False, gate=True, setup='', previous=None, block=None, conflict_status=409, tiers='1,2,3', render_status=500):
     with tempfile.TemporaryDirectory(prefix='v2-live-') as directory:
         root=Path(directory)
         (root/'api-ledger').write_text(''.join(json.dumps(r)+'\n' for r in rows))
@@ -127,7 +127,7 @@ def execute(rows=(), stars=(42,), identities=None, pending=(), sweep=True, invit
                  GH_TOKEN='fixture-source',LEDGER_TOKEN='fixture-ledger',ADMIN_TOKEN='fixture-admin',RUN_KEY='91-1',
                  STARGAZERS=json.dumps(stars),TIERS_ENABLED=tiers,SWEEP_GATE=str(gate).lower(),
                  RED_RUN=str(not gate).lower(),CANCELLED_EVENT='3',CANCELLED_SCHEDULE='2',
-                 INVITE_STATUS=str(invite_status),CONFLICT_STATUS=str(conflict_status),RENDER_CONFLICT=str(conflict).lower(),RENDER_FAIL=str(render_fail).lower(),
+                 INVITE_STATUS=str(invite_status),CONFLICT_STATUS=str(conflict_status),RENDER_CONFLICT=str(conflict).lower(),RENDER_FAIL=str(render_fail).lower(),RENDER_STATUS=str(render_status),
                  LEDGER_EXPIRES='',ADMIN_EXPIRES='',ACTIONS=json.dumps(actions))
         script=clock+prefix+doubles+'\nread_ledger\ncp "$RUNNER_TEMP/pending.json" "$work/pending.json"\n'+setup+'\n'+(block if block is not None else catchup_block if sweep else event_block)
         result=subprocess.run(['/bin/bash','-c',script],env=env,capture_output=True,text=True)
@@ -151,6 +151,7 @@ r,rows,state,files,_=execute()
 assert r.returncode==0,r.stdout
 assert [(v['action'],v['result'],v['tier'],v['dedup_key']) for v in rows]==[
     ('invite','ok-catchup',1,repo+':1:42'),('supporters-append','ok',1,repo+':1:42')],rows
+assert set(state)=={'last_sweep_ts','backlog','cancelled_runs','capacity_pct','alarm_state'}
 assert state['backlog']==0 and state['cancelled_runs']==dict(event=3,schedule=2)
 assert state['capacity_pct']['invitations']==1/45
 assert files['trace'].index('PUT repos/caty-ai/ask-ai-widget/contents/SUPPORTERS.md') < files['trace'].index('APPEND supporters-append')
@@ -199,9 +200,29 @@ assert operations[first_put-2:first_put]==['GET repos/caty-ai/ask-ai-widget/cont
 assert operations[first_put+1:first_put+3]==['GET repos/caty-ai/ask-ai-widget/contents/SUPPORTERS.md','READ_LEDGER'],operations
 print('PASS two-lane regeneration conflict restarts GET -> read ledger -> render -> PUT; concurrent actor preserved')
 
-r,rows,state,files,_=execute(render_fail=True)
-assert r.returncode!=0 and rows[-1]['result']=='error-500' and state['backlog']==1
+r,rows,state,files,_=execute(render_fail=True, stars=[42,99,7])
+queued=[v for v in rows if v['action']=='supporters-append']
+assert r.returncode!=0 and len(queued)==3 and all(v['result']=='error-500' for v in queued) and state['backlog']==3
 print('PASS failed projection closes queued lines with error and keeps backlog red')
+
+r,rows,state,files,_=execute(sweep=False, render_fail=True)
+assert r.returncode!=0 and rows[-1]['action']=='supporters-append' and rows[-1]['result']=='error-500'
+print('PASS event projection failure records exact PUT status')
+
+r,rows,state,files,_=execute(render_fail=True, render_status='transport')
+assert r.returncode!=0 and rows[-1]['result']=='error-regenerate'
+print('PASS projection transport failure without HTTP status uses error-regenerate')
+
+
+r,rows,state,files,_=execute(setup='code=404; : > "$RUNNER_TEMP/header"')
+assert r.returncode!=0 and rows[-1]['result']=='error-regenerate' and state['backlog']==1
+print('PASS malformed header without HTTP failure uses error-regenerate, never stale status')
+
+r,rows,state,files,_=execute(stars=['invalid'])
+assert r.returncode!=0 and '::error::stargazer handoff invalid in act' in r.stdout
+assert rows==[] and 'published' in files and state is not None
+print('PASS defensive invalid stars handoff is loud and red; reserve still runs')
+
 
 r,rows,state,files,_=execute(gate=False)
 assert r.returncode!=0 and rows==[] and 'published' in files and state['backlog']==1 and state['alarm_state']['red_run']

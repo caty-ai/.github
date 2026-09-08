@@ -1121,20 +1121,23 @@ jobs:
             fi
           }
           regenerate() {
-            local attempt=0 sha content header projected="${1:-}" original_ledger="$ledger"
+            local code="" attempt=0 sha content header projected="${1:-}" original_ledger="$ledger"
             local ledger="$work/fresh-ledger.ndjson" derive="$work/projected.ndjson"
+            regenerate_status=""
             [ "$MODE" = live ] || return 1
             # §6.5: child #1 owns the header; never publish a headerless projection.
             if ! get "$LEDGER_TOKEN" "repos/$REWARD_REPO/contents/SUPPORTERS.header.md" "$work/supporters-header.json" ||
               [ "$code" != 200 ] ||
               ! header=$(jq -er '.content | select(type=="string" and length>0)' "$work/supporters-header.json" | base64 -d) ||
               [ -z "$header" ] || [ "${header##*$'\n'}" != '<!-- generated table below; do not edit by hand -->' ]; then
+              case "$code" in [45][0-9][0-9]) regenerate_status="$code" ;; esac
               echo '::error::SUPPORTERS.header.md missing or malformed in reward repo (child #1); regeneration skipped'
               return 1
             fi
             while [ "$attempt" -le 5 ]; do
-              get "$LEDGER_TOKEN" "repos/$REWARD_REPO/contents/SUPPORTERS.md" "$work/supporters.json" || return 1
-              case "$code" in 200) sha=$(jq -er .sha "$work/supporters.json") ;; 404) sha='' ;; *) return 1 ;; esac
+              regenerate_status=""
+              get "$LEDGER_TOKEN" "repos/$REWARD_REPO/contents/SUPPORTERS.md" "$work/supporters.json" || { case "$code" in [1-5][0-9][0-9]) regenerate_status="$code" ;; esac; return 1; }
+              case "$code" in 200) sha=$(jq -er .sha "$work/supporters.json") ;; 404) sha='' ;; *) regenerate_status="$code"; return 1 ;; esac
               # §6.5 CAS restart starts at GET, then reads fresh API ledger before rendering.
               read_ledger || { code="ledger-read"; return 1; }
               cp "$ledger" "$original_ledger" || return 1
@@ -1157,7 +1160,8 @@ jobs:
               content=$(base64 < "$work/SUPPORTERS.md" | tr -d '\n')
               jq -cn --arg sha "$sha" --arg content "$content" '{message:"supporter-loop: regenerate supporters",content:$content,committer:{name:"supporter-loop[bot]",email:("supporter-loop@" + "caty-ai" + ".noreply")}}+(if $sha=="" then {} else {sha:$sha} end)' > "$work/supporters-put.json"
               mutate "$LEDGER_TOKEN" PUT "repos/$REWARD_REPO/contents/SUPPORTERS.md" "$work/supporters-put.json"
-              case "$code" in 200|201) return 0 ;; 409) ;; 422) jq -e '.message|test("sha|does not match";"i")' "$work/mutation.json" >/dev/null || return 1 ;; *) return 1 ;; esac
+              case "$code" in [1-5][0-9][0-9]) regenerate_status="$code" ;; esac
+              case "$code" in 200|201) regenerate_status=""; return 0 ;; 409) ;; 422) jq -e '.message|test("sha|does not match";"i")' "$work/mutation.json" >/dev/null || return 1 ;; *) return 1 ;; esac
               attempt=$((attempt+1)); [ "$attempt" -gt 5 ] || sleep "$((1+RANDOM%4))"
             done
             return 1
@@ -1191,7 +1195,7 @@ jobs:
                 --argjson stars "$stars_count" --argjson bytes "$md_bytes" --argjson B "$B" \
                 --argjson red "${RED_RUN:-false}" --argjson deferred "$deferred_quota" '
                 {stars:($stars/40000),supporters_md:($bytes/1048576),invitations:($B/45)} as $capacity |
-                {schema:1,last_sweep_ts:$ts,backlog:$backlog,cancelled_runs:{event:$events,schedule:$schedules},capacity_pct:$capacity,
+                {last_sweep_ts:$ts,backlog:$backlog,cancelled_runs:{event:$events,schedule:$schedules},capacity_pct:$capacity,
                  alarm_state:{stars_70:($capacity.stars>=0.7),supporters_md_70:($capacity.supporters_md>=0.7),
                    invitations_backlog:($backlog>0),red_run:$red,deferred_quota:$deferred}}' > "$work/sweep-state.json" || return 1
               # Prepare the independent notification leg even if state PUT ultimately fails.
@@ -1231,7 +1235,7 @@ jobs:
                   emit comment "$result" "$tier" "$subject" "$event"
                   case "$result" in error-*) failed=1 ;; *) changed=true ;; esac ;;
                 supporters-append)
-                  if regenerate "$(line supporters-append ok "$tier" "$subject" "$event")"; then result=ok; else result="error-$code"; failed=1; fi
+                  if regenerate "$(line supporters-append ok "$tier" "$subject" "$event")"; then result=ok; else result="error-${regenerate_status:-regenerate}"; failed=1; fi
                   emit supporters-append "$result" "$tier" "$subject" "$event" ;;
                 *) echo '::error::unexpected live plan action'; exit 1 ;;
               esac
@@ -1463,7 +1467,10 @@ jobs:
           : > "$work/supporters-queue.ndjson"
           deferred_quota=false
           catchup_gate="$SWEEP_GATE"
-          if ! jq -e 'type=="array" and all(.[]; type=="number" and .>0 and floor==.)' <<< "$STARGAZERS" >/dev/null; then catchup_gate=false; STARGAZERS='[]'; fi
+          if ! jq -e 'type=="array" and all(.[]; type=="number" and .>0 and floor==.)' <<< "$STARGAZERS" >/dev/null; then
+            echo '::error::stargazer handoff invalid in act'
+            catchup_gate=false; STARGAZERS='[]'; failed=1
+          fi
           candidates_now() {
             jq -s -L "$work" --arg mode "$MODE" --arg repo "$GITHUB_REPOSITORY" --arg tiers "$TIERS_ENABLED" --argjson stars "$STARGAZERS" \
               'include "model"; catchup($repo;$stars;$tiers)' "$ledger"
@@ -1513,7 +1520,7 @@ jobs:
           rotate || failed=1
           reservedCount=$((reservedCount-1))
           if regenerate "$(cat "$work/supporters-queue.ndjson")"; then projection_result=ok
-          else projection_result="error-${code:-regenerate}"; failed=1; fi
+          else projection_result="error-${regenerate_status:-regenerate}"; failed=1; fi
           while IFS= read -r queued; do
             actor=$(jq -r .actor <<< "$queued"); actor_id=$(jq -r .actor_id <<< "$queued"); gen=$(jq -r .gen <<< "$queued")
             reservedCount=$((reservedCount-1))
