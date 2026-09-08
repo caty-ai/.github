@@ -74,6 +74,8 @@ reads or writes this latch and never sends Telegram.
 
 **422 launch gate:** `INVITE_LIMIT_PATTERN` is defined once in the reusable
 workflow and is provisional: `invit.*(limit|exceed|too many|24 ?h|per day)|too many invit`.
+Precondition: the reward repository must contain a valid `SUPPORTERS.header.md`; missing or malformed headers fail regeneration and the live sweep closed.
+
 Before merge, the owner must capture a real invitation-limit response from the
 approved probe, remove sensitive data, replace
 `fixtures/workflow/invitation-limit-422.json` with that body, and pin the pattern
@@ -95,4 +97,4 @@ The stars scanner reuses rule `a` for PAT/secret references, rule `b` for a seco
 step, noncanonical GET or write, and rule `d` for nonliteral run blocks. The three
 `violating-*-stars-*.yml` fixtures pin those boundaries. The 400000-character
 handoff guard is unchanged; stars now has a ten-minute timeout. A local jq
-`unique_by` definition preserves page order because jq's builtin sorts.
+`stable_unique_by` definition preserves page order because jq's builtin sorts.

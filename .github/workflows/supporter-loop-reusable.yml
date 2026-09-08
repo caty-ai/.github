@@ -87,7 +87,7 @@ jobs:
           fi
           # jq builtin unique_by sorts: the local definition preserves first page occurrence.
           # IDs only, never logins or author text. Fail before GitHub's output-size truncation.
-          stars=$(jq -c 'def unique_by(f): reduce .[] as $x ({seen:{},out:[]}; ($x|f|tojson) as $k | if .seen[$k] then . else .seen[$k]=true | .out += [$x] end) | .out; [.[][].id] | unique_by(.)' "$work/pages")
+          stars=$(jq -c 'def stable_unique_by(f): reduce .[] as $x ({seen:{},out:[]}; ($x|f|tojson) as $k | if .seen[$k] then . else .seen[$k]=true | .out += [$x] end) | .out; [.[][].id] | stable_unique_by(.)' "$work/pages")
           [ "${#stars}" -lt 400000 ] || { echo '::error::stargazer handoff exceeds safe output size'; exit 1; }
           printf 'ok=%s\n' "$ok" >> "$GITHUB_OUTPUT"
           printf 'stargazers=%s\n' "$stars" >> "$GITHUB_OUTPUT"
@@ -173,6 +173,7 @@ jobs:
           # Shared key rule: a sweep delivery is a tier delivery, never a closure.
           def key_namespace($action;$event;$tier):
             if $event=="sweep" and ($action|IN("skip","revoke","cancel-invite","would-revoke","would-cancel-invite")) then "sweep" else ($tier|tostring) end;
+          # Rehearsal also honors live deliveries to avoid predicting actions already performed.
           def invite_delivered($repo;$id):
             delivered($repo;$id;1;"invite") or
             (if $mode=="record-only" then delivered($repo;$id;1;"would-invite") else false end) or
@@ -191,7 +192,6 @@ jobs:
           def catchup($repo;$stars;$tiers): . as $all |
             if ($tiers|split(",")|index("1"))==null then [] else
               [$stars[] as $id | ($all|current($repo;$id)) as $history |
-                select(($all|generation($repo;$id))==1 or ($history|length)>0) |
                 select($all|excluded($repo;$id)|not) |
                 ($all|invite_delivered($repo;$id)) as $invited | ($all|append_delivered($repo;$id)) as $appended |
                 select(($invited and $appended)|not) |
@@ -201,11 +201,12 @@ jobs:
               map(select(.rearmed|not)) + map(select(.rearmed)) end;
           # Rolling window is (now-86400, now]: exactly 24h old has aged out.
           # Exact duplicate rotation rows count once; already-1 never consumed a PUT.
-          def quota($repo;$pending;$now):
+          # Only current-generation successful PUTs suppress a pending invitation.
+          def quota($repo;$pending;$now): . as $all |
             [unique[] | select(.repo==$repo and .action=="invite" and (.result|IN("ok","ok-backfill","ok-catchup"))) |
-              {id:.actor_id,ts:(.ts|fromdateiso8601)} | select(.ts>$now-86400 and .ts<=$now)] as $sent |
+              {id:.actor_id,gen:.gen,ts:(.ts|fromdateiso8601)} | select(.ts>$now-86400 and .ts<=$now)] as $sent |
             ($sent + [$pending[] | {id:.invitee.id,ts:(.created_at|fromdateiso8601)} |
-              select(.ts>$now-86400 and .ts<=$now) | . as $p | select(all($sent[];.id!=$p.id))]) as $counted |
+              select(.ts>$now-86400 and .ts<=$now) | . as $p | select(all($sent[];.id!=$p.id or .gen!=($all|generation($repo;$p.id))))]) as $counted |
             {B:($counted|length),Q:([0,45-($counted|length)]|max),
              age_out:([$counted[].ts+86400-$now]|min // 0)};
           JQ
@@ -496,7 +497,7 @@ jobs:
             fi
             printf 'sweep_gate=%s\n' "$gate" >> "$GITHUB_OUTPUT"
             # IDs only, never secrets or author text. Fail before GitHub's output-size truncation.
-            stars=$(jq -c 'def unique_by(f): reduce .[] as $x ({seen:{},out:[]}; ($x|f|tojson) as $k | if .seen[$k] then . else .seen[$k]=true | .out += [$x] end) | .out; [.[].id] | unique_by(.)' "$work/stargazers.json")
+            stars=$(jq -c 'def stable_unique_by(f): reduce .[] as $x ({seen:{},out:[]}; ($x|f|tojson) as $k | if .seen[$k] then . else .seen[$k]=true | .out += [$x] end) | .out; [.[].id] | stable_unique_by(.)' "$work/stargazers.json")
             [ "${#stars}" -lt 400000 ] || { echo '::error::stargazer handoff exceeds safe output size'; exit 1; }
             printf 'stargazers=%s\n' "$stars" >> "$GITHUB_OUTPUT"
             printf 'actions=[]\n' >> "$GITHUB_OUTPUT"
@@ -543,7 +544,12 @@ jobs:
                 [ "$(jq -r .Q <<< "$quota")" -gt "$rehearsal_count" ] || break
                 actor_id=$(jq -r .actor_id <<< "$item"); gen=$(jq -r .gen <<< "$item"); actor=$(jq -r .actor <<< "$item")
                 if [ "$(jq -r .exhausted <<< "$item")" = true ]; then append "$(line skip excluded-unresponsive 0 '' sweep)"; continue; fi
-                identity; assoc=NONE; eligibility
+                assoc=NONE; reason=''
+                if ! { identity && eligibility; }; then
+                  if [ -n "$reason" ]; then append "$(line skip "$reason" 0 '' sweep)"
+                  else echo "::warning::rehearsal identity unavailable for actor_id=$actor_id"; fi
+                  continue
+                fi
                 if [ -n "$reason" ]; then append "$(line skip "$reason" 0 '' sweep)"; continue; fi
                 append "$(line would-invite ok 1 '' sweep)"
                 rehearsal_count=$((rehearsal_count+1))
@@ -714,6 +720,7 @@ jobs:
           # Shared key rule: a sweep delivery is a tier delivery, never a closure.
           def key_namespace($action;$event;$tier):
             if $event=="sweep" and ($action|IN("skip","revoke","cancel-invite","would-revoke","would-cancel-invite")) then "sweep" else ($tier|tostring) end;
+          # Rehearsal also honors live deliveries to avoid predicting actions already performed.
           def invite_delivered($repo;$id):
             delivered($repo;$id;1;"invite") or
             (if $mode=="record-only" then delivered($repo;$id;1;"would-invite") else false end) or
@@ -732,7 +739,6 @@ jobs:
           def catchup($repo;$stars;$tiers): . as $all |
             if ($tiers|split(",")|index("1"))==null then [] else
               [$stars[] as $id | ($all|current($repo;$id)) as $history |
-                select(($all|generation($repo;$id))==1 or ($history|length)>0) |
                 select($all|excluded($repo;$id)|not) |
                 ($all|invite_delivered($repo;$id)) as $invited | ($all|append_delivered($repo;$id)) as $appended |
                 select(($invited and $appended)|not) |
@@ -742,11 +748,12 @@ jobs:
               map(select(.rearmed|not)) + map(select(.rearmed)) end;
           # Rolling window is (now-86400, now]: exactly 24h old has aged out.
           # Exact duplicate rotation rows count once; already-1 never consumed a PUT.
-          def quota($repo;$pending;$now):
+          # Only current-generation successful PUTs suppress a pending invitation.
+          def quota($repo;$pending;$now): . as $all |
             [unique[] | select(.repo==$repo and .action=="invite" and (.result|IN("ok","ok-backfill","ok-catchup"))) |
-              {id:.actor_id,ts:(.ts|fromdateiso8601)} | select(.ts>$now-86400 and .ts<=$now)] as $sent |
+              {id:.actor_id,gen:.gen,ts:(.ts|fromdateiso8601)} | select(.ts>$now-86400 and .ts<=$now)] as $sent |
             ($sent + [$pending[] | {id:.invitee.id,ts:(.created_at|fromdateiso8601)} |
-              select(.ts>$now-86400 and .ts<=$now) | . as $p | select(all($sent[];.id!=$p.id))]) as $counted |
+              select(.ts>$now-86400 and .ts<=$now) | . as $p | select(all($sent[];.id!=$p.id or .gen!=($all|generation($repo;$p.id))))]) as $counted |
             {B:($counted|length),Q:([0,45-($counted|length)]|max),
              age_out:([$counted[].ts+86400-$now]|min // 0)};
           JQ
@@ -978,7 +985,6 @@ jobs:
           [ "$MODE" = live ] || exit 1
           : > "$work/notify.ndjson"
           : > "$work/reminders"
-          : > "$work/notify.ndjson"
           failed=0
           changed=false
           # Every mutation below is guarded here AND by the job/step live preflight.
@@ -1246,6 +1252,7 @@ jobs:
             pages "$ADMIN_TOKEN" "repos/$REWARD_REPO/invitations?per_page=100" "$work/pending.json" || return 1
             jq -e 'all(.[];.id|type=="number" and .>0 and floor==.)' "$work/collaborators.json" >/dev/null || return 1
             jq -e 'all(.[]; (.id|type=="number" and .>0 and floor==.) and (.invitee.id|type=="number" and .>0 and floor==.))' "$work/pending.json" >/dev/null || return 1
+            # order-insensitive by design (builtin sort is fine here)
             model '[.[].actor_id]|unique' > "$work/ids.json"
             while IFS= read -r actor_id; do
               if ! within_deadline; then [ "$audit_complete" = true ] && return 0; echo '::error::audit deadline exceeded'; return 1; fi
@@ -1330,6 +1337,7 @@ jobs:
                 # File-order duplicates cannot increase the closure count. Latest means ts,
                 # with input order as the tie breaker for same-second action attempts.
                 [.ledger|to_entries[]|.value+{_order:.key}|select(.repo==$s.source_repo)] as $ledger |
+                # order-insensitive by design (builtin sort is fine here)
                 ([$ledger|group_by(.actor_id)[]|
                   . as $history | (1+([$history[]|select(closes)|.run_id]|unique|length)) as $gen |
                   [$history[]|select(.gen==$gen)] as $current |
@@ -1343,6 +1351,7 @@ jobs:
                 (($actual-$predicted-$allowed)[]|"strangers: unexpected actor_id=\(.)"),
                 [$ledger[]|select(.action=="comment" and success)] as $comments |
                 ($markers[] as $m|select(all($comments[];.actor_id!=$m.actor_id or .tier!=$m.tier))|"markers-A: unledgered actor_id=\($m.actor_id) tier=\($m.tier) subject=\($m.subject)"),
+                # order-insensitive by design (builtin sort is fine here)
                 ($comments|unique_by(markkey)[] as $c|
                   [$s.threads[]|select(.subject==$c.subject)] as $thread |
                   if ($thread|length)==0 then "markers-B-state: absent thread evidence subject=\($c.subject)"
@@ -1354,7 +1363,7 @@ jobs:
             ' "$work/audit.json")
             if [ -n "$divergences" ]; then
               while IFS= read -r divergence; do printf '::error::%s\n' "$divergence"; done <<< "$divergences"
-                if ! within_deadline; then [ "$audit_complete" = true ] && return 0; echo '::error::audit deadline exceeded'; return 1; fi
+              if ! within_deadline; then [ "$audit_complete" = true ] && return 0; echo '::error::audit deadline exceeded'; return 1; fi
               gate=false
             fi
             # §11(e), before any destructive call: recover own markers missing from the ledger.

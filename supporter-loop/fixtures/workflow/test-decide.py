@@ -118,6 +118,9 @@ if Path(sys.argv[0]).name in ('curl', 'gh', 'date', 'timeout', 'sleep'):
             if method == 'GET' and url.startswith('https://api.github.com/user/'):
                 assert 'Authorization: Bearer fixture-source' in args
                 actor_id = int(url.rsplit('/', 1)[1])
+                if actor_id in config.get('identity_missing', []):
+                    output.write_text(json.dumps(dict(message='Not Found')))
+                    print('404', end=''); raise SystemExit(0)
                 output.write_text(json.dumps(dict(id=actor_id, login='external-supporter' if actor_id == 42 else 'user-'+str(actor_id), type='User')))
                 print('200', end=''); raise SystemExit(0)
             if method != 'GET':
@@ -168,14 +171,14 @@ script = next(s['run'] for s in steps if s.get('id') == 'decide')
 REPO = 'caty-ai/x-collector'
 KEYS = ['schema', 'ts', 'run_id', 'repo', 'event', 'actor', 'actor_id', 'tier', 'subject', 'action', 'mode', 'result', 'dedup_key', 'gen']
 
-def execute(event, payload, mode='record-only', tiers='1,2,3', prior=None, cas_conflict=False, sweep=False, stargazers=None, stars_ok='true', expected_error=False, discussions=False, live_act=False, missing_ledger=False, runs_case=False):
+def execute(event, payload, mode='record-only', tiers='1,2,3', prior=None, cas_conflict=False, sweep=False, stargazers=None, stars_ok='true', expected_error=False, discussions=False, live_act=False, missing_ledger=False, runs_case=False, identity_missing=None):
     with tempfile.TemporaryDirectory(prefix='supporter-decide-', dir=Path(__file__).resolve().parent) as directory:
         root = Path(directory)
         mock_bin = root / 'bin'
         mock_bin.mkdir()
         state = root / 'state'
         state.mkdir()
-        (state / 'mock-config.json').write_text(json.dumps(dict(stargazers=stargazers or [], discussions=discussions, live_act=live_act, missing_ledger=missing_ledger, runs_case=runs_case, collaborators=[dict(id=42)] if live_act else [])))
+        (state / 'mock-config.json').write_text(json.dumps(dict(stargazers=stargazers or [], discussions=discussions, live_act=live_act, missing_ledger=missing_ledger, runs_case=runs_case, identity_missing=identity_missing or [], collaborators=[dict(id=42)] if live_act else [])))
         if sweep:
             (state / 'baseline-2026-01-01.json').write_text(json.dumps(dict(collaborators=[], invitations=[])))
         launcher = mock_bin / 'double'
@@ -207,6 +210,8 @@ def execute(event, payload, mode='record-only', tiers='1,2,3', prior=None, cas_c
         if bool(result.returncode) != expected_error:
             raise AssertionError(f'{event}: exit {result.returncode}\n{result.stdout}\n{result.stderr}')
         assert not result.stderr, result.stderr
+        for missing_id in identity_missing or []:
+            assert f'::warning::rehearsal identity unavailable for actor_id={missing_id}' in result.stdout,result.stdout
         if expected_error:
             assert '::error::' in result.stdout, result.stdout
         if missing_ledger:
@@ -328,3 +333,11 @@ print('PASS actual record-only quota reserves one of 45 remaining slots, same as
 fresh,_,_=execute('schedule',dict(repository=repo),sweep=True,stargazers=[dict(id=42)],tiers='2,3')
 assert fresh==[],fresh
 print('PASS actual record-only tier1-disabled produces no catch-up or state')
+
+# A deleted identity must neither fabricate a delivery nor consume the next slot.
+fresh,_,_=execute('schedule',dict(repository=repo),sweep=True,
+                  stargazers=[dict(id=99),dict(id=42)],identity_missing=[99],prior=prior)
+assert [(r['actor_id'],r['action']) for r in fresh]==[
+    (42,'would-invite'),(42,'would-supporters-append')],fresh
+assert all(r['actor'] for r in fresh),fresh
+print('PASS actual rehearsal identity 404 ledgers nothing; next actor retains quota; no empty actor')
