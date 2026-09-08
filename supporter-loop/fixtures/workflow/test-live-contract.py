@@ -109,7 +109,7 @@ comment() { echo COMMENT_SENT >> "$RUNNER_TEMP/trace"; result=ok; }
 
 def execute(rows=(), stars=(42,), identities=None, pending=(), sweep=True, invite_status=201, body=None,
             conflict=False, render_fail=False, gate=True, setup='', previous=None, block=None, conflict_status=409, tiers='1,2,3'):
-    with tempfile.TemporaryDirectory(prefix='v2-live-',dir=fixture_dir) as directory:
+    with tempfile.TemporaryDirectory(prefix='v2-live-') as directory:
         root=Path(directory)
         (root/'api-ledger').write_text(''.join(json.dumps(r)+'\n' for r in rows))
         (root/'clock').write_text(str(now))

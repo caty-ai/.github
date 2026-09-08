@@ -172,7 +172,7 @@ REPO = 'caty-ai/x-collector'
 KEYS = ['schema', 'ts', 'run_id', 'repo', 'event', 'actor', 'actor_id', 'tier', 'subject', 'action', 'mode', 'result', 'dedup_key', 'gen']
 
 def execute(event, payload, mode='record-only', tiers='1,2,3', prior=None, cas_conflict=False, sweep=False, stargazers=None, stars_ok='true', expected_error=False, discussions=False, live_act=False, missing_ledger=False, runs_case=False, identity_missing=None):
-    with tempfile.TemporaryDirectory(prefix='supporter-decide-', dir=Path(__file__).resolve().parent) as directory:
+    with tempfile.TemporaryDirectory(prefix='supporter-decide-') as directory:
         root = Path(directory)
         mock_bin = root / 'bin'
         mock_bin.mkdir()

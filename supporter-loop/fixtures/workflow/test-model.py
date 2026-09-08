@@ -55,7 +55,7 @@ cases = [
     ('other actor closure does not affect generation', [dict(row('revoke'), actor_id=43)], 'generation($repo;$id)', 1),
     ('other repository closure does not affect generation', [dict(row('revoke'), repo='caty-ai/other')], 'generation($repo;$id)', 1),
 ]
-with tempfile.TemporaryDirectory(prefix='supporter-model-', dir=pathlib.Path(__file__).resolve().parent) as scratch:
+with tempfile.TemporaryDirectory(prefix='supporter-model-') as scratch:
     model = pathlib.Path(scratch, 'test.jq')
     mode_cases = [(name, ledger, expression, expected, 'live') for name, ledger, expression, expected in cases]
     mode_cases += [('record-only ignores live upgrade', [row('would-invite', mode='record-only'), row('comment', 2)], 'achieved($repo;$id)', 1, 'record-only'),
@@ -122,7 +122,7 @@ mutate() {
   code=200
 }
 '''
-with tempfile.TemporaryDirectory(prefix='supporter-render-', dir=pathlib.Path(__file__).resolve().parent) as directory:
+with tempfile.TemporaryDirectory(prefix='supporter-render-') as directory:
     root = pathlib.Path(directory)
     (root / 'model.jq').write_text(models[0])
     script = 'set -euo pipefail\n' + double + textwrap.dedent(function.group()) + '\nregenerate\n'
