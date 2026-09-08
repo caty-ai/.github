@@ -104,6 +104,7 @@ assert function, 'Actual regenerate function missing'
 header_sample = pathlib.Path(__file__).with_name('SUPPORTERS.header.sample.md').read_bytes()
 error = '::error::SUPPORTERS.header.md missing or malformed in reward repo (child #1); regeneration skipped'
 double = r'''
+read_ledger() { cp "$work/api-ledger.ndjson" "$ledger"; }
 get() {
   [ "$1" = "$LEDGER_TOKEN" ] || return 1
   printf '%s\n' "$2" >> "$work/gets"
@@ -143,7 +144,7 @@ with tempfile.TemporaryDirectory(prefix='supporter-render-', dir=pathlib.Path(__
         for output in ('SUPPORTERS.md', 'published.json', 'gets'):
             (root / output).unlink(missing_ok=True)
         (root / 'header.json').write_text(json.dumps(dict(content=base64.b64encode(header).decode())))
-        (root / 'ledger.ndjson').write_text(json.dumps(sample_row) + '\n')
+        (root / 'api-ledger.ndjson').write_text(json.dumps(sample_row) + '\n')
         env = dict(os.environ, work=str(root), ledger=str(root / 'ledger.ndjson'), MODE='live',
                    GITHUB_REPOSITORY=REPO, REWARD_REPO='caty-ai/ask-ai-widget',
                    LEDGER_TOKEN='fixture-ledger', HEADER_STATUS=str(status))
@@ -169,7 +170,7 @@ with tempfile.TemporaryDirectory(prefix='supporter-render-', dir=pathlib.Path(__
     # All existing projection cases also pass through the complete header + table render.
     for name, ledger_rows, fragment, present in render_cases:
         (root / 'header.json').write_text(json.dumps(dict(content=base64.b64encode(header_sample).decode())))
-        (root / 'ledger.ndjson').write_text('\n'.join(json.dumps(item) for item in ledger_rows))
+        (root / 'api-ledger.ndjson').write_text('\n'.join(json.dumps(item) for item in ledger_rows))
         env['HEADER_STATUS'] = '200'
         result = subprocess.run(['/bin/bash', '-c', script], env=env, capture_output=True, text=True)
         assert result.returncode == 0, (name, result.stdout, result.stderr)

@@ -491,6 +491,32 @@ function nested_yaml(first,owner, j,t,d,root,seen) {
   return seen
 }
 
+# v2 stars boundary: optional in legacy decide-only fixtures; when present it is
+# a single secret-free GET step. Reuse a/b/d so the frozen selftest rule map holds.
+/^  [A-Za-z_][A-Za-z_0-9-]*:/ {
+  in_stars=($0 ~ /^  stars:/)
+  if (in_stars) { stars_seen++; stars_line=NR }
+}
+in_stars {
+  star=trim($0)
+  if (star !~ /^#/) {
+    if (star ~ /secrets[.[]|SUPPORTER_.*TOKEN|TELEGRAM_/) hit("a",NR,"secret reference in stars")
+    if (star ~ /^- /) stars_steps++
+    if (star ~ /^run:/) {
+      stars_runs++
+      if (star !~ /^run: [|]$/) hit("d",NR,"stars requires a literal run block")
+    }
+    if (star ~ /(^|[^A-Za-z_])(curl|wget|ssh|nc|python[0-9]*|node|eval|bash|sh)([^A-Za-z_]|$)/ || star ~ /^uses:/)
+      hit("b",NR,"other executable or network call in stars")
+    if (star ~ /(^|[^A-Za-z_])gh[ \t]+api/) {
+      stars_gets++
+      if (star !~ /gh api --hostname github.com --method GET --paginate --slurp "repos\/[$]GITHUB_REPOSITORY\/stargazers[?]per_page=100" > "[$]work\/pages"/)
+        hit("b",NR,"stars must use the single canonical stargazer GET")
+    }
+    if (star ~ /--method (PUT|POST|PATCH|DELETE)|-X (PUT|POST|PATCH|DELETE)|star[+]json/)
+      hit("b",NR,"write or unsupported media type in stars")
+  }
+}
 # Workflow-level env is outside the decide slice but participates in shell
 # expansion there. Collect only its mapping entries, including a name key.
 /^env:[ \t]*(#.*)?$/ { workflow_env=1; next }
@@ -519,6 +545,7 @@ inside {
   lines[++count]=$0; numbers[count]=NR
 }
 END {
+  if (stars_seen && (stars_seen!=1 || stars_steps!=1 || stars_runs!=1 || stars_gets!=1)) hit("b",stars_line,"stars must contain exactly one run step and one GET")
   if (!found) { hit("structure",1,"decide job missing"); exit 1 }
   command=""; start=0; quote=""
   for (i=1;i<=count;i++) {
